@@ -26,5 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod core;
-mod util;
+pub fn hash_static_ref<T: ?Sized>(meta: &'static T) -> usize {
+    let ptr = meta as *const T;
+    ptr as *const () as usize
+}

@@ -15,4 +15,8 @@ categories = []
 [dependencies]
 tracing = "0.1.32"
 tracing-core = "0.1.24"
-time = "0.3.9"
+time = {version = "0.3.9", features = ["formatting"] }
+bp3d-logger = { git = "https://gitlab.com/bp3d/tracing/logger.git" }
+time-tz = { version = "1.0.0", features = ["system"] }
+log = "0.4.16"
+dashmap = "5.2.0"

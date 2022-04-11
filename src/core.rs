@@ -39,8 +39,8 @@ use crate::util::hash_static_ref;
 
 pub type Meta = &'static Metadata<'static>;
 
-trait Tracer {
-    fn enabled(&self) -> bool;
+pub trait Tracer {
+    fn enabled(&self, metadata: &Metadata) -> bool;
     fn span_create(&self, new: bool, parent: Option<Id>, span: &Attributes);
     fn span_values(&self, id: &Id, values: &Record);
     fn span_follows_from(&self, id: &Id, follows: &Id);
@@ -70,9 +70,8 @@ pub struct BaseTracer<T>
 }
 
 impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
-    fn enabled(&self, _: &Metadata<'_>) -> bool {
-        //TODO: Implement level based check
-        self.derived.enabled()
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+        self.derived.enabled(metadata)
     }
 
     fn new_span(&self, span: &Attributes<'_>) -> Id {

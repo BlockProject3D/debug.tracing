@@ -93,7 +93,7 @@ impl<T> BaseTracer<T> {
 impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
         if let Some(level) = self.derived.max_level_hint() {
-            if level > *metadata.level() { //Levels compare at inverse logic!
+            if level < *metadata.level() { //Levels compare at inverse logic!
                 return false;
             }
         }

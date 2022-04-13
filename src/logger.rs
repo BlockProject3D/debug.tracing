@@ -33,11 +33,11 @@ use dashmap::DashMap;
 use time::macros::format_description;
 use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
-use tracing_core::{Event, Field, Level, Metadata};
+use tracing_core::{Event, Field, Level};
 use tracing_core::field::Visit;
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::Tracer;
-use crate::util::{extract_target_module, Meta};
+use crate::util::{check_env_bool, extract_target_module, Meta};
 
 struct Visitor {
     msg: Option<String>,
@@ -108,12 +108,7 @@ pub struct Logger {
 
 impl Logger {
     pub fn new() -> Logger {
-        let mut disabled = false;
-        if let Ok(str) = std::env::var("LOG_ENABLED") {
-            if str == "off" || str == "OFF" || str == "FALSE" || str == "false" || str == "0" {
-                disabled = true;
-            }
-        }
+        let disabled = !check_env_bool("LOG_ENABLED");
         let level = std::env::var("LOG").map(|v| v.to_lowercase())
             .map(Cow::Owned).unwrap_or("info".into());
         let level = match &*level {
@@ -133,8 +128,8 @@ impl Logger {
 }
 
 impl Tracer for Logger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        !self.disabled && metadata.level() >= &self.level
+    fn enabled(&self) -> bool {
+        !self.disabled
     }
 
     fn span_create(&self, id: &Id, _: bool, _: Option<Id>, attrs: &Attributes) {
@@ -206,5 +201,9 @@ impl Tracer for Logger {
 
     fn span_destroy(&self, id: Id) {
         self.spans.remove(&id);
+    }
+
+    fn max_level_hint(&self) -> Option<Level> {
+        Some(self.level)
     }
 }

@@ -33,7 +33,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use crossbeam_channel::{bounded, Sender};
 use time::OffsetDateTime;
-use tracing_core::{Event, Metadata};
+use tracing_core::{Event, Level, Metadata};
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::Tracer;
 use crate::profiler::thread::{Command, Thread};
@@ -98,7 +98,7 @@ impl Profiler {
 }
 
 impl Tracer for Profiler {
-    fn enabled(&self, _: &Metadata) -> bool {
+    fn enabled(&self) -> bool {
         !self.is_exited()
     }
 
@@ -158,5 +158,9 @@ impl Tracer for Profiler {
 
     fn span_destroy(&self, id: Id) {
         self.command(Command::SpanFree(id.into_u64()));
+    }
+
+    fn max_level_hint(&self) -> Option<Level> {
+        None
     }
 }

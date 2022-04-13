@@ -31,14 +31,14 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use dashmap::DashMap;
 use time::OffsetDateTime;
-use tracing_core::{Event, Metadata, Subscriber};
+use tracing_core::{Event, Level, LevelFilter, Metadata, Subscriber};
 use tracing_core::span::{Attributes, Current, Id, Record};
 use crate::util::{hash_static_ref, Meta};
 
 //TODO: Check if by any chance anything could panic (normally nothing should ever be able to panic here).
 
 pub trait Tracer {
-    fn enabled(&self, metadata: &Metadata) -> bool;
+    fn enabled(&self) -> bool;
     fn span_create(&self, id: &Id, new: bool, parent: Option<Id>, span: &Attributes);
     fn span_values(&self, id: &Id, values: &Record);
     fn span_follows_from(&self, id: &Id, follows: &Id);
@@ -46,6 +46,7 @@ pub trait Tracer {
     fn span_enter(&self, id: &Id);
     fn span_exit(&self, id: &Id, duration: Duration);
     fn span_destroy(&self, id: Id);
+    fn max_level_hint(&self) -> Option<Level>;
 }
 
 struct SpanData {
@@ -62,9 +63,30 @@ pub struct BaseTracer<T> {
     derived: T
 }
 
+impl<T> BaseTracer<T> {
+    pub fn new(derived: T) -> BaseTracer<T> {
+        BaseTracer {
+            spans_by_meta: DashMap::new(),
+            spans_by_id: DashMap::new(),
+            current_span: Mutex::new(Vec::new()),
+            counter: AtomicU64::new(1),
+            derived
+        }
+    }
+}
+
 impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        self.derived.enabled(metadata)
+        if let Some(level) = self.derived.max_level_hint() {
+            if level > *metadata.level() { //Levels compare at inverse logic!
+                return false;
+            }
+        }
+        self.derived.enabled()
+    }
+
+    fn max_level_hint(&self) -> Option<LevelFilter> {
+        self.derived.max_level_hint().map(LevelFilter::from_level)
     }
 
     fn new_span(&self, span: &Attributes<'_>) -> Id {

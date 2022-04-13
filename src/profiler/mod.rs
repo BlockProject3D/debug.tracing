@@ -26,34 +26,9 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tracing_core::Metadata;
+mod thread;
+mod network_types;
+mod core;
+mod visitor;
 
-pub type Meta = &'static Metadata<'static>;
-
-pub fn hash_static_ref<T: ?Sized>(meta: &'static T) -> usize {
-    let ptr = meta as *const T;
-    ptr as *const () as usize
-}
-
-pub fn extract_target_module<'a>(record: Meta) -> (&'a str, Option<&'a str>) {
-    let base_string = record.module_path().unwrap_or_else(|| record.target());
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
-}
-
-pub fn check_env_bool(name: &str) -> bool {
-    let mut disabled = false;
-    if let Ok(str) = std::env::var(name) {
-        if str == "off" || str == "OFF" || str == "FALSE" || str == "false" || str == "0" {
-            disabled = true;
-        }
-        if str == "on" || str == "ON" || str == "TRUE" || str == "true" || str == "1" {
-            disabled = false;
-        }
-    }
-    !disabled
-}
+pub use self::core::Profiler;

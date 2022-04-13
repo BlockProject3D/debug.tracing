@@ -29,3 +29,4 @@
 mod core;
 mod util;
 mod logger;
+mod profiler;

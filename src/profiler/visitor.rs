@@ -26,34 +26,59 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tracing_core::Metadata;
+use std::fmt::Debug;
+use tracing_core::Field;
+use tracing_core::field::Visit;
+use crate::profiler::network_types::Value;
 
-pub type Meta = &'static Metadata<'static>;
-
-pub fn hash_static_ref<T: ?Sized>(meta: &'static T) -> usize {
-    let ptr = meta as *const T;
-    ptr as *const () as usize
+pub struct Visitor {
+    message: Option<String>,
+    value_set: Vec<(&'static str, Value)>
 }
 
-pub fn extract_target_module<'a>(record: Meta) -> (&'a str, Option<&'a str>) {
-    let base_string = record.module_path().unwrap_or_else(|| record.target());
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
-}
+impl Visitor {
+    pub fn into_inner(self) -> (Option<String>, Vec<(&'static str, Value)>) {
+        (self.message, self.value_set)
+    }
 
-pub fn check_env_bool(name: &str) -> bool {
-    let mut disabled = false;
-    if let Ok(str) = std::env::var(name) {
-        if str == "off" || str == "OFF" || str == "FALSE" || str == "false" || str == "0" {
-            disabled = true;
-        }
-        if str == "on" || str == "ON" || str == "TRUE" || str == "true" || str == "1" {
-            disabled = false;
+    pub fn new() -> Visitor {
+        Visitor {
+            message: None,
+            value_set: Vec::new()
         }
     }
-    !disabled
+}
+
+impl Visit for Visitor {
+    fn record_f64(&mut self, field: &Field, value: f64) {
+        self.value_set.push((field.name(), Value::Float(value)));
+    }
+
+    fn record_i64(&mut self, field: &Field, value: i64) {
+        self.value_set.push((field.name(), Value::Signed(value)));
+    }
+
+    fn record_u64(&mut self, field: &Field, value: u64) {
+        self.value_set.push((field.name(), Value::Unsigned(value)));
+    }
+
+    fn record_bool(&mut self, field: &Field, value: bool) {
+        self.value_set.push((field.name(), Value::Bool(value)));
+    }
+
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "message" {
+            self.message = Some(value.into())
+        } else {
+            self.value_set.push((field.name(), Value::String(value.into())))
+        }
+    }
+
+    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+        if field.name() == "message" {
+            self.message = Some(format!("{:?}", value));
+        } else {
+            self.value_set.push((field.name(), Value::String(format!("{:?}", value))));
+        }
+    }
 }

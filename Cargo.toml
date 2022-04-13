@@ -20,3 +20,6 @@ bp3d-logger = { git = "https://gitlab.com/bp3d/tracing/logger.git" }
 time-tz = { version = "1.0.0", features = ["system"] }
 log = "0.4.16"
 dashmap = "5.2.0"
+serde = "1.0.136"
+bincode = "1.3.3"
+crossbeam-channel = "0.5.4"

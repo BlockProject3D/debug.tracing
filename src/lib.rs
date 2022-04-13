@@ -27,7 +27,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::any::Any;
-use bp3d_logger::GetLogs;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use bp3d_logger::{GetLogs};
 use tracing::subscriber::set_global_default;
 use crate::core::{Tracer, TracingSystem};
 use crate::logger::Logger;
@@ -56,5 +57,38 @@ pub fn initialize<T: GetLogs>(app: T) -> Guard {
         Profiler::new().map(load_system).unwrap_or(load_system(Logger::new(app)))
     } else {
         load_system(Logger::new(app))
+    }
+}
+
+static LOG_BUFFER_RC: AtomicUsize = AtomicUsize::new(0);
+
+/// A struct to automate management of the in-memory log buffer.
+///
+/// When a new instance of this struct is created, the log buffer is automatically enabled if not
+/// already. Inversely, when all instances of this struct are dropped, the log buffer is disabled.
+pub struct LogBuffer(bp3d_logger::LogBuffer);
+
+impl LogBuffer {
+    /// Creates a new access to the in-memory log buffer.
+    pub fn new() -> LogBuffer {
+        if LOG_BUFFER_RC.fetch_add(1, Ordering::Relaxed) == 0 {
+            //If no previous buffers were created, enable the log buffer.
+            bp3d_logger::enable_log_buffer();
+        }
+        LogBuffer(bp3d_logger::get_log_buffer())
+    }
+
+    /// Attempts to pull a message from the in-memory log buffer.
+    pub fn pull(&self) -> Option<bp3d_logger::LogMsg> {
+        self.0.try_recv().ok()
+    }
+}
+
+impl Drop for LogBuffer {
+    fn drop(&mut self) {
+        if LOG_BUFFER_RC.fetch_sub(1, Ordering::Relaxed) == 1 {
+            //If no more log buffers exists after this one, disable the log buffer.
+            bp3d_logger::disable_log_buffer();
+        }
     }
 }

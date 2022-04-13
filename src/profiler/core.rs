@@ -33,10 +33,10 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use crossbeam_channel::{bounded, Sender};
 use time::OffsetDateTime;
-use tracing_core::{Event, Level, Metadata};
+use tracing_core::{Event, Level};
 use tracing_core::dispatcher::get_default;
 use tracing_core::span::{Attributes, Id, Record};
-use crate::core::{BaseTracer, Tracer, TracingSystem};
+use crate::core::{Tracer, TracingSystem};
 use crate::profiler::thread::{Command, Thread};
 use crate::profiler::visitor::Visitor;
 
@@ -115,6 +115,12 @@ impl Tracer for Profiler {
     }
 
     fn span_create(&self, id: &Id, new: bool, parent: Option<Id>, span: &Attributes) {
+        if new {
+            self.command(Command::SpanAlloc {
+                metadata: span.metadata(),
+                id: id.into_u64()
+            })
+        }
         let mut visitor = Visitor::new();
         span.record(&mut visitor);
         let (message, value_set) = visitor.into_inner();

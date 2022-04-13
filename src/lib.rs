@@ -43,6 +43,13 @@ mod profiler;
 /// The guard to ensure proper termination of logging and tracing systems.
 pub struct Guard(Option<Box<dyn Any>>);
 
+impl Guard {
+    /// Run the following closure then terminate logging and tracing systems.
+    pub fn run<R, F: FnOnce() -> R>(self, func: F) -> R {
+        func()
+    }
+}
+
 fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> Guard {
     set_global_default(system.system).expect("bp3d-tracing can only be initialized once!");
     Guard(system.destructor)

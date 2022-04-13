@@ -108,7 +108,7 @@ pub struct Logger {
 
 impl Logger {
     pub fn new<T: bp3d_logger::GetLogs>(app: T) -> TracingSystem<Logger> {
-        let disabled = !check_env_bool("LOG_ENABLED");
+        let disabled = check_env_bool("LOG_DISABLE");
         let level = std::env::var("LOG").map(|v| v.to_lowercase())
             .map(Cow::Owned).unwrap_or("info".into());
         let level = match &*level {

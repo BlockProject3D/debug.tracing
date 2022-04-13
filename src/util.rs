@@ -46,14 +46,14 @@ pub fn extract_target_module<'a>(record: Meta) -> (&'a str, Option<&'a str>) {
 }
 
 pub fn check_env_bool(name: &str) -> bool {
-    let mut disabled = false;
+    let mut flag = false;
     if let Ok(str) = std::env::var(name) {
         if str == "off" || str == "OFF" || str == "FALSE" || str == "false" || str == "0" {
-            disabled = true;
+            flag = false;
         }
         if str == "on" || str == "ON" || str == "TRUE" || str == "true" || str == "1" {
-            disabled = false;
+            flag = true;
         }
     }
-    !disabled
+    flag
 }

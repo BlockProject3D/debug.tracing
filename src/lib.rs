@@ -61,7 +61,7 @@ fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> G
 pub fn initialize<T: GetLogs>(app: T) -> Guard {
     let profiler = check_env_bool("PROFILER");
     if profiler {
-        Profiler::new().map(load_system).unwrap_or(load_system(Logger::new(app)))
+        Profiler::new().map(load_system).unwrap_or_else(|_| load_system(Logger::new(app)))
     } else {
         load_system(Logger::new(app))
     }

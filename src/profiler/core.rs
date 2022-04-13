@@ -34,13 +34,25 @@ use std::time::Duration;
 use crossbeam_channel::{bounded, Sender};
 use time::OffsetDateTime;
 use tracing_core::{Event, Level, Metadata};
+use tracing_core::dispatcher::get_default;
 use tracing_core::span::{Attributes, Id, Record};
-use crate::core::Tracer;
+use crate::core::{BaseTracer, Tracer, TracingSystem};
 use crate::profiler::thread::{Command, Thread};
 use crate::profiler::visitor::Visitor;
 
 const MAX_COMMANDS: usize = 32;
 const DEFAULT_PORT: u16 = 9999;
+
+struct Guard;
+
+impl Drop for Guard {
+    fn drop(&mut self) {
+        get_default(|dispatcher| {
+            let profiler: &Profiler = dispatcher.downcast_ref().unwrap();
+            profiler.terminate();
+        });
+    }
+}
 
 pub struct Profiler {
     channel: Sender<Command>,
@@ -49,7 +61,7 @@ pub struct Profiler {
 }
 
 impl Profiler {
-    pub fn new() -> std::io::Result<Profiler> {
+    pub fn new() -> std::io::Result<TracingSystem<Profiler>> {
         let port = std::env::var("PROFILER_PORT")
             .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
             .unwrap_or(DEFAULT_PORT);
@@ -63,11 +75,11 @@ impl Profiler {
             let mut thread = Thread::new(client, receiver);
             thread.run();
         });
-        Ok(Profiler {
+        Ok(TracingSystem::with_destructor(Profiler {
             channel: sender,
             exited: AtomicBool::new(false),
             thread: Mutex::new(Some(thread))
-        })
+        }, Box::new(Guard)))
     }
 
     //Terminate debugging session.

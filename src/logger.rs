@@ -36,7 +36,7 @@ use time_tz::OffsetDateTimeExt;
 use tracing_core::{Event, Field, Level};
 use tracing_core::field::Visit;
 use tracing_core::span::{Attributes, Id, Record};
-use crate::core::Tracer;
+use crate::core::{Tracer, TracingSystem};
 use crate::util::{check_env_bool, extract_target_module, Meta};
 
 struct Visitor {
@@ -107,7 +107,7 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn new() -> Logger {
+    pub fn new<T: bp3d_logger::GetLogs>(app: T) -> TracingSystem<Logger> {
         let disabled = !check_env_bool("LOG_ENABLED");
         let level = std::env::var("LOG").map(|v| v.to_lowercase())
             .map(Cow::Owned).unwrap_or("info".into());
@@ -119,11 +119,19 @@ impl Logger {
             "trace" => Level::TRACE,
             _ => Level::INFO
         };
-        Logger {
+        let guard = bp3d_logger::Logger::new().add_stdout().add_file(app).start();
+        log::set_max_level(match level {
+            Level::ERROR => log::LevelFilter::Error,
+            Level::WARN => log::LevelFilter::Warn,
+            Level::INFO => log::LevelFilter::Info,
+            Level::DEBUG => log::LevelFilter::Debug,
+            Level::TRACE => log::LevelFilter::Trace
+        });
+        TracingSystem::with_destructor(Logger {
             level,
             disabled,
             spans: DashMap::new()
-        }
+        }, Box::new(guard))
     }
 }
 

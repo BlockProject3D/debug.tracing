@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -36,6 +37,20 @@ use tracing_core::span::{Attributes, Current, Id, Record};
 use crate::util::{hash_static_ref, Meta};
 
 //TODO: Check if by any chance anything could panic (normally nothing should ever be able to panic here).
+
+pub struct TracingSystem<T> {
+    pub system: BaseTracer<T>,
+    pub destructor: Option<Box<dyn Any>>
+}
+
+impl<T> TracingSystem<T> {
+    pub fn with_destructor(derived: T, destructor: Box<dyn Any>) -> TracingSystem<T> {
+        TracingSystem {
+            system: BaseTracer::new(derived),
+            destructor: Some(destructor)
+        }
+    }
+}
 
 pub trait Tracer {
     fn enabled(&self) -> bool;

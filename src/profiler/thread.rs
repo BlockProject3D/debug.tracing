@@ -29,9 +29,27 @@
 use std::io::Write;
 use std::net::TcpStream;
 use crossbeam_channel::Receiver;
-use crate::profiler::network_types::Value;
+use crate::profiler::network_types::{Metadata, Value};
 use crate::util::Meta;
 use crate::profiler::network_types::Command as NetCommand;
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    Borrowed {
+        span: Option<u64>,
+        metadata: Meta,
+        time: i64,
+        message: Option<String>,
+        value_set: Vec<(&'static str, Value)>
+    },
+    Owned {
+        span: Option<u64>,
+        metadata: Metadata,
+        time: i64,
+        message: Option<String>,
+        value_set: Vec<(&'static str, Value)>
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum Command {
@@ -58,13 +76,7 @@ pub enum Command {
         value_set: Vec<(&'static str, Value)>
     },
 
-    Event {
-        span: Option<u64>,
-        metadata: Meta,
-        time: i64,
-        message: Option<String>,
-        value_set: Vec<(&'static str, Value)>
-    },
+    Event(Event),
 
     SpanEnter(u64),
 
@@ -101,13 +113,22 @@ impl Command {
                 message,
                 value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
             },
-            Command::Event { span, metadata, time, message, value_set } => NetCommand::Event {
-                span,
-                metadata: NetMeta::from_tracing(metadata),
-                time,
-                message,
-                value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
-            },
+            Command::Event(ev) => match ev {
+                Event::Borrowed { span, metadata, time, message, value_set } => NetCommand::Event {
+                    span,
+                    metadata: NetMeta::from_tracing(metadata),
+                    time,
+                    message,
+                    value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
+                },
+                Event::Owned { span, metadata, time, message, value_set } => NetCommand::Event {
+                    span,
+                    metadata,
+                    time,
+                    message,
+                    value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
+                }
+            }
             Command::SpanEnter(v) => NetCommand::SpanEnter(v),
             Command::SpanExit { span, duration } => NetCommand::SpanExit {
                 span,

@@ -154,13 +154,13 @@ impl Tracer for Profiler {
         let mut visitor = Visitor::new();
         event.record(&mut visitor);
         let (message, value_set) = visitor.into_inner();
-        self.command(Command::Event {
+        self.command(Command::Event(crate::profiler::thread::Event::Borrowed {
             metadata: event.metadata(),
             span: parent.map(|v| v.into_u64()),
             message,
             value_set,
             time: time.unix_timestamp()
-        });
+        }));
     }
 
     fn span_enter(&self, id: &Id) {

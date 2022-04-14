@@ -56,6 +56,15 @@ impl Level {
             tracing::Level::ERROR => Level::Error
         }
     }
+    pub fn from_log(level: log::Level) -> Level {
+        match level {
+            log::Level::Trace => Level::Trace,
+            log::Level::Debug => Level::Debug,
+            log::Level::Info => Level::Info,
+            log::Level::Warn => Level::Warning,
+            log::Level::Error => Level::Error
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -69,6 +78,16 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    pub fn from_log(meta: &log::Record) -> Metadata {
+        Metadata {
+            name: "<log>".into(),
+            target: meta.target().into(),
+            level: Level::from_log(meta.level()),
+            module_path: meta.module_path().map(|v| v.into()),
+            file: meta.file().map(|v| v.into()),
+            line: meta.line()
+        }
+    }
     pub fn from_tracing(meta: &tracing::Metadata) -> Metadata {
         Metadata {
             name: meta.name().into(),

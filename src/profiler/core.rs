@@ -27,41 +27,34 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
-use std::thread::JoinHandle;
 use std::time::Duration;
-use crossbeam_channel::{bounded, Sender};
+use crossbeam_channel::Sender;
 use time::OffsetDateTime;
 use tracing_core::{Event, Level};
-use tracing_core::dispatcher::get_default;
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
+use crate::profiler::logpump::LOG_PUMP;
+use crate::profiler::state::ProfilerState;
 use crate::profiler::thread::{Command, Thread};
 use crate::profiler::visitor::Visitor;
 
-const MAX_COMMANDS: usize = 32;
 const DEFAULT_PORT: u16 = 9999;
 
 struct Guard;
 
 impl Drop for Guard {
     fn drop(&mut self) {
-        get_default(|dispatcher| {
-            let profiler: &Profiler = dispatcher.downcast_ref().unwrap();
-            profiler.terminate();
-        });
+        ProfilerState::get().terminate();
     }
 }
 
 pub struct Profiler {
-    channel: Sender<Command>,
-    exited: AtomicBool,
-    thread: Mutex<Option<JoinHandle<()>>>
+    channel: Sender<Command>
 }
 
 impl Profiler {
     pub fn new() -> std::io::Result<TracingSystem<Profiler>> {
+        log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
         let port = std::env::var("PROFILER_PORT")
             .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
             .unwrap_or(DEFAULT_PORT);
@@ -70,36 +63,20 @@ impl Profiler {
         let listener = TcpListener::bind(addr)?;
         //Block software until we receive a debugger connection.
         let (client, _) = listener.accept()?;
-        let (sender, receiver) = bounded(MAX_COMMANDS);
+        let (sender, receiver) = ProfilerState::get().get_channel();
         let thread = std::thread::spawn(|| {
             let mut thread = Thread::new(client, receiver);
             thread.run();
         });
+        ProfilerState::get().assign_thread(thread);
+        log::set_max_level(log::LevelFilter::Trace);
         Ok(TracingSystem::with_destructor(Profiler {
-            channel: sender,
-            exited: AtomicBool::new(false),
-            thread: Mutex::new(Some(thread))
+            channel: sender
         }, Box::new(Guard)))
     }
 
-    //Terminate debugging session.
-    pub fn terminate(&self) {
-        if self.is_exited() {
-            return;
-        }
-        self.channel.send(Command::Terminate).unwrap();
-        let thread = {
-            let mut lock = self.thread.lock().unwrap();
-            lock.take()
-        };
-        if let Some(thread) = thread {
-            thread.join().unwrap();
-        }
-        self.exited.store(true, Ordering::Relaxed);
-    }
-
     fn is_exited(&self) -> bool {
-        self.exited.load(Ordering::Relaxed)
+        ProfilerState::get().is_exited()
     }
 
     fn command(&self, cmd: Command) {

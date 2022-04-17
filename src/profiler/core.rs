@@ -38,7 +38,7 @@ use crate::profiler::state::ProfilerState;
 use crate::profiler::thread::{Command, Thread};
 use crate::profiler::visitor::Visitor;
 
-const DEFAULT_PORT: u16 = 9999;
+const DEFAULT_PORT: u16 = 4026;
 
 struct Guard;
 

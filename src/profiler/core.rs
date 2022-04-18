@@ -27,18 +27,19 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use crossbeam_channel::Sender;
 use time::OffsetDateTime;
 use tracing_core::{Event, Level};
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
+use crate::profiler::auto_discover::AutoDiscoveryService;
+use crate::profiler::DEFAULT_PORT;
 use crate::profiler::logpump::LOG_PUMP;
 use crate::profiler::state::ProfilerState;
 use crate::profiler::thread::{Command, Thread};
 use crate::profiler::visitor::Visitor;
-
-const DEFAULT_PORT: u16 = 4026;
 
 struct Guard;
 
@@ -53,16 +54,23 @@ pub struct Profiler {
 }
 
 impl Profiler {
-    pub fn new() -> std::io::Result<TracingSystem<Profiler>> {
+    pub fn new(app_name: &str) -> std::io::Result<TracingSystem<Profiler>> {
         log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
         let port = std::env::var("PROFILER_PORT")
             .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
             .unwrap_or(DEFAULT_PORT);
-        println!("Waiting for debugger to attach to {}...", port);
         let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
         let listener = TcpListener::bind(addr)?;
+        let service = AutoDiscoveryService::new(app_name)?;
+        let exit_flag = service.get_exit_flag();
+        let thread = std::thread::spawn(move || {
+            service.run();
+        });
+        println!("Waiting for debugger to attach to {}...", port);
         //Block software until we receive a debugger connection.
         let (client, _) = listener.accept()?;
+        exit_flag.store(true, Ordering::Relaxed);
+        thread.join().unwrap();
         let (sender, receiver) = ProfilerState::get().get_channel();
         let thread = std::thread::spawn(|| {
             let mut thread = Thread::new(client, receiver);

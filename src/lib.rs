@@ -28,7 +28,6 @@
 
 use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use bp3d_logger::{GetLogs};
 use tracing::subscriber::set_global_default;
 use crate::core::{Tracer, TracingSystem};
 use crate::logger::Logger;
@@ -58,12 +57,12 @@ fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> G
 /// Initialize the logging and tracing systems for the given application.
 ///
 /// The function returns a guard which must be maintained for the duration of the application.
-pub fn initialize<T: GetLogs>(app: T) -> Guard {
+pub fn initialize<T: AsRef<str>>(app: T) -> Guard {
     let profiler = check_env_bool("PROFILER");
     if profiler {
-        Profiler::new().map(load_system).unwrap_or_else(|_| load_system(Logger::new(app)))
+        Profiler::new(app.as_ref()).map(load_system).unwrap_or_else(|_| load_system(Logger::new(app.as_ref())))
     } else {
-        load_system(Logger::new(app))
+        load_system(Logger::new(app.as_ref()))
     }
 }
 

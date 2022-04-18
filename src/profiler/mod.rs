@@ -32,5 +32,9 @@ mod core;
 mod visitor;
 mod logpump;
 mod state;
+mod auto_discover;
+
+pub const DEFAULT_PORT: u16 = 4026;
+pub const PROTOCOL_VERSION: u8 = 0;
 
 pub use self::core::Profiler;

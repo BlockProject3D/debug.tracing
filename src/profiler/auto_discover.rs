@@ -31,6 +31,7 @@ use std::net::{Ipv4Addr, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+use unbounded_udp::{Domain, Unbounded};
 use crate::profiler::{DEFAULT_PORT, PROTOCOL_VERSION};
 
 // The maximum number of characters allowed for the application name in the auto-discover list.
@@ -57,7 +58,7 @@ impl AutoDiscoveryService {
             packet.push(0);
         }
         let exit_flag = Arc::new(AtomicBool::new(false));
-        let socket = UdpSocket::bind((Ipv4Addr::new(0, 0, 0, 0), 0))?;
+        let socket = UdpSocket::unbounded(Domain::IpV4)?;
         socket.set_broadcast(true)?;
         Ok(AutoDiscoveryService {
             packet: packet.into_boxed_slice(),

@@ -68,6 +68,8 @@ pub fn initialize<T: AsRef<str>>(app: T) -> Guard {
 
 static LOG_BUFFER_RC: AtomicUsize = AtomicUsize::new(0);
 
+static STDOUT_DISABLE_RC: AtomicUsize = AtomicUsize::new(0);
+
 /// A struct to automate management of the in-memory log buffer.
 ///
 /// When a new instance of this struct is created, the log buffer is automatically enabled if not
@@ -95,6 +97,36 @@ impl Drop for LogBuffer {
         if LOG_BUFFER_RC.fetch_sub(1, Ordering::Relaxed) == 1 {
             //If no more log buffers exists after this one, disable the log buffer.
             bp3d_logger::disable_log_buffer();
+        }
+    }
+}
+
+/// A struct to automate enabling and disabling of the stdout/stderr logger.
+///
+/// When a new instance of this struct is created, the stdout/stderr logger is automatically
+/// disabled if not already. Inversely, when all instances of this struct are dropped, the
+/// stdout/stderr logger is re-enabled.
+pub struct DisableStdoutLogger;
+
+impl DisableStdoutLogger {
+    /// Temporarily disables stdout/stderr logging for the lifespan of this struct.
+    pub fn new() -> DisableStdoutLogger {
+        if STDOUT_DISABLE_RC.fetch_add(1, Ordering::Relaxed) == 0 {
+            //If no previous instances were created, disable the stdout/stderr logger.
+            //First, flush any waiting message.
+            bp3d_logger::flush();
+            //Then disable the backend.
+            bp3d_logger::disable_stdout();
+        }
+        DisableStdoutLogger
+    }
+}
+
+impl Drop for DisableStdoutLogger {
+    fn drop(&mut self) {
+        if STDOUT_DISABLE_RC.fetch_sub(1, Ordering::Relaxed) == 1 {
+            //If no more instances exists after this one, re-enable the stdout/stderr logger.
+            bp3d_logger::enable_stdout();
         }
     }
 }

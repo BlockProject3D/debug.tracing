@@ -151,7 +151,9 @@ impl Tracer for Logger {
     }
 
     fn span_create(&self, id: &Id, _: bool, _: Option<Id>, attrs: &Attributes) {
-        self.spans.insert(id.clone(), SpanData::new(attrs.metadata()));
+        let mut data = SpanData::new(attrs.metadata());
+        attrs.record(&mut data.visitor);
+        self.spans.insert(id.clone(), data);
     }
 
     fn span_values(&self, id: &Id, values: &Record) {

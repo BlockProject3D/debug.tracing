@@ -29,6 +29,7 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::time::Duration;
+use bp3d_logger::Colors;
 use dashmap::DashMap;
 use time::macros::format_description;
 use time::OffsetDateTime;
@@ -37,7 +38,7 @@ use tracing_core::{Event, Field, Level};
 use tracing_core::field::Visit;
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
-use crate::util::{check_env_bool, extract_target_module, Meta};
+use crate::util::{extract_target_module, Meta, tracing_level_to_log};
 
 struct Visitor {
     msg: Option<String>,
@@ -108,8 +109,8 @@ pub struct Logger {
 
 impl Logger {
     pub fn new<T: bp3d_logger::GetLogs>(app: T) -> TracingSystem<Logger> {
-        let disabled = check_env_bool("LOG_DISABLE");
-        let level = std::env::var("LOG").map(|v| v.to_lowercase())
+        let disabled = bp3d_env::get_bool("LOG_DISABLE").unwrap_or(false);
+        let level = bp3d_env::get("LOG").map(|v| v.to_lowercase())
             .map(Cow::Owned).unwrap_or("info".into());
         let level = match &*level {
             "error" => Level::ERROR,
@@ -119,7 +120,16 @@ impl Logger {
             "trace" => Level::TRACE,
             _ => Level::INFO
         };
-        let guard = bp3d_logger::Logger::new().add_stdout().add_file(app).start();
+        let always_stdout = bp3d_env::get_bool("LOG_STDOUT").unwrap_or(false);
+        let colors = match bp3d_env::get_bool("LOG_COLOR") {
+            None => bp3d_logger::Colors::Auto,
+            Some(v) => match v {
+                true => Colors::Enabled,
+                false => Colors::Disabled
+            }
+        };
+        let guard = bp3d_logger::Logger::new().smart_stderr(!always_stdout)
+            .colors(colors).add_stdout().add_file(app).start();
         log::set_max_level(match level {
             Level::ERROR => log::LevelFilter::Error,
             Level::WARN => log::LevelFilter::Warn,
@@ -168,13 +178,7 @@ impl Tracer for Logger {
             Some(v) => format!("({}) {}: {} {}", formatted, module.unwrap_or("main"), message, v),
             None => format!("({}) {}: {}", formatted, module.unwrap_or("main"), message)
         };
-        let level = match *event.metadata().level() {
-            Level::TRACE => log::Level::Trace,
-            Level::DEBUG => log::Level::Debug,
-            Level::INFO => log::Level::Info,
-            Level::WARN => log::Level::Warn,
-            Level::ERROR => log::Level::Error
-        };
+        let level = tracing_level_to_log(event.metadata().level());
         bp3d_logger::raw_log(bp3d_logger::LogMsg {
             msg,
             level,
@@ -189,13 +193,7 @@ impl Tracer for Logger {
         let data = self.spans.get(id).unwrap();
         let (target, module) = extract_target_module(data.metadata);
         let message = data.visitor.msg.as_deref().unwrap_or(data.metadata.name());
-        let level = match *data.metadata.level() {
-            Level::TRACE => log::Level::Trace,
-            Level::DEBUG => log::Level::Debug,
-            Level::INFO => log::Level::Info,
-            Level::WARN => log::Level::Warn,
-            Level::ERROR => log::Level::Error
-        };
+        let level = tracing_level_to_log(data.metadata.level());
         let msg = match data.visitor.get_variables() {
             Some(v) => format!("{}: The span '{} {}' finished in {}s", module.unwrap_or("main"), message, v, duration.as_secs_f64()),
             None => format!("{}: The span '{}' finished in {}s", module.unwrap_or("main"), message, duration.as_secs_f64()),

@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tracing_core::Metadata;
+use tracing_core::{Level, Metadata};
 
 pub type Meta = &'static Metadata<'static>;
 
@@ -45,15 +45,12 @@ pub fn extract_target_module<'a>(record: Meta) -> (&'a str, Option<&'a str>) {
     (target, module)
 }
 
-pub fn check_env_bool(name: &str) -> bool {
-    let mut flag = false;
-    if let Ok(str) = std::env::var(name) {
-        if str == "off" || str == "OFF" || str == "FALSE" || str == "false" || str == "0" {
-            flag = false;
-        }
-        if str == "on" || str == "ON" || str == "TRUE" || str == "true" || str == "1" {
-            flag = true;
-        }
+pub fn tracing_level_to_log(level: &Level) -> log::Level {
+    match *level {
+        Level::TRACE => log::Level::Trace,
+        Level::DEBUG => log::Level::Debug,
+        Level::INFO => log::Level::Info,
+        Level::WARN => log::Level::Warn,
+        Level::ERROR => log::Level::Error
     }
-    flag
 }

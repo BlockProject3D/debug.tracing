@@ -28,11 +28,11 @@
 
 use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use bp3d_fs::dirs::App;
 use tracing::subscriber::set_global_default;
 use crate::core::{Tracer, TracingSystem};
 use crate::logger::Logger;
 use crate::profiler::Profiler;
-use crate::util::check_env_bool;
 
 mod core;
 mod util;
@@ -58,7 +58,13 @@ fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> G
 ///
 /// The function returns a guard which must be maintained for the duration of the application.
 pub fn initialize<T: AsRef<str>>(app: T) -> Guard {
-    let profiler = check_env_bool("PROFILER");
+    {
+        let app = App::new(app.as_ref());
+        if let Ok(v) = app.get_documents().map(|v| v.join("environment")) {
+            bp3d_env::add_override_path(&v);
+        }
+    }
+    let profiler = bp3d_env::get_bool("PROFILER").unwrap_or(false);
     if profiler {
         Profiler::new(app.as_ref()).map(load_system).unwrap_or_else(|_| load_system(Logger::new(app.as_ref())))
     } else {

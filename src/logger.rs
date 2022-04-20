@@ -195,8 +195,8 @@ impl Tracer for Logger {
         let message = data.visitor.msg.as_deref().unwrap_or(data.metadata.name());
         let level = tracing_level_to_log(data.metadata.level());
         let msg = match data.visitor.get_variables() {
-            Some(v) => format!("{}: The span '{} {}' finished in {}s", module.unwrap_or("main"), message, v, duration.as_secs_f64()),
-            None => format!("{}: The span '{}' finished in {}s", module.unwrap_or("main"), message, duration.as_secs_f64()),
+            Some(v) => format!("{}: The span '{} {}' finished in {:.2}s", module.unwrap_or("main"), message, v, duration.as_secs_f64()),
+            None => format!("{}: The span '{}' finished in {:.2}s", module.unwrap_or("main"), message, duration.as_secs_f64())
         };
         bp3d_logger::raw_log(bp3d_logger::LogMsg {
             msg,

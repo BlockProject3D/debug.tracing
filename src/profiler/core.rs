@@ -104,7 +104,7 @@ impl Tracer for Profiler {
             self.command(Command::SpanAlloc {
                 metadata: span.metadata(),
                 id: id.into_u64()
-            })
+            });
         }
         let mut visitor = Visitor::new();
         span.record(&mut visitor);

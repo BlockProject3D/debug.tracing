@@ -29,7 +29,7 @@
 use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Mutex;
+use std::thread::ThreadId;
 use std::time::{Duration, Instant};
 use dashmap::DashMap;
 use time::OffsetDateTime;
@@ -114,7 +114,7 @@ impl SpanHead {
 pub struct BaseTracer<T> {
     spans_by_meta: DashMap<usize, SpanHead>,
     spans_by_id: DashMap<Id, SpanData>,
-    current_span: Mutex<Vec<Id>>,
+    current_span_for_thread: DashMap<ThreadId, Vec<Id>>,
     counter: AtomicU32,
     derived: T
 }
@@ -124,9 +124,28 @@ impl<T> BaseTracer<T> {
         BaseTracer {
             spans_by_meta: DashMap::new(),
             spans_by_id: DashMap::new(),
-            current_span: Mutex::new(Vec::new()),
+            current_span_for_thread: DashMap::new(),
             counter: AtomicU32::new(1),
             derived
+        }
+    }
+
+    fn current_span(&self) -> Option<Id> {
+        //Amazing we're back in the world of randomization, somehow the span is randomly exited
+        // and randomly not!!!
+        self.current_span_for_thread
+            .get(&std::thread::current().id())
+            .map(|v| v.last().cloned())
+            .flatten()
+    }
+
+    fn remove_span(&self, id: &Id) {
+        if let Some(mut lock) = self.current_span_for_thread.get_mut(&std::thread::current().id()) {
+            lock.retain(|v| v != id);
+            if lock.len() == 0 {
+                drop(lock);
+                self.current_span_for_thread.remove(&std::thread::current().id());
+            }
         }
     }
 }
@@ -165,7 +184,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         let parent = if span.is_root() {
             None
         } else {
-            span.parent().cloned().or_else(|| self.current_span.lock().unwrap().last().cloned())
+            span.parent().cloned().or_else(|| self.current_span())
         };
         self.spans_by_id.insert(span_id.clone(), SpanData {
             metadata: span.metadata(),
@@ -185,15 +204,16 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     }
 
     fn event(&self, event: &Event<'_>) {
-        let parent = self.current_span.lock().unwrap().last().cloned();
-        self.derived.event(parent, OffsetDateTime::now_utc(), event);
+        self.derived.event(self.current_span(), OffsetDateTime::now_utc(), event);
     }
 
     fn enter(&self, span: &Id) {
         if let Some(mut data) = self.spans_by_id.get_mut(span) {
             data.last_time = Some(Instant::now());
-            drop(data);
-            self.current_span.lock().unwrap().push(span.clone());
+            self.current_span_for_thread
+                .entry(std::thread::current().id())
+                .or_default()
+                .push(span.clone());
             self.derived.span_enter(span);
         }
     }
@@ -202,9 +222,8 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         if let Some(data) = self.spans_by_id.get_mut(span) {
             let duration = data.last_time.map(|v| v.elapsed())
                 .unwrap_or_default();
+            self.remove_span(span);
             self.derived.span_exit(span, duration);
-            drop(data);
-            self.current_span.lock().unwrap().retain(|v| v != span);
         }
     }
 
@@ -234,8 +253,8 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     }
 
     fn current_span(&self) -> Current {
-        match self.current_span.lock().unwrap().last() {
-            Some(v) => Current::new(v.clone(), self.spans_by_id.get(v).unwrap().metadata),
+        match self.current_span() {
+            Some(v) => Current::new(v.clone(), self.spans_by_id.get(&v).unwrap().metadata),
             None => Current::none()
         }
     }

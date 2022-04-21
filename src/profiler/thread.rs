@@ -29,7 +29,7 @@
 use std::io::Write;
 use std::net::TcpStream;
 use crossbeam_channel::Receiver;
-use crate::profiler::network_types::{Metadata, Value};
+use crate::profiler::network_types::{Metadata, SpanId, Value};
 use crate::util::Meta;
 use crate::profiler::network_types::Command as NetCommand;
 
@@ -95,46 +95,46 @@ impl Command {
         use super::network_types::Metadata as NetMeta;
         match self {
             Command::SpanAlloc { id, metadata } => NetCommand::SpanAlloc {
-                id,
+                id: SpanId::from_u64(id),
                 metadata: NetMeta::from_tracing(metadata)
             },
             Command::SpanInit { span, parent, message, value_set } => NetCommand::SpanInit {
-                span,
-                parent,
+                span: SpanId::from_u64(span),
+                parent: parent.map(SpanId::from_u64),
                 message,
                 value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
             },
             Command::SpanFollows { span, follows } => NetCommand::SpanFollows {
-                span,
-                follows
+                span: SpanId::from_u64(span),
+                follows: SpanId::from_u64(follows)
             },
             Command::SpanValues { span, message, value_set } => NetCommand::SpanValues {
-                span,
+                span: SpanId::from_u64(span),
                 message,
                 value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
             },
             Command::Event(ev) => match ev {
                 Event::Borrowed { span, metadata, time, message, value_set } => NetCommand::Event {
-                    span,
+                    span: span.map(SpanId::from_u64),
                     metadata: NetMeta::from_tracing(metadata),
                     time,
                     message,
                     value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
                 },
                 Event::Owned { span, metadata, time, message, value_set } => NetCommand::Event {
-                    span,
+                    span: span.map(SpanId::from_u64),
                     metadata,
                     time,
                     message,
                     value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
                 }
             }
-            Command::SpanEnter(v) => NetCommand::SpanEnter(v),
+            Command::SpanEnter(v) => NetCommand::SpanEnter(SpanId::from_u64(v)),
             Command::SpanExit { span, duration } => NetCommand::SpanExit {
-                span,
+                span: SpanId::from_u64(span),
                 duration
             },
-            Command::SpanFree(v) => NetCommand::SpanFree(v),
+            Command::SpanFree(v) => NetCommand::SpanFree(SpanId::from_u64(v)),
             Command::Terminate => NetCommand::Terminate
         }
     }

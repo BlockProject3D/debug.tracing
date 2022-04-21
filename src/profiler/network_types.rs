@@ -27,6 +27,24 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use serde::{Serialize, Deserialize};
+use tracing_core::span::Id;
+use crate::util::span_to_id_instance;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpanId {
+    id: u32,
+    instance: u32
+}
+
+impl SpanId {
+    pub fn from_u64(span: u64) -> SpanId {
+        let (id, instance) = span_to_id_instance(&Id::from_u64(span));
+        SpanId {
+            id,
+            instance
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Value {
@@ -103,44 +121,44 @@ impl Metadata {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Command {
     SpanAlloc {
-        id: u64,
+        id: SpanId,
         metadata: Metadata
     },
 
     SpanInit {
-        span: u64,
-        parent: Option<u64>, //None must mean that span is at root
+        span: SpanId,
+        parent: Option<SpanId>, //None must mean that span is at root
         message: Option<String>,
         value_set: Vec<(String, Value)>
     },
 
     SpanFollows {
-        span: u64,
-        follows: u64
+        span: SpanId,
+        follows: SpanId
     },
 
     SpanValues {
-        span: u64,
+        span: SpanId,
         message: Option<String>,
         value_set: Vec<(String, Value)>
     },
 
     Event {
-        span: Option<u64>,
+        span: Option<SpanId>,
         metadata: Metadata,
         time: i64,
         message: Option<String>,
         value_set: Vec<(String, Value)>
     },
 
-    SpanEnter(u64),
+    SpanEnter(SpanId),
 
     SpanExit {
-        span: u64,
+        span: SpanId,
         duration: f64
     },
 
-    SpanFree(u64),
+    SpanFree(SpanId),
 
     Terminate
 }

@@ -207,7 +207,7 @@ impl Tracer for Logger {
         });
     }
 
-    fn span_destroy(&self, id: Id) {
+    fn span_destroy(&self, id: &Id) {
         self.spans.remove(&id);
     }
 

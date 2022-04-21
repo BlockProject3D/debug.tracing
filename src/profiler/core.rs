@@ -159,7 +159,7 @@ impl Tracer for Profiler {
         });
     }
 
-    fn span_destroy(&self, id: Id) {
+    fn span_destroy(&self, id: &Id) {
         self.command(Command::SpanFree(id.into_u64()));
     }
 

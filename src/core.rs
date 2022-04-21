@@ -27,14 +27,15 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::any::Any;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use dashmap::DashMap;
 use time::OffsetDateTime;
 use tracing_core::{Event, Level, LevelFilter, Metadata, Subscriber};
 use tracing_core::span::{Attributes, Current, Id, Record};
-use crate::util::{hash_static_ref, Meta};
+use crate::util::{hash_static_ref, Meta, span_from_id_instance, span_to_id_instance};
 
 //TODO: Check if by any chance anything could panic (normally nothing should ever be able to panic here).
 
@@ -60,7 +61,7 @@ pub trait Tracer {
     fn event(&self, parent: Option<Id>, time: OffsetDateTime, event: &Event);
     fn span_enter(&self, id: &Id);
     fn span_exit(&self, id: &Id, duration: Duration);
-    fn span_destroy(&self, id: Id);
+    fn span_destroy(&self, id: &Id);
     fn max_level_hint(&self) -> Option<Level>;
 }
 
@@ -70,11 +71,51 @@ struct SpanData {
     last_time: Option<Instant>
 }
 
+struct SpanHead {
+    span_id: u32,
+    next_instance_id: u32,
+    instance_count: u32,
+    freed_instances: VecDeque<u32>
+}
+
+impl SpanHead {
+    pub fn new(span_id: u32) -> SpanHead {
+        SpanHead {
+            span_id,
+            next_instance_id: 0,
+            instance_count: 0,
+            freed_instances: VecDeque::new()
+        }
+    }
+
+    pub fn free_instance(&mut self, id: u32) {
+        self.instance_count -= 1;
+        if self.instance_count == 0 {
+            self.freed_instances.clear();
+            self.next_instance_id = 0;
+        } else {
+            self.freed_instances.push_back(id);
+        }
+    }
+
+    pub fn new_instance(&mut self) -> u32 {
+        self.instance_count += 1;
+        match self.freed_instances.pop_back() {
+            None => {
+                let id = self.next_instance_id;
+                self.next_instance_id += 1;
+                id
+            },
+            Some(v) => v
+        }
+    }
+}
+
 pub struct BaseTracer<T> {
-    spans_by_meta: DashMap<usize, Id>,
+    spans_by_meta: DashMap<usize, SpanHead>,
     spans_by_id: DashMap<Id, SpanData>,
     current_span: Mutex<Vec<Id>>,
-    counter: AtomicU64,
+    counter: AtomicU32,
     derived: T
 }
 
@@ -84,7 +125,7 @@ impl<T> BaseTracer<T> {
             spans_by_meta: DashMap::new(),
             spans_by_id: DashMap::new(),
             current_span: Mutex::new(Vec::new()),
-            counter: AtomicU64::new(1),
+            counter: AtomicU32::new(1),
             derived
         }
     }
@@ -106,22 +147,18 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
 
     fn new_span(&self, span: &Attributes<'_>) -> Id {
         let (new, span_id) = {
-            match self.spans_by_meta.get(&hash_static_ref(span.metadata().callsite().0)) {
-                Some(v) => {
-                    let mut data = self.spans_by_id.get_mut(&v).unwrap();
-                    data.ref_count = 1;
-                    (false, v.clone())
+            match self.spans_by_meta.get_mut(&hash_static_ref(span.metadata().callsite().0)) {
+                Some(mut v) => {
+                    let instance = v.new_instance();
+                    (false, span_from_id_instance(v.span_id, instance))
                 }, //Why the fuck doesn't Id implement Copy? It's a fucking u64 so it should be copy fucking hell!
                 None => {
                     //We're only ever fetch_add on the counter so no worries.
-                    let new_id = Id::from_u64(self.counter.fetch_add(1, Ordering::Relaxed));
-                    self.spans_by_meta.insert(hash_static_ref(span.metadata().callsite().0), new_id.clone());
-                    self.spans_by_id.insert(new_id.clone(), SpanData {
-                        metadata: span.metadata(),
-                        ref_count: 1,
-                        last_time: None
-                    });
-                    (true, new_id)
+                    let span_id = self.counter.fetch_add(1, Ordering::Relaxed);
+                    let mut head = SpanHead::new(span_id);
+                    let instance = head.new_instance();
+                    self.spans_by_meta.insert(hash_static_ref(span.metadata().callsite().0), head);
+                    (true, span_from_id_instance(span_id, instance))
                 }
             }
         };
@@ -130,6 +167,11 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         } else {
             span.parent().cloned().or_else(|| self.current_span.lock().unwrap().last().cloned())
         };
+        self.spans_by_id.insert(span_id.clone(), SpanData {
+            metadata: span.metadata(),
+            ref_count: 1,
+            last_time: None
+        });
         self.derived.span_create(&span_id, new, parent, span);
         span_id
     }
@@ -150,6 +192,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     fn enter(&self, span: &Id) {
         if let Some(mut data) = self.spans_by_id.get_mut(span) {
             data.last_time = Some(Instant::now());
+            drop(data);
             self.current_span.lock().unwrap().push(span.clone());
             self.derived.span_enter(span);
         }
@@ -159,8 +202,9 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         if let Some(data) = self.spans_by_id.get_mut(span) {
             let duration = data.last_time.map(|v| v.elapsed())
                 .unwrap_or_default();
-            self.current_span.lock().unwrap().retain(|v| v != span);
             self.derived.span_exit(span, duration);
+            drop(data);
+            self.current_span.lock().unwrap().retain(|v| v != span);
         }
     }
 
@@ -175,7 +219,14 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         if let Some(mut data) = self.spans_by_id.get_mut(&id) {
             data.ref_count -= 1;
             if data.ref_count == 0 {
-                self.derived.span_destroy(id);
+                {
+                    let mut head = self.spans_by_meta.get_mut(&hash_static_ref(data.metadata.callsite().0)).unwrap();
+                    let (_, instance) = span_to_id_instance(&id);
+                    head.free_instance(instance);
+                }
+                self.derived.span_destroy(&id);
+                drop(data);
+                self.spans_by_id.remove(&id);
                 return true;
             }
         }

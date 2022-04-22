@@ -146,9 +146,6 @@ impl Inner {
 
 pub struct BaseTracer<T> {
     inner: Mutex<Inner>,
-    /*spans_by_meta: DashMap<usize, SpanHead>,
-    spans_by_id: DashMap<Id, SpanData>,
-    current_span_for_thread: DashMap<ThreadId, Vec<Id>>,*/
     counter: AtomicU32,
     derived: T
 }
@@ -157,32 +154,10 @@ impl<T> BaseTracer<T> {
     pub fn new(derived: T) -> BaseTracer<T> {
         BaseTracer {
             inner: Mutex::new(Inner::new()),
-            /*spans_by_meta: DashMap::new(),
-            spans_by_id: DashMap::new(),
-            current_span_for_thread: DashMap::new(),*/
             counter: AtomicU32::new(1),
             derived
         }
     }
-
-    /*fn current_span(&self) -> Option<Id> {
-        //Amazing we're back in the world of randomization, somehow the span is randomly exited
-        // and randomly not!!!
-        self.current_span_for_thread
-            .get(&std::thread::current().id())
-            .map(|v| v.last().cloned())
-            .flatten()
-    }*/
-
-    /*fn remove_span(&self, id: &Id) {
-        if let Some(mut lock) = self.current_span_for_thread.get_mut(&std::thread::current().id()) {
-            lock.retain(|v| v != id);
-            if lock.len() == 0 {
-                drop(lock);
-                self.current_span_for_thread.remove(&std::thread::current().id());
-            }
-        }
-    }*/
 }
 
 impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {

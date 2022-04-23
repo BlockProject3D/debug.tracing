@@ -26,34 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use serde::{Serialize, Deserialize};
-use tracing_core::span::Id;
-use crate::util::span_to_id_instance;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SpanId {
-    id: u32,
-    instance: u32
-}
-
-impl SpanId {
-    pub fn from_u64(span: u64) -> SpanId {
-        let (id, instance) = span_to_id_instance(&Id::from_u64(span));
-        SpanId {
-            id,
-            instance
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Value {
-    Float(f64),
-    Signed(i64),
-    Unsigned(u64),
-    String(String),
-    Bool(bool)
-}
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Serialize, Deserialize)]
 pub enum Level {
@@ -116,49 +89,4 @@ impl Metadata {
             line: meta.line()
         }
     }
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum Command {
-    SpanAlloc {
-        id: SpanId,
-        metadata: Metadata
-    },
-
-    SpanInit {
-        span: SpanId,
-        parent: Option<SpanId>, //None must mean that span is at root
-        message: Option<String>,
-        value_set: Vec<(String, Value)>
-    },
-
-    SpanFollows {
-        span: SpanId,
-        follows: SpanId
-    },
-
-    SpanValues {
-        span: SpanId,
-        message: Option<String>,
-        value_set: Vec<(String, Value)>
-    },
-
-    Event {
-        span: Option<SpanId>,
-        metadata: Metadata,
-        time: i64,
-        message: Option<String>,
-        value_set: Vec<(String, Value)>
-    },
-
-    SpanEnter(SpanId),
-
-    SpanExit {
-        span: SpanId,
-        duration: f64
-    },
-
-    SpanFree(SpanId),
-
-    Terminate
 }

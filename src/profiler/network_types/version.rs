@@ -26,12 +26,58 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod command;
-mod metadata;
-mod value;
-mod version;
+//! This module contains the standard declarations for the protocol initialization. All BP3D
+//! protocols (except auto-discovery for now) expose a Hello packet.
 
-pub use command::*;
-pub use metadata::*;
-pub use value::*;
-pub use version::*;
+use byteorder::{ByteOrder, LittleEndian};
+
+const SIGNATURE: [u8; 8] = *b"BP3DPROF";
+
+//Follow semver except that we exclude the build metadata, the minor and the patch because only the
+// major version records protocol changes.
+
+/*
+struct Version {
+    offset 0 major: u64
+    offset 8 pre_release: [u8; 24] //0 padded
+} size 32
+
+struct Hello {
+    offset 0 signature: [u8; 8]
+    offset 8 version: Version
+} size 40
+*/
+
+pub struct Version {
+    major: u64,
+    pre_release: Option<[u8; 24]>,
+}
+
+pub struct Hello {
+    signature: [u8; 8],
+    version: Version
+}
+
+impl Hello {
+    pub const fn new(major: u64, pre_release: Option<[u8; 24]>) -> Self {
+        Self {
+            signature: SIGNATURE,
+            version: Version {
+                major,
+                pre_release
+            }
+        }
+    }
+
+    pub fn to_bytes(&self) -> [u8; 40] {
+        let mut block: [u8; 40] = [0; 40];
+        block[..8].copy_from_slice(&self.signature);
+        LittleEndian::write_u64(&mut block[8..16], self.version.major);
+        if let Some(pre_release) = &self.version.pre_release {
+            block[16..].copy_from_slice(pre_release);
+        }
+        block
+    }
+}
+
+include!(concat!(env!("OUT_DIR"), "/version_inject.rs"));

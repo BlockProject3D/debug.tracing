@@ -16,7 +16,7 @@ categories = ["development-tools", "development-tools::debugging", "development-
 tracing = "0.1.32"
 tracing-core = "0.1.24"
 time = {version = "0.3.9", features = ["formatting"] }
-bp3d-logger = { git = "https://gitlab.com/bp3d/tracing/logger.git" }
+bp3d-logger = "1.1.0"
 time-tz = { version = "1.0.0", features = ["system"] }
 log = "0.4.16"
 dashmap = "5.2.0"

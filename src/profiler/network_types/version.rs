@@ -48,6 +48,12 @@ struct Hello {
 } size 40
 */
 
+pub enum MatchResult {
+    SignatureMismatch,
+    VersionMismatch,
+    Ok
+}
+
 pub struct Version {
     major: u64,
     pre_release: Option<[u8; 24]>,
@@ -66,6 +72,46 @@ impl Hello {
                 major,
                 pre_release
             }
+        }
+    }
+
+    pub fn from_bytes(block: [u8; 40]) -> Self {
+        let mut signature: [u8; 8] = [0; 8];
+        let mut pre_release: [u8; 24] = [0; 24];
+        signature.copy_from_slice(&block[..8]);
+        pre_release.copy_from_slice(&block[16..]);
+        let major = LittleEndian::read_u64(&block[8..16]);
+        if pre_release[0] == 0x0 {
+            Hello {
+                signature,
+                version: Version {
+                    major,
+                    pre_release: None
+                }
+            }
+        } else {
+            Hello {
+                signature,
+                version: Version {
+                    major,
+                    pre_release: Some(pre_release)
+                }
+            }
+        }
+    }
+
+    pub fn matches(&self, other: &Hello) -> MatchResult {
+        if self.signature != other.signature {
+            return MatchResult::SignatureMismatch;
+        }
+        let val = match (self.version.pre_release, other.version.pre_release) {
+            (Some(a), Some(b)) => a == b,
+            (None, None) => self.version.major == other.version.major,
+            _ => false
+        };
+        match val {
+            true => MatchResult::Ok,
+            false => MatchResult::VersionMismatch
         }
     }
 

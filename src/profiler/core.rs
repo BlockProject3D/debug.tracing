@@ -26,7 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
+use std::io::{Error, ErrorKind, Read, Write};
+use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use crossbeam_channel::Sender;
@@ -37,6 +38,7 @@ use crate::core::{Tracer, TracingSystem};
 use crate::profiler::auto_discover::AutoDiscoveryService;
 use crate::profiler::DEFAULT_PORT;
 use crate::profiler::logpump::LOG_PUMP;
+use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
 use crate::profiler::state::ProfilerState;
 use crate::profiler::thread::{Command, Thread};
 use crate::profiler::visitor::Visitor;
@@ -46,6 +48,19 @@ struct Guard;
 impl Drop for Guard {
     fn drop(&mut self) {
         ProfilerState::get().terminate();
+    }
+}
+
+fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
+    let bytes = HELLO_PACKET.to_bytes();
+    let mut block = [0; 40];
+    client.write(&bytes)?;
+    client.read_exact(&mut block)?;
+    let packet = Hello::from_bytes(block);
+    match HELLO_PACKET.matches(&packet) {
+        MatchResult::SignatureMismatch => Err(Error::new(ErrorKind::Other, "protocol signature mismatch")),
+        MatchResult::VersionMismatch => Err(Error::new(ErrorKind::Other, "version signature mismatch")),
+        MatchResult::Ok => Ok(())
     }
 }
 
@@ -68,9 +83,10 @@ impl Profiler {
         });
         println!("Waiting for debugger to attach to {}...", port);
         //Block software until we receive a debugger connection.
-        let (client, _) = listener.accept()?;
+        let (mut client, _) = listener.accept()?;
         exit_flag.store(true, Ordering::Relaxed);
         thread.join().unwrap();
+        handle_hello(&mut client)?;
         let (sender, receiver) = ProfilerState::get().get_channel();
         let thread = std::thread::spawn(|| {
             let mut thread = Thread::new(client, receiver);

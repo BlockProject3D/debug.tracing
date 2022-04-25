@@ -48,5 +48,6 @@ following paths:
 | OS      | Path                                                               |
 |---------|--------------------------------------------------------------------|
 | macOS   | ~/Library/Application Support/my-application/Documents/environment |
-| linux   | ~/.local/share/my-application/Documents/environment                |
+| Linux   | ~/.local/share/my-application/Documents/environment                |
 | Windows | %APPDATA%/my-application/Documents/environment                     |
+| iOS     | Files App/my-application/environment                               |

@@ -28,6 +28,7 @@
 
 use std::io::Write;
 use std::net::TcpStream;
+use byteorder::{ByteOrder, LittleEndian};
 use crossbeam_channel::Receiver;
 use crate::profiler::network_types::{Metadata, SpanId, Value};
 use crate::util::Meta;
@@ -148,7 +149,7 @@ pub struct Thread {
 impl Thread {
     pub fn new(socket: TcpStream, channel: Receiver<Command>) -> Thread {
         Thread {
-            socket,
+            socket: socket,
             channel
         }
     }
@@ -160,7 +161,13 @@ impl Thread {
                 Err(e) => {
                     eprintln!("An error has occurred while encoding network command: {}", e);
                 },
-                Ok(v) => {
+                Ok(mut v) => {
+                    let mut buf: [u8; 4] = [0; 4];
+                    LittleEndian::write_u32(&mut buf, v.len() as u32);
+                    v.insert(0, buf[3]);
+                    v.insert(0, buf[2]);
+                    v.insert(0, buf[1]);
+                    v.insert(0, buf[0]);
                     if let Err(e) = self.socket.write_all(&v) {
                         eprintln!("An error has occurred while sending network command: {}", e);
                     }

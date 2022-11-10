@@ -115,7 +115,7 @@ impl SpanHead {
 struct Inner {
     spans_by_meta: HashMap<usize, SpanHead>,
     spans_by_id: HashMap<Id, SpanData>,
-    current_span_for_thread: HashMap<ThreadId, Vec<Id>>,
+    current_span_for_thread: HashMap<ThreadId, Vec<Id>>
 }
 
 impl Inner {
@@ -127,11 +127,19 @@ impl Inner {
         }
     }
 
-    pub fn remove_span(&mut self, id: &Id) {
-        if let Some(data) = self.current_span_for_thread.get_mut(&std::thread::current().id()) {
+    pub fn push_span(&mut self, id: &Id) {
+        self.current_span_for_thread
+            .entry(std::thread::current().id())
+            .or_default()
+            .push(id.clone());
+    }
+
+    pub fn pop_span(&mut self, id: &Id) {
+        let current = &std::thread::current().id();
+        if let Some(data) = self.current_span_for_thread.get_mut(current) {
             data.retain(|v| v != id);
             if data.len() == 0 {
-                self.current_span_for_thread.remove(&std::thread::current().id());
+                self.current_span_for_thread.remove(current);
             }
         }
     }
@@ -222,10 +230,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         let mut lock = self.inner.lock().unwrap();
         if let Some(data) = lock.spans_by_id.get_mut(span) {
             data.last_time = Some(Instant::now());
-            lock.current_span_for_thread
-                .entry(std::thread::current().id())
-                .or_default()
-                .push(span.clone());
+            lock.push_span(span);
             self.derived.span_enter(span);
         }
     }
@@ -235,7 +240,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         if let Some(data) = lock.spans_by_id.get_mut(span) {
             let duration = data.last_time.map(|v| v.elapsed())
                 .unwrap_or_default();
-            lock.remove_span(span);
+            lock.pop_span(span);
             self.derived.span_exit(span, duration);
         }
     }

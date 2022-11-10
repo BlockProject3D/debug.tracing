@@ -71,7 +71,7 @@ pub struct Profiler {
 impl Profiler {
     pub fn new(app_name: &str) -> std::io::Result<TracingSystem<Profiler>> {
         log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
-        let port = std::env::var("PROFILER_PORT")
+        let port = bp3d_env::get("PROFILER_PORT")
             .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
             .unwrap_or(DEFAULT_PORT);
         let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);

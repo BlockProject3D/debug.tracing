@@ -30,7 +30,7 @@ use std::io::Write;
 use std::net::TcpStream;
 use byteorder::{ByteOrder, LittleEndian};
 use crossbeam_channel::Receiver;
-use crate::profiler::network_types::{Metadata, SpanId, Value};
+use crate::profiler::network_types::{Metadata, SpanId, SystemInfo, Value};
 use crate::util::Meta;
 use crate::profiler::network_types::Command as NetCommand;
 
@@ -54,6 +54,13 @@ pub enum Event {
 
 #[derive(Clone, Debug)]
 pub enum Command {
+    Project {
+        app_name: String,
+        name: String,
+        version: String,
+        system: Option<SystemInfo>
+    },
+
     SpanAlloc {
         id: u64,
         metadata: Meta
@@ -136,7 +143,13 @@ impl Command {
                 duration
             },
             Command::SpanFree(v) => NetCommand::SpanFree(SpanId::from_u64(v)),
-            Command::Terminate => NetCommand::Terminate
+            Command::Project { app_name, name, version, system } => NetCommand::Project {
+                app_name,
+                name,
+                version,
+                system
+            },
+            Command::Terminate => NetCommand::Terminate,
         }
     }
 }
@@ -149,7 +162,7 @@ pub struct Thread {
 impl Thread {
     pub fn new(socket: TcpStream, channel: Receiver<Command>) -> Thread {
         Thread {
-            socket: socket,
+            socket,
             channel
         }
     }

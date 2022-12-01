@@ -47,8 +47,22 @@ impl SpanId {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct SystemInfo {
+    pub cpu_name: String,
+    pub os: String,
+    pub cpu_core_count: u32
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Command {
+    Project {
+        app_name: String,
+        name: String,
+        version: String,
+        system: Option<SystemInfo>
+    },
+
     SpanAlloc {
         id: SpanId,
         metadata: Metadata

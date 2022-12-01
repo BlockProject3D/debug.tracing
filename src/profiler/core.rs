@@ -69,7 +69,7 @@ pub struct Profiler {
 }
 
 impl Profiler {
-    pub fn new(app_name: &str) -> std::io::Result<TracingSystem<Profiler>> {
+    pub fn new(app_name: &str, crate_name: &str, crate_version: &str) -> std::io::Result<TracingSystem<Profiler>> {
         log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
         let port = bp3d_env::get("PROFILER_PORT")
             .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
@@ -92,6 +92,12 @@ impl Profiler {
             let mut thread = Thread::new(client, receiver);
             thread.run();
         });
+        sender.send(Command::Project {
+            app_name: app_name.into(),
+            name: crate_name.into(),
+            version: crate_version.into(),
+            system: None,
+        }).unwrap();
         ProfilerState::get().assign_thread(thread);
         log::set_max_level(log::LevelFilter::Trace);
         Ok(TracingSystem::with_destructor(Profiler {

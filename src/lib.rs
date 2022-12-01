@@ -57,7 +57,17 @@ fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> G
 /// Initialize the logging and tracing systems for the given application.
 ///
 /// The function returns a guard which must be maintained for the duration of the application.
-pub fn initialize<T: AsRef<str>>(app: T) -> Guard {
+///
+/// For simplified use, check `bp3d_tracing_setup!(app)`.
+///
+/// # Arguments
+///
+/// * `app`: the application name (ex: bp3d-sdk or bp3d-engine)
+/// * `crate_name`: the name of the main root crate
+/// * `crate_version`: the version of the main root crate
+///
+/// returns: Guard
+pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(app: T, crate_name: T1, crate_version: T2) -> Guard {
     {
         let app = App::new(app.as_ref());
         if let Ok(v) = app.get_documents().map(|v| v.join("environment")) {
@@ -66,7 +76,7 @@ pub fn initialize<T: AsRef<str>>(app: T) -> Guard {
     }
     let profiler = bp3d_env::get_bool("PROFILER").unwrap_or(false);
     if profiler {
-        Profiler::new(app.as_ref()).map(load_system).unwrap_or_else(|_| load_system(Logger::new(app.as_ref())))
+        Profiler::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref()).map(load_system).unwrap_or_else(|_| load_system(Logger::new(app.as_ref())))
     } else {
         load_system(Logger::new(app.as_ref()))
     }

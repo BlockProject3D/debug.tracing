@@ -58,7 +58,7 @@ fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> G
 ///
 /// The function returns a guard which must be maintained for the duration of the application.
 ///
-/// For simplified use, check `bp3d_tracing_setup!(app)`.
+/// For simplified use, check `bp3d_tracing::setup!(app)`.
 ///
 /// # Arguments
 ///
@@ -80,6 +80,27 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(app: T, crate_n
     } else {
         load_system(Logger::new(app.as_ref()))
     }
+}
+
+/// Initialize the logging and tracing systems with an application name.
+/// Using this macro ensures the Guard structure is not dropped too early.
+/// Additionally with this macro you don't have to pass in the crate name or version.
+/// By default this macro will use CARGO_PKG_NAME and CARGO_PKG_VERSION to provide
+/// the crate name and version.
+///
+/// # Example
+///
+/// ```
+/// fn main() {
+///     bp3d_tracing::setup!("my-super-app");
+///     // ... application code goes here
+/// }
+/// ```
+#[macro_export]
+macro_rules! setup {
+    ($app_name: expr) => {
+        let _bp3d_tracing_guard = bp3d_tracing::initialize($app_name, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    };
 }
 
 static LOG_BUFFER_RC: AtomicUsize = AtomicUsize::new(0);

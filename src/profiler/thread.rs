@@ -26,11 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::net::TcpStream;
 use byteorder::{ByteOrder, LittleEndian};
 use crossbeam_channel::Receiver;
-use crate::profiler::network_types::{Metadata, SpanId, SystemInfo, Value};
+use crate::profiler::network_types::{CpuInfo, Metadata, SpanId, TargetInfo, Value};
 use crate::util::Meta;
 use crate::profiler::network_types::Command as NetCommand;
 
@@ -58,7 +59,7 @@ pub enum Command {
         app_name: String,
         name: String,
         version: String,
-        system: Option<SystemInfo>
+        cpu: Option<CpuInfo>
     },
 
     SpanAlloc {
@@ -96,6 +97,11 @@ pub enum Command {
     SpanFree(u64),
 
     Terminate
+}
+
+fn get_command_line() -> String {
+    std::env::args_os()
+        .collect::<Vec<OsString>>().join(OsStr::new(" ")).to_string_lossy().into()
 }
 
 impl Command {
@@ -143,11 +149,17 @@ impl Command {
                 duration
             },
             Command::SpanFree(v) => NetCommand::SpanFree(SpanId::from_u64(v)),
-            Command::Project { app_name, name, version, system } => NetCommand::Project {
+            Command::Project { app_name, name, version, cpu } => NetCommand::Project {
                 app_name,
                 name,
                 version,
-                system
+                target: TargetInfo {
+                    os: std::env::consts::OS.into(),
+                    family: std::env::consts::FAMILY.into(),
+                    arch: std::env::consts::ARCH.into()
+                },
+                command_line: get_command_line(),
+                cpu
             },
             Command::Terminate => NetCommand::Terminate,
         }

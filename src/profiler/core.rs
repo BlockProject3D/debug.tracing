@@ -96,7 +96,7 @@ impl Profiler {
             app_name: app_name.into(),
             name: crate_name.into(),
             version: crate_version.into(),
-            system: None,
+            cpu: None,
         }).unwrap();
         ProfilerState::get().assign_thread(thread);
         log::set_max_level(log::LevelFilter::Trace);

@@ -59,7 +59,7 @@ fn read_cpu_info_bsd(name_core_count: *const c_char, name_brand_string: *const c
         if res != 0 {
             return None;
         }
-        let mut buffer = vec![0u8; size];
+        let mut buffer = vec![0u8; size + 1];
         let res = sysctlbyname(name_brand_string, buffer.as_mut_ptr() as _, &mut size, std::ptr::null_mut(), 0);
         if res != 0 {
             return None;

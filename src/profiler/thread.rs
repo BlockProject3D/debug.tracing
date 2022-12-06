@@ -32,7 +32,7 @@ use std::net::TcpStream;
 use byteorder::{ByteOrder, LittleEndian};
 use crossbeam_channel::Receiver;
 use crate::profiler::cpu_info::read_cpu_info;
-use crate::profiler::network_types::{Metadata, SpanId, TargetInfo, Value};
+use crate::profiler::network_types::{Duration, Metadata, SpanId, TargetInfo, Value};
 use crate::util::Meta;
 use crate::profiler::network_types::Command as NetCommand;
 
@@ -91,7 +91,7 @@ pub enum Command {
 
     SpanExit {
         span: u64,
-        duration: f64
+        duration: Duration
     },
 
     SpanFree(u64),

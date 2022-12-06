@@ -60,6 +60,12 @@ pub struct TargetInfo {
     pub arch: String
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+pub struct Duration {
+    pub seconds: u64,
+    pub nano_seconds: u32
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Command {
     Project {
@@ -106,7 +112,7 @@ pub enum Command {
 
     SpanExit {
         span: SpanId,
-        duration: f64
+        duration: Duration
     },
 
     SpanFree(SpanId),

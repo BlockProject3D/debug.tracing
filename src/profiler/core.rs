@@ -42,6 +42,7 @@ use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
 use crate::profiler::state::ProfilerState;
 use crate::profiler::thread::{Command, Thread};
 use crate::profiler::visitor::Visitor;
+use crate::profiler::network_types::Duration as NetDuration;
 
 struct Guard;
 
@@ -176,7 +177,10 @@ impl Tracer for Profiler {
     fn span_exit(&self, id: &Id, duration: Duration) {
         self.command(Command::SpanExit {
             span: id.into_u64(),
-            duration: duration.as_secs_f64()
+            duration: NetDuration {
+                seconds: duration.as_secs(),
+                nano_seconds: duration.subsec_nanos()
+            }
         });
     }
 

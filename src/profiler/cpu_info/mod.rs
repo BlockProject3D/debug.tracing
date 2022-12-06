@@ -26,16 +26,34 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod thread;
-mod network_types;
-mod core;
-mod visitor;
-mod logpump;
-mod state;
-mod auto_discover;
-mod cpu_info;
+//BSD*
+// sysctl(hw.ncpu) = cpuCoreCount
+// sysctl(hw.model) = cpuName
 
-pub const DEFAULT_PORT: u16 = 4026;
-pub const PROTOCOL_VERSION: u8 = 0;
+//Apple
+// sysctl(machdep.cpu.core_count) = cpuCoreCount
+// sysctl(machdep.cpu.brand_string) = cpuName
 
-pub use self::core::Profiler;
+//Linux and Windows
+//x86 & x86-64 -> cpuid instruction (rust-cpuid library / get_processor_brand_string() and max_cores_for_package().or(max_cores_for_cache()))
+//other -> None
+
+#[cfg(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+mod bsd;
+
+//if vendor != apple && os != bsd* && (arch == x86 || arch == x86_64)
+#[cfg(all(not(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")), any(target_arch = "x86", target_arch = "x86_64")))]
+mod x86_64;
+
+#[cfg(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+pub use bsd::read_cpu_info;
+
+//if vendor != apple && os != bsd* && (arch == x86 || arch == x86_64)
+#[cfg(all(not(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")), any(target_arch = "x86", target_arch = "x86_64")))]
+pub use x86_64::read_cpu_info;
+
+//if vendor != apple && os != bsd* && arch != x86 && arch != x86_64
+#[cfg(all(not(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")), not(any(target_arch = "x86", target_arch = "x86_64"))))]
+pub fn read_cpu_info() -> crate::profiler::network_types::Option<CpuInfo> {
+    None
+}

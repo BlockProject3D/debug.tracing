@@ -36,6 +36,7 @@ use tracing_core::{Event, Level};
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
 use crate::profiler::auto_discover::AutoDiscoveryService;
+use crate::profiler::cpu_info::read_cpu_info;
 use crate::profiler::DEFAULT_PORT;
 use crate::profiler::logpump::LOG_PUMP;
 use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
@@ -96,7 +97,7 @@ impl Profiler {
             app_name: app_name.into(),
             name: crate_name.into(),
             version: crate_version.into(),
-            cpu: None,
+            cpu: read_cpu_info(),
         }).unwrap();
         ProfilerState::get().assign_thread(thread);
         log::set_max_level(log::LevelFilter::Trace);

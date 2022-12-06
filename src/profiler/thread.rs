@@ -31,7 +31,8 @@ use std::io::Write;
 use std::net::TcpStream;
 use byteorder::{ByteOrder, LittleEndian};
 use crossbeam_channel::Receiver;
-use crate::profiler::network_types::{CpuInfo, Metadata, SpanId, TargetInfo, Value};
+use crate::profiler::cpu_info::read_cpu_info;
+use crate::profiler::network_types::{Metadata, SpanId, TargetInfo, Value};
 use crate::util::Meta;
 use crate::profiler::network_types::Command as NetCommand;
 
@@ -58,8 +59,7 @@ pub enum Command {
     Project {
         app_name: String,
         name: String,
-        version: String,
-        cpu: Option<CpuInfo>
+        version: String
     },
 
     SpanAlloc {
@@ -149,7 +149,7 @@ impl Command {
                 duration
             },
             Command::SpanFree(v) => NetCommand::SpanFree(SpanId::from_u64(v)),
-            Command::Project { app_name, name, version, cpu } => NetCommand::Project {
+            Command::Project { app_name, name, version } => NetCommand::Project {
                 app_name,
                 name,
                 version,
@@ -159,7 +159,7 @@ impl Command {
                     arch: std::env::consts::ARCH.into()
                 },
                 command_line: get_command_line(),
-                cpu
+                cpu: read_cpu_info()
             },
             Command::Terminate => NetCommand::Terminate,
         }

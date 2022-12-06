@@ -178,7 +178,7 @@ impl Tracer for Profiler {
         self.command(Command::SpanExit {
             span: id.into_u64(),
             duration: NetDuration {
-                seconds: duration.as_secs(),
+                seconds: duration.as_secs() as u32,
                 nano_seconds: duration.subsec_nanos()
             }
         });

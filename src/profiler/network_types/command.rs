@@ -62,7 +62,7 @@ pub struct TargetInfo {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Duration {
-    pub seconds: u64,
+    pub seconds: u32, //Realistically we're never gonna exceed 2^32-1 seconds of running time...
     pub nano_seconds: u32
 }
 

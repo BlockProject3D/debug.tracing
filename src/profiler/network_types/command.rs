@@ -66,16 +66,20 @@ pub struct Duration {
     pub nano_seconds: u32
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Project {
+    pub app_name: String,
+    pub name: String,
+    pub version: String,
+    pub target: TargetInfo,
+    pub command_line: String,
+    pub cpu: Option<CpuInfo>,
+
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Command {
-    Project {
-        app_name: String,
-        name: String,
-        version: String,
-        target: TargetInfo,
-        command_line: String,
-        cpu: Option<CpuInfo>
-    },
+    Project(Project),
 
     SpanAlloc {
         id: SpanId,

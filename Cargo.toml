@@ -1,6 +1,6 @@
 [package]
 name = "bp3d-tracing"
-version = "1.0.0-alpha-4.0.0"
+version = "1.0.0-alpha-5.0.0"
 authors = ["Yuri Edward <yuri6037@outlook.com>"]
 edition = "2021"
 description = "Tracing subscriber implementations for use with BP3D software. Supports traditional logging through bp3d-logger and supports remote profiling through TCP."

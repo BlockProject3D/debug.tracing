@@ -112,7 +112,7 @@ static STDOUT_DISABLE_RC: AtomicUsize = AtomicUsize::new(0);
 ///
 /// When a new instance of this struct is created, the log buffer is automatically enabled if not
 /// already. Inversely, when all instances of this struct are dropped, the log buffer is disabled.
-pub struct LogBuffer(bp3d_logger::LogBuffer);
+pub struct LogBuffer(()); //The empty type is used to force the use of the new function
 
 impl LogBuffer {
     /// Creates a new access to the in-memory log buffer.
@@ -121,12 +121,12 @@ impl LogBuffer {
             //If no previous buffers were created, enable the log buffer.
             bp3d_logger::enable_log_buffer();
         }
-        LogBuffer(bp3d_logger::get_log_buffer())
+        LogBuffer(())
     }
 
     /// Attempts to pull a message from the in-memory log buffer.
     pub fn pull(&self) -> Option<bp3d_logger::LogMsg> {
-        self.0.try_recv().ok()
+        bp3d_logger::read_log()
     }
 }
 

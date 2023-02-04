@@ -33,7 +33,7 @@ use std::time::Duration;
 use bp3d_logger::{Colors, LogMsg};
 use chrono::{DateTime, Local, Utc};
 use dashmap::DashMap;
-use tracing_core::{Event, Field, Level, metadata};
+use tracing_core::{Event, Field, Level};
 use tracing_core::field::Visit;
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
@@ -119,7 +119,7 @@ impl Logger {
         };
         let always_stdout = bp3d_env::get_bool("LOG_STDOUT").unwrap_or(false);
         let colors = match bp3d_env::get_bool("LOG_COLOR") {
-            None => bp3d_logger::Colors::Auto,
+            None => Colors::Auto,
             Some(v) => match v {
                 true => Colors::Enabled,
                 false => Colors::Disabled

@@ -26,29 +26,29 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::util::{hash_static_ref, span_from_id_instance, span_to_id_instance, Meta};
+use chrono::{DateTime, Utc};
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use chrono::{DateTime, Utc};
-use tracing_core::{Event, Level, LevelFilter, Metadata, Subscriber};
 use tracing_core::span::{Attributes, Current, Id, Record};
-use crate::util::{hash_static_ref, Meta, span_from_id_instance, span_to_id_instance};
+use tracing_core::{Event, Level, LevelFilter, Metadata, Subscriber};
 
 //TODO: Check if by any chance anything could panic (normally nothing should ever be able to panic here).
 
 pub struct TracingSystem<T> {
     pub system: BaseTracer<T>,
-    pub destructor: Option<Box<dyn Any>>
+    pub destructor: Option<Box<dyn Any>>,
 }
 
 impl<T> TracingSystem<T> {
     pub fn with_destructor(derived: T, destructor: Box<dyn Any>) -> TracingSystem<T> {
         TracingSystem {
             system: BaseTracer::new(derived),
-            destructor: Some(destructor)
+            destructor: Some(destructor),
         }
     }
 }
@@ -68,14 +68,14 @@ pub trait Tracer {
 struct SpanData {
     ref_count: usize,
     metadata: Meta,
-    last_time: Option<Instant>
+    last_time: Option<Instant>,
 }
 
 struct SpanHead {
     span_id: u32,
     next_instance_id: u32,
     instance_count: u32,
-    freed_instances: VecDeque<u32>
+    freed_instances: VecDeque<u32>,
 }
 
 impl SpanHead {
@@ -84,7 +84,7 @@ impl SpanHead {
             span_id,
             next_instance_id: 0,
             instance_count: 0,
-            freed_instances: VecDeque::new()
+            freed_instances: VecDeque::new(),
         }
     }
 
@@ -105,8 +105,8 @@ impl SpanHead {
                 let id = self.next_instance_id;
                 self.next_instance_id += 1;
                 id
-            },
-            Some(v) => v
+            }
+            Some(v) => v,
         }
     }
 }
@@ -158,7 +158,7 @@ fn current_span() -> Option<Id> {
 pub struct BaseTracer<T> {
     inner: Mutex<Inner>,
     counter: AtomicU32,
-    derived: T
+    derived: T,
 }
 
 impl<T> BaseTracer<T> {
@@ -166,7 +166,7 @@ impl<T> BaseTracer<T> {
         BaseTracer {
             inner: Mutex::new(Inner::new()),
             counter: AtomicU32::new(1),
-            derived
+            derived,
         }
     }
 }
@@ -174,7 +174,8 @@ impl<T> BaseTracer<T> {
 impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
         if let Some(level) = self.derived.max_level_hint() {
-            if level < *metadata.level() { //Levels compare at inverse logic!
+            if level < *metadata.level() {
+                //Levels compare at inverse logic!
                 return false;
             }
         }
@@ -188,17 +189,21 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     fn new_span(&self, span: &Attributes<'_>) -> Id {
         let mut lock = self.inner.lock().unwrap();
         let (new, span_id) = {
-            match lock.spans_by_meta.get_mut(&hash_static_ref(span.metadata().callsite().0)) {
+            match lock
+                .spans_by_meta
+                .get_mut(&hash_static_ref(span.metadata().callsite().0))
+            {
                 Some(v) => {
                     let instance = v.new_instance();
                     (false, span_from_id_instance(v.span_id, instance))
-                }, //Why the fuck doesn't Id implement Copy? It's a fucking u64 so it should be copy fucking hell!
+                } //Why the fuck doesn't Id implement Copy? It's a fucking u64 so it should be copy fucking hell!
                 None => {
                     //We're only ever fetch_add on the counter so no worries.
                     let span_id = self.counter.fetch_add(1, Ordering::Relaxed);
                     let mut head = SpanHead::new(span_id);
                     let instance = head.new_instance();
-                    lock.spans_by_meta.insert(hash_static_ref(span.metadata().callsite().0), head);
+                    lock.spans_by_meta
+                        .insert(hash_static_ref(span.metadata().callsite().0), head);
                     (true, span_from_id_instance(span_id, instance))
                 }
             }
@@ -208,11 +213,14 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         } else {
             span.parent().cloned().or_else(current_span)
         };
-        lock.spans_by_id.insert(span_id.clone(), SpanData {
-            metadata: span.metadata(),
-            ref_count: 1,
-            last_time: None
-        });
+        lock.spans_by_id.insert(
+            span_id.clone(),
+            SpanData {
+                metadata: span.metadata(),
+                ref_count: 1,
+                last_time: None,
+            },
+        );
         self.derived.span_create(&span_id, new, parent, span);
         span_id
     }
@@ -241,8 +249,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     fn exit(&self, span: &Id) {
         let mut lock = self.inner.lock().unwrap();
         if let Some(data) = lock.spans_by_id.get_mut(span) {
-            let duration = data.last_time.map(|v| v.elapsed())
-                .unwrap_or_default();
+            let duration = data.last_time.map(|v| v.elapsed()).unwrap_or_default();
             pop_span(span);
             self.derived.span_exit(span, duration);
         }
@@ -263,7 +270,10 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
             if data.ref_count == 0 {
                 {
                     let fuckrust = data.metadata.callsite().0;
-                    let head = lock.spans_by_meta.get_mut(&hash_static_ref(fuckrust)).unwrap();
+                    let head = lock
+                        .spans_by_meta
+                        .get_mut(&hash_static_ref(fuckrust))
+                        .unwrap();
                     let (_, instance) = span_to_id_instance(&id);
                     head.free_instance(instance);
                 }

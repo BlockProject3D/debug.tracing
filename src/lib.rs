@@ -26,18 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::any::Any;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use bp3d_fs::dirs::App;
-use tracing::subscriber::set_global_default;
 use crate::core::{Tracer, TracingSystem};
 use crate::logger::Logger;
 use crate::profiler::Profiler;
+use bp3d_fs::dirs::App;
+use std::any::Any;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tracing::subscriber::set_global_default;
 
 mod core;
-mod util;
 mod logger;
 mod profiler;
+mod util;
 mod visitor;
 
 /// The guard to ensure proper termination of logging and tracing systems.
@@ -68,7 +68,11 @@ fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> G
 /// * `crate_version`: the version of the main root crate
 ///
 /// returns: Guard
-pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(app: T, crate_name: T1, crate_version: T2) -> Guard {
+pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(
+    app: T,
+    crate_name: T1,
+    crate_version: T2,
+) -> Guard {
     {
         let app = App::new(app.as_ref());
         if let Ok(v) = app.get_documents().map(|v| v.join("environment")) {
@@ -77,7 +81,9 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(app: T, crate_n
     }
     let profiler = bp3d_env::get_bool("PROFILER").unwrap_or(false);
     if profiler {
-        Profiler::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref()).map(load_system).unwrap_or_else(|_| load_system(Logger::new(app.as_ref())))
+        Profiler::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref())
+            .map(load_system)
+            .unwrap_or_else(|_| load_system(Logger::new(app.as_ref())))
     } else {
         load_system(Logger::new(app.as_ref()))
     }
@@ -100,7 +106,8 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(app: T, crate_n
 #[macro_export]
 macro_rules! setup {
     ($app_name: expr) => {
-        let _bp3d_tracing_guard = bp3d_tracing::initialize($app_name, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        let _bp3d_tracing_guard =
+            bp3d_tracing::initialize($app_name, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     };
 }
 

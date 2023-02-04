@@ -38,22 +38,56 @@
 //x86 & x86-64 -> cpuid instruction (rust-cpuid library / get_processor_brand_string() and max_cores_for_package().or(max_cores_for_cache()))
 //other -> None
 
-#[cfg(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+#[cfg(any(
+    target_vendor = "apple",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
 mod bsd;
 
 //if vendor != apple && os != bsd* && (arch == x86 || arch == x86_64)
-#[cfg(all(not(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")), any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(all(
+    not(any(
+        target_vendor = "apple",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 mod x86_64;
 
-#[cfg(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+#[cfg(any(
+    target_vendor = "apple",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
 pub use bsd::read_cpu_info;
 
 //if vendor != apple && os != bsd* && (arch == x86 || arch == x86_64)
-#[cfg(all(not(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")), any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(all(
+    not(any(
+        target_vendor = "apple",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 pub use x86_64::read_cpu_info;
 
 //if vendor != apple && os != bsd* && arch != x86 && arch != x86_64
-#[cfg(all(not(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")), not(any(target_arch = "x86", target_arch = "x86_64"))))]
+#[cfg(all(
+    not(any(
+        target_vendor = "apple",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )),
+    not(any(target_arch = "x86", target_arch = "x86_64"))
+))]
 pub fn read_cpu_info() -> crate::profiler::network_types::Option<CpuInfo> {
     None
 }

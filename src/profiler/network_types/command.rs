@@ -26,44 +26,41 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use serde::{Serialize, Deserialize};
-use tracing_core::span::Id;
 use crate::profiler::network_types::{Metadata, Value};
 use crate::util::span_to_id_instance;
+use serde::{Deserialize, Serialize};
+use tracing_core::span::Id;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpanId {
     id: u32,
-    instance: u32
+    instance: u32,
 }
 
 impl SpanId {
     pub fn from_u64(span: u64) -> SpanId {
         let (id, instance) = span_to_id_instance(&Id::from_u64(span));
-        SpanId {
-            id,
-            instance
-        }
+        SpanId { id, instance }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct CpuInfo {
     pub name: String,
-    pub core_count: u32
+    pub core_count: u32,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct TargetInfo {
     pub os: String,
     pub family: String,
-    pub arch: String
+    pub arch: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Duration {
     pub seconds: u32, //Realistically we're never gonna exceed 2^32-1 seconds of running time...
-    pub nano_seconds: u32
+    pub nano_seconds: u32,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -74,7 +71,6 @@ pub struct Project {
     pub target: TargetInfo,
     pub command_line: String,
     pub cpu: Option<CpuInfo>,
-
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -83,25 +79,25 @@ pub enum Command {
 
     SpanAlloc {
         id: SpanId,
-        metadata: Metadata
+        metadata: Metadata,
     },
 
     SpanInit {
         span: SpanId,
         parent: Option<SpanId>, //None must mean that span is at root
         message: Option<String>,
-        value_set: Vec<(String, Value)>
+        value_set: Vec<(String, Value)>,
     },
 
     SpanFollows {
         span: SpanId,
-        follows: SpanId
+        follows: SpanId,
     },
 
     SpanValues {
         span: SpanId,
         message: Option<String>,
-        value_set: Vec<(String, Value)>
+        value_set: Vec<(String, Value)>,
     },
 
     Event {
@@ -109,17 +105,17 @@ pub enum Command {
         metadata: Metadata,
         time: i64,
         message: Option<String>,
-        value_set: Vec<(String, Value)>
+        value_set: Vec<(String, Value)>,
     },
 
     SpanEnter(SpanId),
 
     SpanExit {
         span: SpanId,
-        duration: Duration
+        duration: Duration,
     },
 
     SpanFree(SpanId),
 
-    Terminate
+    Terminate,
 }

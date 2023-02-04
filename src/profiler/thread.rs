@@ -26,15 +26,15 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::profiler::cpu_info::read_cpu_info;
+use crate::profiler::network_types::Command as NetCommand;
+use crate::profiler::network_types::{Duration, Metadata, Project, SpanId, TargetInfo, Value};
+use crate::util::Meta;
+use byteorder::{ByteOrder, LittleEndian};
+use crossbeam_channel::Receiver;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::net::TcpStream;
-use byteorder::{ByteOrder, LittleEndian};
-use crossbeam_channel::Receiver;
-use crate::profiler::cpu_info::read_cpu_info;
-use crate::profiler::network_types::{Duration, Metadata, Project, SpanId, TargetInfo, Value};
-use crate::util::Meta;
-use crate::profiler::network_types::Command as NetCommand;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -43,15 +43,15 @@ pub enum Event {
         metadata: Meta,
         time: i64,
         message: Option<String>,
-        value_set: Vec<(&'static str, Value)>
+        value_set: Vec<(&'static str, Value)>,
     },
     Owned {
         span: Option<u64>,
         metadata: Metadata,
         time: i64,
         message: Option<String>,
-        value_set: Vec<(&'static str, Value)>
-    }
+        value_set: Vec<(&'static str, Value)>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -59,30 +59,30 @@ pub enum Command {
     Project {
         app_name: String,
         name: String,
-        version: String
+        version: String,
     },
 
     SpanAlloc {
         id: u64,
-        metadata: Meta
+        metadata: Meta,
     },
 
     SpanInit {
         span: u64,
         parent: Option<u64>, //None must mean that span is at root
         message: Option<String>,
-        value_set: Vec<(&'static str, Value)>
+        value_set: Vec<(&'static str, Value)>,
     },
 
     SpanFollows {
         span: u64,
-        follows: u64
+        follows: u64,
     },
 
     SpanValues {
         span: u64,
         message: Option<String>,
-        value_set: Vec<(&'static str, Value)>
+        value_set: Vec<(&'static str, Value)>,
     },
 
     Event(Event),
@@ -91,17 +91,20 @@ pub enum Command {
 
     SpanExit {
         span: u64,
-        duration: Duration
+        duration: Duration,
     },
 
     SpanFree(u64),
 
-    Terminate
+    Terminate,
 }
 
 fn get_command_line() -> String {
     std::env::args_os()
-        .collect::<Vec<OsString>>().join(OsStr::new(" ")).to_string_lossy().into()
+        .collect::<Vec<OsString>>()
+        .join(OsStr::new(" "))
+        .to_string_lossy()
+        .into()
 }
 
 impl Command {
@@ -110,56 +113,81 @@ impl Command {
         match self {
             Command::SpanAlloc { id, metadata } => NetCommand::SpanAlloc {
                 id: SpanId::from_u64(id),
-                metadata: NetMeta::from_tracing(metadata)
+                metadata: NetMeta::from_tracing(metadata),
             },
-            Command::SpanInit { span, parent, message, value_set } => NetCommand::SpanInit {
+            Command::SpanInit {
+                span,
+                parent,
+                message,
+                value_set,
+            } => NetCommand::SpanInit {
                 span: SpanId::from_u64(span),
                 parent: parent.map(SpanId::from_u64),
                 message,
-                value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
+                value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect(),
             },
             Command::SpanFollows { span, follows } => NetCommand::SpanFollows {
                 span: SpanId::from_u64(span),
-                follows: SpanId::from_u64(follows)
+                follows: SpanId::from_u64(follows),
             },
-            Command::SpanValues { span, message, value_set } => NetCommand::SpanValues {
+            Command::SpanValues {
+                span,
+                message,
+                value_set,
+            } => NetCommand::SpanValues {
                 span: SpanId::from_u64(span),
                 message,
-                value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
+                value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect(),
             },
             Command::Event(ev) => match ev {
-                Event::Borrowed { span, metadata, time, message, value_set } => NetCommand::Event {
+                Event::Borrowed {
+                    span,
+                    metadata,
+                    time,
+                    message,
+                    value_set,
+                } => NetCommand::Event {
                     span: span.map(SpanId::from_u64),
                     metadata: NetMeta::from_tracing(metadata),
                     time,
                     message,
-                    value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
+                    value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect(),
                 },
-                Event::Owned { span, metadata, time, message, value_set } => NetCommand::Event {
+                Event::Owned {
+                    span,
+                    metadata,
+                    time,
+                    message,
+                    value_set,
+                } => NetCommand::Event {
                     span: span.map(SpanId::from_u64),
                     metadata,
                     time,
                     message,
-                    value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect()
-                }
-            }
+                    value_set: value_set.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+                },
+            },
             Command::SpanEnter(v) => NetCommand::SpanEnter(SpanId::from_u64(v)),
             Command::SpanExit { span, duration } => NetCommand::SpanExit {
                 span: SpanId::from_u64(span),
-                duration
+                duration,
             },
             Command::SpanFree(v) => NetCommand::SpanFree(SpanId::from_u64(v)),
-            Command::Project { app_name, name, version } => NetCommand::Project(Project {
+            Command::Project {
+                app_name,
+                name,
+                version,
+            } => NetCommand::Project(Project {
                 app_name,
                 name,
                 version,
                 target: TargetInfo {
                     os: std::env::consts::OS.into(),
                     family: std::env::consts::FAMILY.into(),
-                    arch: std::env::consts::ARCH.into()
+                    arch: std::env::consts::ARCH.into(),
                 },
                 command_line: get_command_line(),
-                cpu: read_cpu_info()
+                cpu: read_cpu_info(),
             }),
             Command::Terminate => NetCommand::Terminate,
         }
@@ -168,15 +196,12 @@ impl Command {
 
 pub struct Thread {
     socket: TcpStream,
-    channel: Receiver<Command>
+    channel: Receiver<Command>,
 }
 
 impl Thread {
     pub fn new(socket: TcpStream, channel: Receiver<Command>) -> Thread {
-        Thread {
-            socket,
-            channel
-        }
+        Thread { socket, channel }
     }
 
     pub fn run(&mut self) {
@@ -184,8 +209,11 @@ impl Thread {
             let cmd = self.channel.recv().unwrap().to_network();
             match bincode::serialize(&cmd) {
                 Err(e) => {
-                    eprintln!("An error has occurred while encoding network command: {}", e);
-                },
+                    eprintln!(
+                        "An error has occurred while encoding network command: {}",
+                        e
+                    );
+                }
                 Ok(mut v) => {
                     let mut buf: [u8; 4] = [0; 4];
                     LittleEndian::write_u32(&mut buf, v.len() as u32);

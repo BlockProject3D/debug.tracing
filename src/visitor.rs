@@ -26,19 +26,19 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Write;
-use std::fmt::Debug;
+use crate::util::{extract_target_module, tracing_level_to_log, Meta};
 use bp3d_logger::LogMsg;
-use tracing_core::Field;
+use std::fmt::Debug;
+use std::fmt::Write;
 use tracing_core::field::Visit;
-use crate::util::{extract_target_module, Meta, tracing_level_to_log};
+use tracing_core::Field;
 
 //#[derive(Clone)]
 pub struct SpanVisitor {
     msg: LogMsg,
     message_written: bool,
     name: &'static str,
-    module: &'static str
+    module: &'static str,
 }
 
 impl SpanVisitor {
@@ -51,7 +51,7 @@ impl SpanVisitor {
             msg,
             message_written: false,
             name: metadata.name(),
-            module
+            module,
         }
     }
 
@@ -91,7 +91,7 @@ impl<'a> FastVisitor<'a> {
         FastVisitor {
             msg,
             message_written: false,
-            name
+            name,
         }
     }
 }

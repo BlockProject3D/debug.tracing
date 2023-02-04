@@ -51,7 +51,7 @@ struct Hello {
 pub enum MatchResult {
     SignatureMismatch,
     VersionMismatch,
-    Ok
+    Ok,
 }
 
 pub struct Version {
@@ -61,17 +61,14 @@ pub struct Version {
 
 pub struct Hello {
     signature: [u8; 8],
-    version: Version
+    version: Version,
 }
 
 impl Hello {
     pub const fn new(major: u64, pre_release: Option<[u8; 24]>) -> Self {
         Self {
             signature: SIGNATURE,
-            version: Version {
-                major,
-                pre_release
-            }
+            version: Version { major, pre_release },
         }
     }
 
@@ -86,16 +83,16 @@ impl Hello {
                 signature,
                 version: Version {
                     major,
-                    pre_release: None
-                }
+                    pre_release: None,
+                },
             }
         } else {
             Hello {
                 signature,
                 version: Version {
                     major,
-                    pre_release: Some(pre_release)
-                }
+                    pre_release: Some(pre_release),
+                },
             }
         }
     }
@@ -107,11 +104,11 @@ impl Hello {
         let val = match (self.version.pre_release, other.version.pre_release) {
             (Some(a), Some(b)) => a == b,
             (None, None) => self.version.major == other.version.major,
-            _ => false
+            _ => false,
         };
         match val {
             true => MatchResult::Ok,
-            false => MatchResult::VersionMismatch
+            false => MatchResult::VersionMismatch,
         }
     }
 

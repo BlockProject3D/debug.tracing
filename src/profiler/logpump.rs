@@ -29,11 +29,11 @@
 //! This module contains a log pump to be combined with Profiler in order to redirect the log
 //! crate to the Profiler.
 
+use crate::profiler::state::ProfilerState;
+use crate::profiler::thread::{Command, Event};
 use chrono::Utc;
 use log::{Log, Metadata, Record};
 use tracing_core::dispatcher::get_default;
-use crate::profiler::state::ProfilerState;
-use crate::profiler::thread::{Command, Event};
 
 pub struct LogPump;
 
@@ -57,7 +57,7 @@ impl Log for LogPump {
             metadata,
             time,
             value_set: Vec::new(),
-            message: Some(message)
+            message: Some(message),
         }));
     }
 

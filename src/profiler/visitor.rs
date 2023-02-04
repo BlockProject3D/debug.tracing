@@ -26,14 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Debug;
-use tracing_core::Field;
-use tracing_core::field::Visit;
 use crate::profiler::network_types::Value;
+use std::fmt::Debug;
+use tracing_core::field::Visit;
+use tracing_core::Field;
 
 pub struct Visitor {
     message: Option<String>,
-    value_set: Vec<(&'static str, Value)>
+    value_set: Vec<(&'static str, Value)>,
 }
 
 impl Visitor {
@@ -44,7 +44,7 @@ impl Visitor {
     pub fn new() -> Visitor {
         Visitor {
             message: None,
-            value_set: Vec::new()
+            value_set: Vec::new(),
         }
     }
 }
@@ -70,7 +70,8 @@ impl Visit for Visitor {
         if field.name() == "message" {
             self.message = Some(value.into())
         } else {
-            self.value_set.push((field.name(), Value::String(value.into())))
+            self.value_set
+                .push((field.name(), Value::String(value.into())))
         }
     }
 
@@ -78,7 +79,8 @@ impl Visit for Visitor {
         if field.name() == "message" {
             self.message = Some(format!("{:?}", value));
         } else {
-            self.value_set.push((field.name(), Value::String(format!("{:?}", value))));
+            self.value_set
+                .push((field.name(), Value::String(format!("{:?}", value))));
         }
     }
 }

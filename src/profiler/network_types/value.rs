@@ -34,5 +34,5 @@ pub enum Value {
     Signed(i64),
     Unsigned(u64),
     String(String),
-    Bool(bool)
+    Bool(bool),
 }

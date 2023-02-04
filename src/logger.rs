@@ -26,59 +26,68 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::borrow::Cow;
-use std::fmt::Write;
-use std::time::Duration;
-use bp3d_logger::{Colors, LogMsg};
-use chrono::{DateTime, Local, Utc};
-use dashmap::DashMap;
-use tracing_core::{Event, Level};
-use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
 use crate::util::{extract_target_module, tracing_level_to_log};
 use crate::visitor::{FastVisitor, SpanVisitor};
+use bp3d_logger::{Colors, LogMsg};
+use chrono::{DateTime, Local, Utc};
+use dashmap::DashMap;
+use std::borrow::Cow;
+use std::fmt::Write;
+use std::time::Duration;
+use tracing_core::span::{Attributes, Id, Record};
+use tracing_core::{Event, Level};
 
 pub struct Logger {
     disabled: bool,
     level: Level,
-    spans: DashMap<Id, SpanVisitor>
+    spans: DashMap<Id, SpanVisitor>,
 }
 
 impl Logger {
     pub fn new<T: bp3d_logger::GetLogs>(app: T) -> TracingSystem<Logger> {
         let disabled = bp3d_env::get_bool("LOG_DISABLE").unwrap_or(false);
-        let level = bp3d_env::get("LOG").map(|v| v.to_lowercase())
-            .map(Cow::Owned).unwrap_or("info".into());
+        let level = bp3d_env::get("LOG")
+            .map(|v| v.to_lowercase())
+            .map(Cow::Owned)
+            .unwrap_or("info".into());
         let level = match &*level {
             "error" => Level::ERROR,
             "warning" => Level::WARN,
             "info" => Level::INFO,
             "debug" => Level::DEBUG,
             "trace" => Level::TRACE,
-            _ => Level::INFO
+            _ => Level::INFO,
         };
         let always_stdout = bp3d_env::get_bool("LOG_STDOUT").unwrap_or(false);
         let colors = match bp3d_env::get_bool("LOG_COLOR") {
             None => Colors::Auto,
             Some(v) => match v {
                 true => Colors::Enabled,
-                false => Colors::Disabled
-            }
+                false => Colors::Disabled,
+            },
         };
-        let guard = bp3d_logger::Logger::new().smart_stderr(!always_stdout)
-            .colors(colors).add_stdout().add_file(app).start();
+        let guard = bp3d_logger::Logger::new()
+            .smart_stderr(!always_stdout)
+            .colors(colors)
+            .add_stdout()
+            .add_file(app)
+            .start();
         log::set_max_level(match level {
             Level::ERROR => log::LevelFilter::Error,
             Level::WARN => log::LevelFilter::Warn,
             Level::INFO => log::LevelFilter::Info,
             Level::DEBUG => log::LevelFilter::Debug,
-            Level::TRACE => log::LevelFilter::Trace
+            Level::TRACE => log::LevelFilter::Trace,
         });
-        TracingSystem::with_destructor(Logger {
-            level,
-            disabled,
-            spans: DashMap::new()
-        }, Box::new(guard))
+        TracingSystem::with_destructor(
+            Logger {
+                level,
+                disabled,
+                spans: DashMap::new(),
+            },
+            Box::new(guard),
+        )
     }
 }
 
@@ -103,8 +112,7 @@ impl Tracer for Logger {
         values.record(&mut *span_values);
     }
 
-    fn span_follows_from(&self, _: &Id, _: &Id) {
-    }
+    fn span_follows_from(&self, _: &Id, _: &Id) {}
 
     fn event(&self, _: Option<Id>, time: DateTime<Utc>, event: &Event) {
         let (target, module) = extract_target_module(event.metadata());
@@ -117,8 +125,7 @@ impl Tracer for Logger {
         bp3d_logger::raw_log(&msg);
     }
 
-    fn span_enter(&self, _: &Id) {
-    }
+    fn span_enter(&self, _: &Id) {}
 
     fn span_exit(&self, id: &Id, duration: Duration) {
         let mut data = self.spans.get_mut(id).unwrap();

@@ -1,8 +1,8 @@
+use semver::Version;
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::PathBuf;
-use semver::Version;
 use std::io::Write;
+use std::path::PathBuf;
 
 const WRITE_FAIL: &str = "Failed to write verision_inject file";
 
@@ -13,8 +13,7 @@ fn main() {
         .join("version_inject.rs");
     let file = File::create(path).expect("Couldn't create version_inject file");
     let mut writer = BufWriter::new(file);
-    let version = std::env::var("CARGO_PKG_VERSION")
-        .expect("Unable to read package version");
+    let version = std::env::var("CARGO_PKG_VERSION").expect("Unable to read package version");
     let version = Version::parse(&version).expect("Failed to parse package version");
     if !version.pre.is_empty() {
         write!(&mut writer, "const VERSION_DATA: [u8; 24] = [").expect(WRITE_FAIL);
@@ -26,10 +25,18 @@ fn main() {
             write!(&mut writer, "0x0, ").expect(WRITE_FAIL);
         }
         writeln!(&mut writer, "];").expect(WRITE_FAIL);
-        writeln!(&mut writer, "pub const HELLO_PACKET: Hello = Hello::new({}, Some(VERSION_DATA));", version.major)
-            .expect(WRITE_FAIL);
+        writeln!(
+            &mut writer,
+            "pub const HELLO_PACKET: Hello = Hello::new({}, Some(VERSION_DATA));",
+            version.major
+        )
+        .expect(WRITE_FAIL);
     } else {
-        writeln!(&mut writer, "pub const HELLO_PACKET: Hello = Hello::new({}, None);", version.major)
-            .expect(WRITE_FAIL);
+        writeln!(
+            &mut writer,
+            "pub const HELLO_PACKET: Hello = Hello::new({}, None);",
+            version.major
+        )
+        .expect(WRITE_FAIL);
     }
 }

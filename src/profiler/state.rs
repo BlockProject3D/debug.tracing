@@ -26,12 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::profiler::thread::Command;
+use crossbeam_channel::{bounded, Receiver, Sender};
+use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
-use crossbeam_channel::{bounded, Receiver, Sender};
-use once_cell::sync::Lazy;
-use crate::profiler::thread::Command;
 
 const BUF_SIZE: usize = 128; // The maximum count of log messages in the channel.
 
@@ -39,7 +39,7 @@ pub struct ProfilerState {
     exited: AtomicBool,
     send_ch: Sender<Command>,
     recv_ch: Receiver<Command>,
-    thread: Mutex<Option<JoinHandle<()>>>
+    thread: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl ProfilerState {
@@ -49,7 +49,7 @@ impl ProfilerState {
             exited: AtomicBool::new(false),
             send_ch,
             recv_ch,
-            thread: Mutex::new(None)
+            thread: Mutex::new(None),
         }
     }
 

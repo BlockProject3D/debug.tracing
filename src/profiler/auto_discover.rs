@@ -26,13 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::profiler::{DEFAULT_PORT, PROTOCOL_VERSION};
 use std::io::Write;
 use std::net::{Ipv4Addr, UdpSocket};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use unbounded_udp::{Domain, Unbounded};
-use crate::profiler::{DEFAULT_PORT, PROTOCOL_VERSION};
 
 // The maximum number of characters allowed for the application name in the auto-discover list.
 const NAME_MAX_CHARS: usize = 126;
@@ -42,7 +42,7 @@ const PROTOCOL_SIGNATURE: u8 = b'B';
 pub struct AutoDiscoveryService {
     socket: UdpSocket,
     packet: Box<[u8]>,
-    exit_flag: Arc<AtomicBool>
+    exit_flag: Arc<AtomicBool>,
 }
 
 impl AutoDiscoveryService {
@@ -63,7 +63,7 @@ impl AutoDiscoveryService {
         Ok(AutoDiscoveryService {
             packet: packet.into_boxed_slice(),
             exit_flag,
-            socket
+            socket,
         })
     }
 
@@ -76,7 +76,10 @@ impl AutoDiscoveryService {
             if self.exit_flag.load(Ordering::Relaxed) {
                 break;
             }
-            if let Err(e) = self.socket.send_to(&self.packet, (Ipv4Addr::BROADCAST, DEFAULT_PORT)) {
+            if let Err(e) = self
+                .socket
+                .send_to(&self.packet, (Ipv4Addr::BROADCAST, DEFAULT_PORT))
+            {
                 eprintln!("Failed to send broadcast auto-discover packet: {}", e);
             }
             std::thread::sleep(Duration::from_secs(2)); //Broadcast ourself every 2 seconds.

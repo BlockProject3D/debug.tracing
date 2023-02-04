@@ -34,7 +34,7 @@ pub enum Level {
     Debug,
     Info,
     Warning,
-    Error
+    Error,
 }
 
 impl Level {
@@ -44,7 +44,7 @@ impl Level {
             tracing::Level::DEBUG => Level::Debug,
             tracing::Level::INFO => Level::Info,
             tracing::Level::WARN => Level::Warning,
-            tracing::Level::ERROR => Level::Error
+            tracing::Level::ERROR => Level::Error,
         }
     }
     pub fn from_log(level: log::Level) -> Level {
@@ -53,19 +53,19 @@ impl Level {
             log::Level::Debug => Level::Debug,
             log::Level::Info => Level::Info,
             log::Level::Warn => Level::Warning,
-            log::Level::Error => Level::Error
+            log::Level::Error => Level::Error,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Metadata {
-    name: String, //The name of the span/event
-    target: String, //The target of the span/event (usually this contains module path)
-    level: Level, //The log level of the span/event
+    name: String,                //The name of the span/event
+    target: String,              //The target of the span/event (usually this contains module path)
+    level: Level,                //The log level of the span/event
     module_path: Option<String>, //The module path (including crate name)
-    file: Option<String>, //The file path
-    line: Option<u32> //The line number in the file
+    file: Option<String>,        //The file path
+    line: Option<u32>,           //The line number in the file
 }
 
 impl Metadata {
@@ -76,7 +76,7 @@ impl Metadata {
             level: Level::from_log(meta.level()),
             module_path: meta.module_path().map(|v| v.into()),
             file: meta.file().map(|v| v.into()),
-            line: meta.line()
+            line: meta.line(),
         }
     }
     pub fn from_tracing(meta: &tracing::Metadata) -> Metadata {
@@ -86,7 +86,7 @@ impl Metadata {
             level: Level::from_tracing(*meta.level()),
             module_path: meta.module_path().map(|v| v.into()),
             file: meta.file().map(|v| v.into()),
-            line: meta.line()
+            line: meta.line(),
         }
     }
 }

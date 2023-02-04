@@ -26,23 +26,23 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::core::{Tracer, TracingSystem};
+use crate::profiler::auto_discover::AutoDiscoveryService;
+use crate::profiler::logpump::LOG_PUMP;
+use crate::profiler::network_types::Duration as NetDuration;
+use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
+use crate::profiler::state::ProfilerState;
+use crate::profiler::thread::{Command, Thread};
+use crate::profiler::visitor::Visitor;
+use crate::profiler::DEFAULT_PORT;
+use chrono::{DateTime, Utc};
+use crossbeam_channel::Sender;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use chrono::{DateTime, Utc};
-use crossbeam_channel::Sender;
-use tracing_core::{Event, Level};
 use tracing_core::span::{Attributes, Id, Record};
-use crate::core::{Tracer, TracingSystem};
-use crate::profiler::auto_discover::AutoDiscoveryService;
-use crate::profiler::DEFAULT_PORT;
-use crate::profiler::logpump::LOG_PUMP;
-use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
-use crate::profiler::state::ProfilerState;
-use crate::profiler::thread::{Command, Thread};
-use crate::profiler::visitor::Visitor;
-use crate::profiler::network_types::Duration as NetDuration;
+use tracing_core::{Event, Level};
 
 struct Guard;
 
@@ -59,18 +59,26 @@ fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
     client.read_exact(&mut block)?;
     let packet = Hello::from_bytes(block);
     match HELLO_PACKET.matches(&packet) {
-        MatchResult::SignatureMismatch => Err(Error::new(ErrorKind::Other, "protocol signature mismatch")),
-        MatchResult::VersionMismatch => Err(Error::new(ErrorKind::Other, "version signature mismatch")),
-        MatchResult::Ok => Ok(())
+        MatchResult::SignatureMismatch => {
+            Err(Error::new(ErrorKind::Other, "protocol signature mismatch"))
+        }
+        MatchResult::VersionMismatch => {
+            Err(Error::new(ErrorKind::Other, "version signature mismatch"))
+        }
+        MatchResult::Ok => Ok(()),
     }
 }
 
 pub struct Profiler {
-    channel: Sender<Command>
+    channel: Sender<Command>,
 }
 
 impl Profiler {
-    pub fn new(app_name: &str, crate_name: &str, crate_version: &str) -> std::io::Result<TracingSystem<Profiler>> {
+    pub fn new(
+        app_name: &str,
+        crate_name: &str,
+        crate_version: &str,
+    ) -> std::io::Result<TracingSystem<Profiler>> {
         log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
         let port = bp3d_env::get("PROFILER_PORT")
             .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
@@ -93,16 +101,19 @@ impl Profiler {
             let mut thread = Thread::new(client, receiver);
             thread.run();
         });
-        sender.send(Command::Project {
-            app_name: app_name.into(),
-            name: crate_name.into(),
-            version: crate_version.into()
-        }).unwrap();
+        sender
+            .send(Command::Project {
+                app_name: app_name.into(),
+                name: crate_name.into(),
+                version: crate_version.into(),
+            })
+            .unwrap();
         ProfilerState::get().assign_thread(thread);
         log::set_max_level(log::LevelFilter::Trace);
-        Ok(TracingSystem::with_destructor(Profiler {
-            channel: sender
-        }, Box::new(Guard)))
+        Ok(TracingSystem::with_destructor(
+            Profiler { channel: sender },
+            Box::new(Guard),
+        ))
     }
 
     fn is_exited(&self) -> bool {
@@ -125,7 +136,7 @@ impl Tracer for Profiler {
         if new {
             self.command(Command::SpanAlloc {
                 metadata: span.metadata(),
-                id: id.into_u64()
+                id: id.into_u64(),
             });
         }
         let mut visitor = Visitor::new();
@@ -135,7 +146,7 @@ impl Tracer for Profiler {
             span: id.into_u64(),
             value_set,
             message,
-            parent: parent.map(|v| v.into_u64())
+            parent: parent.map(|v| v.into_u64()),
         });
     }
 
@@ -146,14 +157,14 @@ impl Tracer for Profiler {
         self.command(Command::SpanValues {
             span: id.into_u64(),
             message,
-            value_set
+            value_set,
         });
     }
 
     fn span_follows_from(&self, id: &Id, follows: &Id) {
         self.command(Command::SpanFollows {
             span: id.into_u64(),
-            follows: follows.into_u64()
+            follows: follows.into_u64(),
         });
     }
 
@@ -166,7 +177,7 @@ impl Tracer for Profiler {
             span: parent.map(|v| v.into_u64()),
             message,
             value_set,
-            time: time.timestamp()
+            time: time.timestamp(),
         }));
     }
 
@@ -179,8 +190,8 @@ impl Tracer for Profiler {
             span: id.into_u64(),
             duration: NetDuration {
                 seconds: duration.as_secs() as u32,
-                nano_seconds: duration.subsec_nanos()
-            }
+                nano_seconds: duration.subsec_nanos(),
+            },
         });
     }
 

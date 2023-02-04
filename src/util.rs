@@ -26,8 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tracing_core::{Level, Metadata};
 use tracing_core::span::Id;
+use tracing_core::{Level, Metadata};
 
 pub type Meta = &'static Metadata<'static>;
 
@@ -52,7 +52,7 @@ pub fn tracing_level_to_log(level: &Level) -> log::Level {
         Level::DEBUG => log::Level::Debug,
         Level::INFO => log::Level::Info,
         Level::WARN => log::Level::Warn,
-        Level::ERROR => log::Level::Error
+        Level::ERROR => log::Level::Error,
     }
 }
 

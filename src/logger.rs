@@ -27,81 +27,21 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::borrow::Cow;
-use std::fmt::Debug;
 use std::fmt::Write;
 use std::time::Duration;
 use bp3d_logger::{Colors, LogMsg};
 use chrono::{DateTime, Local, Utc};
 use dashmap::DashMap;
-use tracing_core::{Event, Field, Level};
-use tracing_core::field::Visit;
+use tracing_core::{Event, Level};
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
-use crate::util::{extract_target_module, Meta, tracing_level_to_log};
-
-#[derive(Clone)]
-struct LogMsgVisitor {
-    msg: LogMsg,
-    vars: Option<LogMsg>,
-    message_written: bool
-}
-
-impl LogMsgVisitor {
-    pub fn new(msg: LogMsg) -> LogMsgVisitor {
-        LogMsgVisitor {
-            msg,
-            vars: None,
-            message_written: false
-        }
-    }
-
-    pub fn into_inner(self) -> (LogMsg, Option<LogMsg>, bool) {
-        (self.msg, self.vars, self.message_written)
-    }
-}
-
-impl Visit for LogMsgVisitor {
-    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
-        if field.name() == "message" {
-            let _ = write!(self.msg, "{:?}", value);
-            self.message_written = true;
-        } else {
-            let vars = self.vars.get_or_insert_with(|| LogMsg::new("", log::Level::Info));
-            let _ = write!(vars, " {}={:?}", field.name(), value);
-        }
-    }
-}
-
-struct SpanData {
-    visitor: LogMsgVisitor,
-    name: &'static str
-}
-
-impl SpanData {
-    pub fn new(metadata: Meta) -> SpanData {
-        let (target, module) = extract_target_module(metadata);
-        let mut msg = LogMsg::new(target, tracing_level_to_log(metadata.level()));
-        let _ = write!(msg, "{}: ", module.unwrap_or("main"));
-        SpanData {
-            visitor: LogMsgVisitor::new(msg),
-            name: metadata.name()
-        }
-    }
-
-    pub fn reset(&mut self, metadata: Meta) {
-        self.visitor.message_written = false;
-        self.name = metadata.name();
-        let (_, module) = extract_target_module(metadata);
-        self.visitor.msg.clear();
-        let _ = write!(self.visitor.msg, "{}: ", module.unwrap_or("main"));
-        self.visitor.vars = None;
-    }
-}
+use crate::util::{extract_target_module, tracing_level_to_log};
+use crate::visitor::{FastVisitor, SpanVisitor};
 
 pub struct Logger {
     disabled: bool,
     level: Level,
-    spans: DashMap<Id, SpanData>
+    spans: DashMap<Id, SpanVisitor>
 }
 
 impl Logger {
@@ -149,18 +89,18 @@ impl Tracer for Logger {
 
     fn span_create(&self, id: &Id, _: bool, _: Option<Id>, attrs: &Attributes) {
         if let Some(mut data) = self.spans.get_mut(id) {
-            data.reset(attrs.metadata());
-            attrs.record(&mut data.visitor);
+            data.reset();
+            attrs.record(&mut *data);
         } else {
-            let mut data = SpanData::new(attrs.metadata());
-            attrs.record(&mut data.visitor);
+            let mut data = SpanVisitor::new(attrs.metadata());
+            attrs.record(&mut data);
             self.spans.insert(id.clone(), data);
         }
     }
 
     fn span_values(&self, id: &Id, values: &Record) {
         let mut span_values = self.spans.get_mut(id).unwrap();
-        values.record(&mut span_values.visitor);
+        values.record(&mut *span_values);
     }
 
     fn span_follows_from(&self, _: &Id, _: &Id) {
@@ -172,15 +112,8 @@ impl Tracer for Logger {
         let formatted = time.format("%a %b %d %Y %I:%M:%S %P");
         let mut msg = LogMsg::new(target, tracing_level_to_log(event.metadata().level()));
         let _ = write!(msg, "({}) {}: ", formatted, module.unwrap_or("main"));
-        let mut visitor = LogMsgVisitor::new(msg);
+        let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());
         event.record(&mut visitor);
-        let (mut msg, vars, message_written) = visitor.into_inner();
-        if !message_written {
-            let _ = msg.write_str(event.metadata().name());
-        }
-        if let Some(vars) = vars {
-            let _ = msg.write_str(vars.msg());
-        }
         bp3d_logger::raw_log(&msg);
     }
 
@@ -188,14 +121,8 @@ impl Tracer for Logger {
     }
 
     fn span_exit(&self, id: &Id, duration: Duration) {
-        let data = self.spans.get(id).unwrap();
-        let (mut msg, vars, message_written) = data.visitor.clone().into_inner();
-        if !message_written {
-            let _ = msg.write_str(data.name);
-        }
-        if let Some(vars) = vars {
-            let _ = msg.write_str(vars.msg());
-        }
+        let mut data = self.spans.get_mut(id).unwrap();
+        let msg = data.msg_mut();
         let _ = write!(msg, ": span finished in {:.2}s", duration.as_secs_f64());
         bp3d_logger::raw_log(&msg);
     }

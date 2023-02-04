@@ -38,6 +38,7 @@ mod core;
 mod util;
 mod logger;
 mod profiler;
+mod visitor;
 
 /// The guard to ensure proper termination of logging and tracing systems.
 pub struct Guard(Option<Box<dyn Any>>);

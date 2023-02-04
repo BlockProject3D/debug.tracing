@@ -30,8 +30,8 @@ use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use chrono::{DateTime, Utc};
 use crossbeam_channel::Sender;
-use time::OffsetDateTime;
 use tracing_core::{Event, Level};
 use tracing_core::span::{Attributes, Id, Record};
 use crate::core::{Tracer, TracingSystem};
@@ -157,7 +157,7 @@ impl Tracer for Profiler {
         });
     }
 
-    fn event(&self, parent: Option<Id>, time: OffsetDateTime, event: &Event) {
+    fn event(&self, parent: Option<Id>, time: DateTime<Utc>, event: &Event) {
         let mut visitor = Visitor::new();
         event.record(&mut visitor);
         let (message, value_set) = visitor.into_inner();
@@ -166,7 +166,7 @@ impl Tracer for Profiler {
             span: parent.map(|v| v.into_u64()),
             message,
             value_set,
-            time: time.unix_timestamp()
+            time: time.timestamp()
         }));
     }
 

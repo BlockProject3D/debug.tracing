@@ -27,13 +27,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::any::Any;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
-use std::thread::ThreadId;
 use std::time::{Duration, Instant};
-//use dashmap::DashMap;
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use tracing_core::{Event, Level, LevelFilter, Metadata, Subscriber};
 use tracing_core::span::{Attributes, Current, Id, Record};
 use crate::util::{hash_static_ref, Meta, span_from_id_instance, span_to_id_instance};
@@ -59,7 +58,7 @@ pub trait Tracer {
     fn span_create(&self, id: &Id, new: bool, parent: Option<Id>, span: &Attributes);
     fn span_values(&self, id: &Id, values: &Record);
     fn span_follows_from(&self, id: &Id, follows: &Id);
-    fn event(&self, parent: Option<Id>, time: OffsetDateTime, event: &Event);
+    fn event(&self, parent: Option<Id>, time: DateTime<Utc>, event: &Event);
     fn span_enter(&self, id: &Id);
     fn span_exit(&self, id: &Id, duration: Duration);
     fn span_destroy(&self, id: &Id);
@@ -115,7 +114,6 @@ impl SpanHead {
 struct Inner {
     spans_by_meta: HashMap<usize, SpanHead>,
     spans_by_id: HashMap<Id, SpanData>,
-    current_span_for_thread: HashMap<ThreadId, Vec<Id>>
 }
 
 impl Inner {
@@ -123,33 +121,38 @@ impl Inner {
         Inner {
             spans_by_meta: HashMap::new(),
             spans_by_id: HashMap::new(),
-            current_span_for_thread: HashMap::new()
         }
     }
+}
 
-    pub fn push_span(&mut self, id: &Id) {
-        self.current_span_for_thread
-            .entry(std::thread::current().id())
-            .or_default()
-            .push(id.clone());
-    }
+thread_local! {
+    static SPAN_STACK: RefCell<Vec<Id>> = RefCell::new(Vec::new());
+}
 
-    pub fn pop_span(&mut self, id: &Id) {
-        let current = &std::thread::current().id();
-        if let Some(data) = self.current_span_for_thread.get_mut(current) {
-            data.retain(|v| v != id);
-            if data.len() == 0 {
-                self.current_span_for_thread.remove(current);
-            }
+#[inline]
+fn push_span(span: Id) {
+    SPAN_STACK.with(|v| {
+        let mut stack = v.borrow_mut();
+        stack.push(span);
+    });
+}
+
+#[inline]
+fn pop_span(span: &Id) {
+    SPAN_STACK.with(|v| {
+        let mut stack = v.borrow_mut();
+        if let Some(id) = stack.iter().position(|v| v == span) {
+            stack.remove(id);
         }
-    }
+    });
+}
 
-    pub fn current_span(&self) -> Option<Id> {
-        self.current_span_for_thread
-            .get(&std::thread::current().id())
-            .map(|v| v.last().cloned())
-            .flatten()
-    }
+#[inline]
+fn current_span() -> Option<Id> {
+    SPAN_STACK.with(|v| {
+        let stack = v.borrow();
+        stack.last().cloned()
+    })
 }
 
 pub struct BaseTracer<T> {
@@ -203,7 +206,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         let parent = if span.is_root() {
             None
         } else {
-            span.parent().cloned().or_else(|| lock.current_span())
+            span.parent().cloned().or_else(current_span)
         };
         lock.spans_by_id.insert(span_id.clone(), SpanData {
             metadata: span.metadata(),
@@ -223,14 +226,14 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     }
 
     fn event(&self, event: &Event<'_>) {
-        self.derived.event(self.inner.lock().unwrap().current_span(), OffsetDateTime::now_utc(), event);
+        self.derived.event(current_span(), Utc::now(), event);
     }
 
     fn enter(&self, span: &Id) {
         let mut lock = self.inner.lock().unwrap();
         if let Some(data) = lock.spans_by_id.get_mut(span) {
             data.last_time = Some(Instant::now());
-            lock.push_span(span);
+            push_span(span.clone());
             self.derived.span_enter(span);
         }
     }
@@ -240,7 +243,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
         if let Some(data) = lock.spans_by_id.get_mut(span) {
             let duration = data.last_time.map(|v| v.elapsed())
                 .unwrap_or_default();
-            lock.pop_span(span);
+            pop_span(span);
             self.derived.span_exit(span, duration);
         }
     }
@@ -273,10 +276,12 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     }
 
     fn current_span(&self) -> Current {
-        let lock = self.inner.lock().unwrap();
-        match lock.current_span() {
-            Some(v) => Current::new(v.clone(), lock.spans_by_id.get(&v).unwrap().metadata),
-            None => Current::none()
+        match current_span() {
+            None => Current::none(),
+            Some(v) => {
+                let lock = self.inner.lock().unwrap();
+                Current::new(v.clone(), lock.spans_by_id.get(&v).unwrap().metadata)
+            }
         }
     }
 }

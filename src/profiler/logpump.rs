@@ -29,8 +29,8 @@
 //! This module contains a log pump to be combined with Profiler in order to redirect the log
 //! crate to the Profiler.
 
+use chrono::Utc;
 use log::{Log, Metadata, Record};
-use time::OffsetDateTime;
 use tracing_core::dispatcher::get_default;
 use crate::profiler::state::ProfilerState;
 use crate::profiler::thread::{Command, Event};
@@ -50,7 +50,7 @@ impl Log for LogPump {
         }
         let current = get_default(|v| v.current_span());
         let metadata = crate::profiler::network_types::Metadata::from_log(record);
-        let time = OffsetDateTime::now_utc().unix_timestamp();
+        let time = Utc::now().timestamp();
         let message = format!("{}", record.args());
         ProfilerState::get().send(Command::Event(Event::Owned {
             span: current.id().map(|v| v.into_u64()),

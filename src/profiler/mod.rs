@@ -26,7 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod auto_discover;
 mod core;
 mod cpu_info;
 mod logpump;
@@ -36,6 +35,5 @@ mod thread;
 mod visitor;
 
 pub const DEFAULT_PORT: u16 = 4026;
-pub const PROTOCOL_VERSION: u8 = 0;
 
 pub use self::core::Profiler;

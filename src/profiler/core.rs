@@ -27,7 +27,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::core::{Tracer, TracingSystem};
-use crate::profiler::auto_discover::AutoDiscoveryService;
 use crate::profiler::logpump::LOG_PUMP;
 use crate::profiler::network_types::Duration as NetDuration;
 use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
@@ -39,7 +38,6 @@ use chrono::{DateTime, Utc};
 use crossbeam_channel::Sender;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{Event, Level};
@@ -85,16 +83,9 @@ impl Profiler {
             .unwrap_or(DEFAULT_PORT);
         let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
         let listener = TcpListener::bind(addr)?;
-        let service = AutoDiscoveryService::new(app_name)?;
-        let exit_flag = service.get_exit_flag();
-        let thread = std::thread::spawn(move || {
-            service.run();
-        });
         println!("Waiting for debugger to attach to {}...", port);
         //Block software until we receive a debugger connection.
         let (mut client, _) = listener.accept()?;
-        exit_flag.store(true, Ordering::Relaxed);
-        thread.join().unwrap();
         handle_hello(&mut client)?;
         let (sender, receiver) = ProfilerState::get().get_channel();
         let thread = std::thread::spawn(|| {

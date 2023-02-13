@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -28,247 +28,21 @@
 
 use std::collections::HashMap;
 use crate::profiler::cpu_info::read_cpu_info;
-use crate::util::{Meta, span_to_id_instance};
+use crate::util::span_to_id_instance;
 use crossbeam_channel::Receiver;
-use std::fmt::Debug;
 use std::fs::File;
-use std::io::{BufWriter, Cursor, Write};
-use std::mem::MaybeUninit;
+use std::io::{BufWriter, Write};
 use std::net::TcpStream;
 use std::path::PathBuf;
 use std::time::Duration;
-use bp3d_logger::LogMsg;
 use serde::Serialize;
 use tracing_core::span::Id;
 use crate::profiler::network_types as nt;
-
-#[derive(Clone, Debug)]
-pub struct FixedBufStr<const N: usize> {
-    buffer: [MaybeUninit<u8>; N],
-    len: usize
-}
-
-impl<const N: usize> FixedBufStr<N> {
-    pub fn new() -> FixedBufStr<N> {
-        FixedBufStr {
-            buffer: unsafe { MaybeUninit::uninit().assume_init() },
-            len: 0
-        }
-    }
-
-    pub fn str(&self) -> &str {
-        unsafe {
-            std::str::from_utf8_unchecked(std::mem::transmute(&self.buffer[..self.len]))
-        }
-    }
-
-    pub fn from_str(value: &str) -> Self {
-        let mut buffer = FixedBufStr::new();
-        let len = std::cmp::min(value.len(), N);
-        unsafe {
-            std::ptr::copy_nonoverlapping(value.as_ptr(), std::mem::transmute(buffer.buffer.as_mut_ptr()), len);
-        }
-        buffer.len = len;
-        buffer
-    }
-
-    pub fn from_debug<T: Debug>(value: T) -> Self {
-        use std::fmt::Write;
-        let mut buffer = FixedBufStr::new();
-        let _ = write!(buffer, "{:?}", value);
-        buffer
-    }
-}
-
-impl<const N: usize> std::fmt::Write for FixedBufStr<N> {
-    fn write_str(&mut self, value: &str) -> std::fmt::Result {
-        let len = std::cmp::min(value.len(), N);
-        unsafe {
-            std::ptr::copy_nonoverlapping(value.as_ptr(), std::mem::transmute(self.buffer.as_mut_ptr()), len);
-        }
-        self.len = len;
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum FixedBufValue {
-    Float(f64),
-    Signed(i64),
-    Unsigned(u64),
-    String(FixedBufStr<64>),
-    Bool(bool),
-}
-
-#[derive(Clone)]
-pub enum Command {
-    Project {
-        app_name: FixedBufStr<64>,
-        name: FixedBufStr<64>,
-        version: FixedBufStr<64>,
-    },
-
-    SpanAlloc {
-        id: u64,
-        metadata: Meta,
-    },
-
-    SpanInit {
-        span: u64,
-        parent: Option<u64>, //None must mean that span is at root
-    },
-
-    SpanFollows {
-        span: u64,
-        follows: u64,
-    },
-
-    SpanValue {
-        span: u64,
-        key: &'static str,
-        value: FixedBufValue
-    },
-
-    SpanMessage {
-        span: u64,
-        message: FixedBufStr<255>
-    },
-
-    Event {
-        id: u32,
-        timestamp: i64,
-        message: LogMsg
-    },
-
-    SpanEnter(u64),
-
-    SpanExit {
-        span: u64,
-        duration: Duration,
-    },
-
-    SpanFree(u64),
-
-    Terminate,
-}
-
-fn read_command_line(payload: &mut nt::util::Payload) -> nt::header::Vchar {
-    let mut r = payload.write_object("").unwrap();
-    for v in std::env::args_os() {
-        let head = payload.write_object(&*v.to_string_lossy()).unwrap();
-        payload.write(b" ").unwrap();
-        r.length += head.length + 1;
-    }
-    r
-}
+use crate::profiler::thread::Command;
+use crate::profiler::thread::state::{SpanData, SpanInstance};
+use crate::profiler::thread::util::read_command_line;
 
 const OVERFLOW_LIMIT: u32 = 1_000_000_000;
-
-struct SpanData {
-    run_count: u32,
-    instance_count: u32,
-    has_overflowed: bool,
-    min_time: Duration,
-    max_time: Duration,
-    total_time: Duration,
-    parent: Option<u32>,
-    name: &'static str,
-    runs_file: Option<BufWriter<File>>
-}
-
-impl SpanData {
-    pub fn new(name: &'static str, runs_file: Option<BufWriter<File>>) -> SpanData {
-        SpanData {
-            run_count: 0,
-            instance_count: 0,
-            has_overflowed: false,
-            min_time: Duration::ZERO,
-            max_time: Duration::MAX,
-            total_time: Duration::ZERO,
-            parent: None,
-            name,
-            runs_file
-        }
-    }
-
-    pub fn get_average(&self) -> Duration {
-        if self.run_count == 0 {
-            Duration::ZERO
-        } else {
-            self.total_time / self.run_count
-        }
-    }
-}
-
-struct SpanInstance {
-    message_written: bool,
-    csv_row: Cursor<[u8; 1024]>,
-    variables: Cursor<[u8; 1024]>
-}
-
-impl SpanInstance {
-    pub fn new() -> SpanInstance {
-        SpanInstance {
-            message_written: false,
-            csv_row: Cursor::new([0; 1024]),
-            variables: Cursor::new([0; 1024])
-        }
-    }
-
-    pub fn write<T: Write>(&self, mut file: T) {
-        let row_start = &self.csv_row.get_ref()[..self.csv_row.position() as _];
-        let row_end = &self.variables.get_ref()[..self.variables.position() as _];
-        let _ = file.write(row_start);
-        let _ = file.write(row_end);
-        let _ = file.write(b"\n");
-    }
-
-    pub fn finish(&mut self, duration: &Duration, name: &str) {
-        if !self.message_written {
-            let _ = write!(self.csv_row, "{}", name);
-        }
-        let _ = write!(self.csv_row, ",{},{},{}",
-                       duration.as_secs(), duration.subsec_millis(),
-                       duration.subsec_micros() - (duration.subsec_millis() * 1000));
-    }
-
-    pub fn append_value(&mut self, name: &'static str, value: &FixedBufValue) {
-        let _ = match value {
-            FixedBufValue::Float(v) => write!(self.variables, ",\"{}\"={}", name, v),
-            FixedBufValue::Signed(v) => write!(self.variables, ",\"{}\"={}", name, v),
-            FixedBufValue::Unsigned(v) => write!(self.variables, ",\"{}\"={}", name, v),
-            FixedBufValue::String(v) => write!(self.variables, ",\"{}\"=\"{}\"", name, v.str()),
-            FixedBufValue::Bool(v) => write!(self.variables, ",\"{}\"={}", name, v)
-        };
-    }
-
-    pub fn append_message(&mut self, message: &FixedBufStr<255>) {
-        let _ = write!(self.csv_row, "\"{}\"", message.str());
-        self.message_written = true;
-    }
-
-    /*pub fn append(&mut self, buf: &[u8], message: Option<nt::header::Vchar>, value_set: Option<nt::header::Vchar>) {
-        if let Some(msg) = message {
-            if let Ok(str) = std::str::from_utf8(&buf[msg.offset as _..msg.length as _]) {
-                let _ = write!(self.csv_row, "\"{}\"", str);
-            }
-            self.message_written = true;
-        }
-        if let Some(values) = value_set {
-            let mut cursor = Cursor::new(&buf[values.offset as _..values.length as _]);
-            while let Some(var) = nt::payload::Variable::from_buffer(&mut cursor) {
-                let _ = match var.value {
-                    nt::payload::Value::Float(v) => write!(self.variables, ",\"{}\"={}", var.name, v),
-                    nt::payload::Value::Signed(v) => write!(self.variables, ",\"{}\"={}", var.name, v),
-                    nt::payload::Value::Unsigned(v) => write!(self.variables, ",\"{}\"={}", var.name, v),
-                    nt::payload::Value::String(v) => write!(self.variables, ",\"{}\"=\"{}\"", var.name, v),
-                    nt::payload::Value::Bool(v) => write!(self.variables, ",\"{}\"={}", var.name, v),
-                    _ => unreachable!()
-                };
-            }
-        }
-    }*/
-}
 
 struct Net {
     socket: TcpStream,

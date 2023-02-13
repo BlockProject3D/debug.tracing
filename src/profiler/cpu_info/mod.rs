@@ -26,6 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CpuInfo {
+    pub name: String,
+    pub core_count: u32,
+}
+
 //BSD*
 // sysctl(hw.ncpu) = cpuCoreCount
 // sysctl(hw.model) = cpuName

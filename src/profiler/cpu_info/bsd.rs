@@ -26,8 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::network_types::CpuInfo;
 use std::ffi::{c_char, c_int, c_void, CStr};
+use crate::profiler::cpu_info::CpuInfo;
 
 extern "C" {
     fn sysctlbyname(

@@ -26,61 +26,86 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::network_types::Value;
 use std::fmt::Debug;
+use crossbeam_channel::Sender;
 use tracing_core::field::Visit;
 use tracing_core::Field;
+use crate::profiler::thread::{Command, FixedBufStr, FixedBufValue};
 
-pub struct Visitor {
-    message: Option<String>,
-    value_set: Vec<(&'static str, Value)>,
+pub struct ChannelVisitor<'a> {
+    sender: &'a Sender<Command>,
+    span: u64
 }
 
-impl Visitor {
-    pub fn into_inner(self) -> (Option<String>, Vec<(&'static str, Value)>) {
-        (self.message, self.value_set)
-    }
-
-    pub fn new() -> Visitor {
-        Visitor {
-            message: None,
-            value_set: Vec::new(),
+impl<'a> ChannelVisitor<'a> {
+    pub fn new(sender: &'a Sender<Command>, span: u64) -> Self {
+        Self {
+            sender,
+            span
         }
     }
 }
 
-impl Visit for Visitor {
+impl<'a> Visit for ChannelVisitor<'a> {
     fn record_f64(&mut self, field: &Field, value: f64) {
-        self.value_set.push((field.name(), Value::Float(value)));
+        let _ = self.sender.send(Command::SpanValue {
+            span: self.span,
+            key: field.name(),
+            value: FixedBufValue::Float(value)
+        });
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        self.value_set.push((field.name(), Value::Signed(value)));
+        let _ = self.sender.send(Command::SpanValue {
+            span: self.span,
+            key: field.name(),
+            value: FixedBufValue::Signed(value)
+        });
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        self.value_set.push((field.name(), Value::Unsigned(value)));
+        let _ = self.sender.send(Command::SpanValue {
+            span: self.span,
+            key: field.name(),
+            value: FixedBufValue::Unsigned(value)
+        });
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        self.value_set.push((field.name(), Value::Bool(value)));
+        let _ = self.sender.send(Command::SpanValue {
+            span: self.span,
+            key: field.name(),
+            value: FixedBufValue::Bool(value)
+        });
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
         if field.name() == "message" {
-            self.message = Some(value.into())
+            let _ = self.sender.send(Command::SpanMessage {
+                span: self.span,
+                message: FixedBufStr::from_str(value)
+            });
         } else {
-            self.value_set
-                .push((field.name(), Value::String(value.into())))
+            let _ = self.sender.send(Command::SpanValue {
+                span: self.span,
+                key: field.name(),
+                value: FixedBufValue::String(FixedBufStr::from_str(value))
+            });
         }
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
         if field.name() == "message" {
-            self.message = Some(format!("{:?}", value));
+            let _ = self.sender.send(Command::SpanMessage {
+                span: self.span,
+                message: FixedBufStr::from_debug(value)
+            });
         } else {
-            self.value_set
-                .push((field.name(), Value::String(format!("{:?}", value))));
+            let _ = self.sender.send(Command::SpanValue {
+                span: self.span,
+                key: field.name(),
+                value: FixedBufValue::String(FixedBufStr::from_debug(value))
+            });
         }
     }
 }

@@ -30,6 +30,10 @@ mod command;
 mod metadata;
 mod value;
 mod version;
+pub mod header;
+pub mod payload;
+pub mod util;
+pub mod serializer;
 
 pub use command::*;
 pub use metadata::*;

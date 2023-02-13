@@ -28,54 +28,46 @@
 
 use crate::profiler::thread::Command;
 use crossbeam_channel::{bounded, Receiver, Sender};
-use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
+use bp3d_logger::LogMsg;
+use chrono::Utc;
+use once_cell::sync::OnceCell;
 
-const BUF_SIZE: usize = 128; // The maximum count of log messages in the channel.
+const BUF_SIZE: usize = 256; // The maximum count of log messages in the channel.
+
+static LOG_CHANNEL: OnceCell<Sender<Command>> = OnceCell::new();
+
+pub fn send_message(message: LogMsg) {
+    if let Some(val) = LOG_CHANNEL.get() {
+        let _ = val.send(Command::Event {
+            id: 0,
+            message,
+            timestamp: Utc::now().timestamp()
+        });
+    }
+}
 
 pub struct ProfilerState {
     exited: AtomicBool,
     send_ch: Sender<Command>,
-    recv_ch: Receiver<Command>,
-    thread: Mutex<Option<JoinHandle<()>>>,
+    thread: Mutex<Option<JoinHandle<()>>>
 }
 
 impl ProfilerState {
-    fn new() -> ProfilerState {
+    pub fn new<F: FnOnce(Receiver<Command>) + Send + 'static>(thread_fn: F) -> (ProfilerState, Sender<Command>) {
         let (send_ch, recv_ch) = bounded(BUF_SIZE);
-        ProfilerState {
+        LOG_CHANNEL.set(send_ch.clone()).expect("Cannot initialize profiler more than once!");
+        (ProfilerState {
             exited: AtomicBool::new(false),
-            send_ch,
-            recv_ch,
-            thread: Mutex::new(None),
-        }
-    }
-
-    pub fn get() -> &'static ProfilerState {
-        &PROFILER_STATE
+            send_ch: send_ch.clone(),
+            thread: Mutex::new(Some(std::thread::spawn(|| thread_fn(recv_ch)))),
+        }, send_ch)
     }
 
     pub fn is_exited(&self) -> bool {
         self.exited.load(Ordering::Relaxed)
-    }
-
-    pub fn get_channel(&self) -> (Sender<Command>, Receiver<Command>) {
-        (self.send_ch.clone(), self.recv_ch.clone())
-    }
-
-    pub fn send(&self, cmd: Command) {
-        // self.send_ch is a static (see PROFILER_STATE) so the channel cannot have been closed!
-        unsafe { self.send_ch.send(cmd).unwrap_unchecked() }
-    }
-
-    pub fn assign_thread(&self, thread: JoinHandle<()>) {
-        let mut lock = self.thread.lock().unwrap();
-        if lock.is_some() {
-            panic!("Cannot assign thread twice!");
-        }
-        *lock = Some(thread);
     }
 
     pub fn terminate(&self) {
@@ -93,5 +85,3 @@ impl ProfilerState {
         }
     }
 }
-
-static PROFILER_STATE: Lazy<ProfilerState> = Lazy::new(ProfilerState::new);

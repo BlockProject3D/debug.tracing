@@ -29,36 +29,35 @@
 //! This module contains a log pump to be combined with Profiler in order to redirect the log
 //! crate to the Profiler.
 
-use crate::profiler::state::ProfilerState;
-use crate::profiler::thread::{Command, Event};
-use chrono::Utc;
+use bp3d_logger::LogMsg;
+use crate::profiler::state::send_message;
 use log::{Log, Metadata, Record};
-use tracing_core::dispatcher::get_default;
 
 pub struct LogPump;
 
 pub static LOG_PUMP: LogPump = LogPump;
 
+fn extract_target_module<'a>(record: &'a Record) -> (&'a str, Option<&'a str>) {
+    let base_string = record.module_path().unwrap_or_else(|| record.target());
+    let target = base_string
+        .find("::")
+        .map(|v| &base_string[..v])
+        .unwrap_or(base_string);
+    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
+    (target, module)
+}
+
 impl Log for LogPump {
     fn enabled(&self, _: &Metadata) -> bool {
-        !ProfilerState::get().is_exited()
+        true
     }
 
     fn log(&self, record: &Record) {
-        if ProfilerState::get().is_exited() {
-            return;
-        }
-        let current = get_default(|v| v.current_span());
-        let metadata = crate::profiler::network_types::Metadata::from_log(record);
-        let time = Utc::now().timestamp();
-        let message = format!("{}", record.args());
-        ProfilerState::get().send(Command::Event(Event::Owned {
-            span: current.id().map(|v| v.into_u64()),
-            metadata,
-            time,
-            value_set: Vec::new(),
-            message: Some(message),
-        }));
+        let (target, module) = extract_target_module(record);
+        let mut msg = LogMsg::new(target, record.level());
+        use std::fmt::Write;
+        let _ = write!(msg, "{}: {}", module.unwrap_or("main"), record.args());
+        send_message(msg);
     }
 
     fn flush(&self) {}

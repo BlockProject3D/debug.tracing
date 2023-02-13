@@ -28,25 +28,29 @@
 
 use crate::core::{Tracer, TracingSystem};
 use crate::profiler::logpump::LOG_PUMP;
-use crate::profiler::network_types::Duration as NetDuration;
 use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
 use crate::profiler::state::ProfilerState;
-use crate::profiler::thread::{Command, Thread};
-use crate::profiler::visitor::Visitor;
+use crate::profiler::thread::{Command, FixedBufStr, Thread};
+use crate::profiler::visitor::{ChannelVisitor};
 use crate::profiler::DEFAULT_PORT;
 use chrono::{DateTime, Utc};
 use crossbeam_channel::Sender;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::time::Duration;
+use bp3d_fs::dirs::App;
+use bp3d_logger::LogMsg;
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{Event, Level};
+use crate::util::{extract_target_module, tracing_level_to_log};
+use crate::visitor::FastVisitor;
 
-struct Guard;
+struct Guard(ProfilerState);
 
 impl Drop for Guard {
     fn drop(&mut self) {
-        ProfilerState::get().terminate();
+        self.0.terminate()
+
     }
 }
 
@@ -68,7 +72,7 @@ fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
 }
 
 pub struct Profiler {
-    channel: Sender<Command>,
+    channel: Sender<Command>
 }
 
 impl Profiler {
@@ -86,41 +90,33 @@ impl Profiler {
         println!("Waiting for debugger to attach to {}...", port);
         //Block software until we receive a debugger connection.
         let (mut client, _) = listener.accept()?;
-        handle_hello(&mut client)?;
-        let (sender, receiver) = ProfilerState::get().get_channel();
-        let thread = std::thread::spawn(|| {
-            let mut thread = Thread::new(client, receiver);
+        //handle_hello(&mut client)?;
+        let logs = App::new(app_name).get_logs().ok().map(|v| v.to_owned());
+        let (state, sender) = ProfilerState::new(|receiver| {
+            let mut thread = Thread::new(client, receiver/*, breceiver*/, logs);
             thread.run();
         });
-        sender
-            .send(Command::Project {
-                app_name: app_name.into(),
-                name: crate_name.into(),
-                version: crate_version.into(),
-            })
-            .unwrap();
-        ProfilerState::get().assign_thread(thread);
+        sender.send(Command::Project {
+                app_name: FixedBufStr::from_str(app_name),
+                name: FixedBufStr::from_str(crate_name),
+                version: FixedBufStr::from_str(crate_version),
+        }).unwrap();
         log::set_max_level(log::LevelFilter::Trace);
         Ok(TracingSystem::with_destructor(
-            Profiler { channel: sender },
-            Box::new(Guard),
+            Profiler { channel: sender/*, bytes_channel: bsender*/ },
+            Box::new(Guard(state)),
         ))
     }
 
-    fn is_exited(&self) -> bool {
-        ProfilerState::get().is_exited()
-    }
-
+    #[inline]
     fn command(&self, cmd: Command) {
-        if !self.is_exited() {
-            self.channel.send(cmd).unwrap();
-        }
+        let _ = self.channel.send(cmd);
     }
 }
 
 impl Tracer for Profiler {
     fn enabled(&self) -> bool {
-        !self.is_exited()
+        true
     }
 
     fn span_create(&self, id: &Id, new: bool, parent: Option<Id>, span: &Attributes) {
@@ -130,26 +126,17 @@ impl Tracer for Profiler {
                 id: id.into_u64(),
             });
         }
-        let mut visitor = Visitor::new();
-        span.record(&mut visitor);
-        let (message, value_set) = visitor.into_inner();
         self.command(Command::SpanInit {
             span: id.into_u64(),
-            value_set,
-            message,
             parent: parent.map(|v| v.into_u64()),
         });
+        let mut visitor = ChannelVisitor::new(&self.channel, id.into_u64());
+        span.record(&mut visitor);
     }
 
     fn span_values(&self, id: &Id, values: &Record) {
-        let mut visitor = Visitor::new();
+        let mut visitor = ChannelVisitor::new(&self.channel, id.into_u64());
         values.record(&mut visitor);
-        let (message, value_set) = visitor.into_inner();
-        self.command(Command::SpanValues {
-            span: id.into_u64(),
-            message,
-            value_set,
-        });
     }
 
     fn span_follows_from(&self, id: &Id, follows: &Id) {
@@ -160,16 +147,17 @@ impl Tracer for Profiler {
     }
 
     fn event(&self, parent: Option<Id>, time: DateTime<Utc>, event: &Event) {
-        let mut visitor = Visitor::new();
+        let (target, module) = extract_target_module(event.metadata());
+        let mut msg = LogMsg::new(target, tracing_level_to_log(event.metadata().level()));
+        use std::fmt::Write;
+        let _ = write!(msg, "{}: ", module.unwrap_or("main"));
+        let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());
         event.record(&mut visitor);
-        let (message, value_set) = visitor.into_inner();
-        self.command(Command::Event(crate::profiler::thread::Event::Borrowed {
-            metadata: event.metadata(),
-            span: parent.map(|v| v.into_u64()),
-            message,
-            value_set,
-            time: time.timestamp(),
-        }));
+        self.command(Command::Event {
+            id: parent.map(|v| (v.into_u64() >> 32) as u32).unwrap_or(0),
+            message: msg,
+            timestamp: time.timestamp()
+        });
     }
 
     fn span_enter(&self, id: &Id) {
@@ -179,10 +167,7 @@ impl Tracer for Profiler {
     fn span_exit(&self, id: &Id, duration: Duration) {
         self.command(Command::SpanExit {
             span: id.into_u64(),
-            duration: NetDuration {
-                seconds: duration.as_secs() as u32,
-                nano_seconds: duration.subsec_nanos(),
-            },
+            duration,
         });
     }
 

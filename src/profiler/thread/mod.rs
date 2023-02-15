@@ -28,9 +28,9 @@
 
 mod core;
 mod util;
-mod command;
+pub mod command;
 mod state;
 
-pub use self::core::Thread;
-pub use command::*;
+pub use self::core::run;
+pub use command::{Command, FixedBufValue};
 pub use util::FixedBufStr;

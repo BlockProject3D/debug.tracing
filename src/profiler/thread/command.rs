@@ -91,3 +91,59 @@ pub enum Command {
 
     Terminate,
 }
+
+#[derive(Debug)]
+pub enum Control {
+    Project {
+        app_name: FixedBufStr<63>,
+        name: FixedBufStr<63>,
+        version: FixedBufStr<63>,
+    },
+
+    Terminate
+}
+
+#[derive(Debug)]
+pub enum SpanControl {
+    Alloc {
+        metadata: Meta
+    },
+
+    Init {
+        parent: Option<u64> //None must mean that span is at root
+    },
+
+    Follows {
+        follows: u64
+    },
+
+    Exit {
+        duration: Duration,
+    },
+
+    Free
+}
+
+#[derive(Debug)]
+pub enum SpanData {
+    Value {
+        key: &'static str,
+        value: FixedBufValue
+    },
+
+    Message {
+        message: FixedBufStr<63>
+    }
+}
+
+#[derive(Debug)]
+pub struct Span<T> {
+    pub id: u64,
+    pub ty: T
+}
+
+pub struct Event {
+    pub id: u32,
+    pub timestamp: i64,
+    pub message: LogMsg
+}

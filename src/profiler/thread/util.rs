@@ -32,8 +32,8 @@ use std::mem::MaybeUninit;
 
 #[derive(Clone, Debug)]
 pub struct FixedBufStr<const N: usize> {
-    buffer: [MaybeUninit<u8>; N],
-    len: usize
+    len: u8,
+    buffer: [MaybeUninit<u8>; N]
 }
 
 impl<const N: usize> FixedBufStr<N> {
@@ -46,7 +46,7 @@ impl<const N: usize> FixedBufStr<N> {
 
     pub fn str(&self) -> &str {
         unsafe {
-            std::str::from_utf8_unchecked(std::mem::transmute(&self.buffer[..self.len]))
+            std::str::from_utf8_unchecked(std::mem::transmute(&self.buffer[..self.len as _]))
         }
     }
 
@@ -56,7 +56,7 @@ impl<const N: usize> FixedBufStr<N> {
         unsafe {
             std::ptr::copy_nonoverlapping(value.as_ptr(), std::mem::transmute(buffer.buffer.as_mut_ptr()), len);
         }
-        buffer.len = len;
+        buffer.len = len as _;
         buffer
     }
 
@@ -73,7 +73,7 @@ impl<const N: usize> Write for FixedBufStr<N> {
         unsafe {
             std::ptr::copy_nonoverlapping(value.as_ptr(), std::mem::transmute(self.buffer.as_mut_ptr()), len);
         }
-        self.len = len;
+        self.len = len as _;
         Ok(())
     }
 }

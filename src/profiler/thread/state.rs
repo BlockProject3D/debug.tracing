@@ -26,9 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fs::File;
-use std::io::{BufWriter, Cursor, Write};
+use std::io::{Cursor, Write};
 use std::time::Duration;
+use tokio::fs::File;
+use tokio::io::{AsyncWriteExt, BufWriter};
 use crate::profiler::thread::command::FixedBufValue;
 use crate::profiler::thread::util::FixedBufStr;
 
@@ -83,12 +84,18 @@ impl SpanInstance {
         }
     }
 
-    pub fn write<T: Write>(&self, mut file: T) {
+    pub async fn write<T: Unpin + AsyncWriteExt>(&self, mut file: T) {
         let row_start = &self.csv_row.get_ref()[..self.csv_row.position() as _];
         let row_end = &self.variables.get_ref()[..self.variables.position() as _];
-        let _ = file.write(row_start);
-        let _ = file.write(row_end);
-        let _ = file.write(b"\n");
+        let _ = file.write(row_start).await;
+        let _ = file.write(row_end).await;
+        let _ = file.write(b"\n").await;
+    }
+
+    pub fn reset(&mut self) {
+        self.csv_row.set_position(0);
+        self.variables.set_position(0);
+        self.message_written = false;
     }
 
     pub fn finish(&mut self, duration: &Duration, name: &str) {
@@ -110,7 +117,7 @@ impl SpanInstance {
         };
     }
 
-    pub fn append_message(&mut self, message: &FixedBufStr<255>) {
+    pub fn append_message(&mut self, message: &FixedBufStr<63>) {
         let _ = write!(self.csv_row, "\"{}\"", message.str());
         self.message_written = true;
     }

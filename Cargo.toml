@@ -27,7 +27,7 @@ unbounded-udp = "1.0.0"
 bp3d-fs = "1.1.0"
 bp3d-env = "1.0.2"
 byteorder = "1.4.3"
-tokio = { version = "1.25.0", features = ["net", "fs", "sync", "rt"] }
+tokio = { version = "1.25.0", features = ["net", "fs", "sync", "rt", "io-util", "macros"] }
 
 [target.'cfg(all(not(any(target_vendor = "apple", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")), any(target_arch = "x86", target_arch = "x86_64")))'.dependencies]
 raw-cpuid = "10.6.0"

@@ -27,11 +27,24 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::io::{Cursor, Write};
+use std::num::{NonZeroU32, NonZeroU64};
 use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use crate::profiler::thread::command::FixedBufValue;
 use crate::profiler::thread::util::FixedBufStr;
+use crate::util::SpanId;
+
+pub struct SpanInstanceArray(Vec<SpanInstance>);
+
+impl SpanInstanceArray {
+    pub fn get_mut(&mut self, instance: u32) -> &mut SpanInstance {
+        while instance as usize > self.0.len() {
+            //self.0.push(SpanInstance::new());
+        }
+        &mut self.0[instance as usize]
+    }
+}
 
 pub struct SpanData {
     pub run_count: u32,
@@ -40,7 +53,7 @@ pub struct SpanData {
     pub min_time: Duration,
     pub max_time: Duration,
     pub total_time: Duration,
-    pub parent: Option<u32>,
+    pub parent: Option<NonZeroU32>,
     pub name: &'static str,
     pub runs_file: Option<BufWriter<File>>
 }
@@ -72,7 +85,7 @@ impl SpanData {
 pub struct SpanInstance {
     message_written: bool,
     pub csv_row: Cursor<[u8; 1024]>,
-    variables: Cursor<[u8; 1024]>
+    variables: Cursor<[u8; 1024]>,
 }
 
 impl SpanInstance {

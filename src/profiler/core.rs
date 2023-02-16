@@ -43,7 +43,7 @@ use bp3d_fs::dirs::App;
 use bp3d_logger::LogMsg;
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{Event, Level};
-use crate::util::{extract_target_module, tracing_level_to_log};
+use crate::util::{extract_target_module, SpanId, tracing_level_to_log};
 use crate::visitor::FastVisitor;
 
 struct Guard(ProfilerState);
@@ -114,8 +114,8 @@ impl Profiler {
     }
 
     #[inline]
-    fn span_command(&self, id: &Id, ty: command::SpanControl) {
-        let _ = self.channels.span_control.blocking_send(command::Span { id: id.into_u64(), ty });
+    fn span_command(&self, id: &SpanId, ty: command::SpanControl) {
+        let _ = self.channels.span_control.blocking_send(command::Span { id: *id, ty });
     }
 }
 
@@ -124,31 +124,31 @@ impl Tracer for Profiler {
         true
     }
 
-    fn span_create(&self, id: &Id, new: bool, parent: Option<Id>, span: &Attributes) {
+    fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, span: &Attributes) {
         if new {
             self.span_command(id, command::SpanControl::Alloc {
                 metadata: span.metadata()
             });
         }
         self.span_command(id, command::SpanControl::Init {
-            parent: parent.map(|v| v.into_u64())
+            parent
         });
-        let mut visitor = ChannelVisitor::new(&self.channels.span_data, id.into_u64());
+        let mut visitor = ChannelVisitor::new(&self.channels.span_control, *id);
         span.record(&mut visitor);
     }
 
-    fn span_values(&self, id: &Id, values: &Record) {
-        let mut visitor = ChannelVisitor::new(&self.channels.span_data, id.into_u64());
+    fn span_values(&self, id: &SpanId, values: &Record) {
+        let mut visitor = ChannelVisitor::new(&self.channels.span_control, *id);
         values.record(&mut visitor);
     }
 
-    fn span_follows_from(&self, id: &Id, follows: &Id) {
+    fn span_follows_from(&self, id: &SpanId, follows: &SpanId) {
         self.span_command(id, command::SpanControl::Follows {
-            follows: follows.into_u64()
+            follows: *follows
         });
     }
 
-    fn event(&self, parent: Option<Id>, time: DateTime<Utc>, event: &Event) {
+    fn event(&self, parent: Option<SpanId>, time: DateTime<Utc>, event: &Event) {
         let (target, module) = extract_target_module(event.metadata());
         let mut msg = LogMsg::new(target, tracing_level_to_log(event.metadata().level()));
         use std::fmt::Write;
@@ -156,22 +156,22 @@ impl Tracer for Profiler {
         let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());
         event.record(&mut visitor);
         let _ = self.channels.event.blocking_send(command::Event {
-            id: parent.map(|v| (v.into_u64() >> 32) as u32).unwrap_or(0),
+            id: parent.map(|v| v.get_id()),
             message: msg,
             timestamp: time.timestamp()
         });
     }
 
-    fn span_enter(&self, _: &Id) {
+    fn span_enter(&self, _: &SpanId) {
     }
 
-    fn span_exit(&self, id: &Id, duration: Duration) {
+    fn span_exit(&self, id: &SpanId, duration: Duration) {
         self.span_command(id, command::SpanControl::Exit {
             duration
         });
     }
 
-    fn span_destroy(&self, id: &Id) {
+    fn span_destroy(&self, id: &SpanId) {
         self.span_command(id, command::SpanControl::Free);
     }
 

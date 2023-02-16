@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::core::{Tracer, TracingSystem};
-use crate::util::{extract_target_module, tracing_level_to_log};
+use crate::util::{extract_target_module, SpanId, tracing_level_to_log};
 use crate::visitor::{FastVisitor, SpanVisitor};
 use bp3d_logger::{Colors, LogMsg};
 use chrono::{DateTime, Local, Utc};
@@ -35,13 +35,13 @@ use dashmap::DashMap;
 use std::borrow::Cow;
 use std::fmt::Write;
 use std::time::Duration;
-use tracing_core::span::{Attributes, Id, Record};
+use tracing_core::span::{Attributes, Record};
 use tracing_core::{Event, Level};
 
 pub struct Logger {
     disabled: bool,
     level: Level,
-    spans: DashMap<Id, SpanVisitor>,
+    spans: DashMap<SpanId, SpanVisitor>,
 }
 
 impl Logger {
@@ -96,25 +96,25 @@ impl Tracer for Logger {
         !self.disabled
     }
 
-    fn span_create(&self, id: &Id, _: bool, _: Option<Id>, attrs: &Attributes) {
+    fn span_create(&self, id: &SpanId, _: bool, _: Option<SpanId>, attrs: &Attributes) {
         if let Some(mut data) = self.spans.get_mut(id) {
             data.reset();
             attrs.record(&mut *data);
         } else {
             let mut data = SpanVisitor::new(attrs.metadata());
             attrs.record(&mut data);
-            self.spans.insert(id.clone(), data);
+            self.spans.insert(*id, data);
         }
     }
 
-    fn span_values(&self, id: &Id, values: &Record) {
+    fn span_values(&self, id: &SpanId, values: &Record) {
         let mut span_values = self.spans.get_mut(id).unwrap();
         values.record(&mut *span_values);
     }
 
-    fn span_follows_from(&self, _: &Id, _: &Id) {}
+    fn span_follows_from(&self, _: &SpanId, _: &SpanId) {}
 
-    fn event(&self, _: Option<Id>, time: DateTime<Utc>, event: &Event) {
+    fn event(&self, _: Option<SpanId>, time: DateTime<Utc>, event: &Event) {
         let (target, module) = extract_target_module(event.metadata());
         let time = DateTime::<Local>::from(time);
         let formatted = time.format("%a %b %d %Y %I:%M:%S %P");
@@ -125,16 +125,16 @@ impl Tracer for Logger {
         bp3d_logger::raw_log(&msg);
     }
 
-    fn span_enter(&self, _: &Id) {}
+    fn span_enter(&self, _: &SpanId) {}
 
-    fn span_exit(&self, id: &Id, duration: Duration) {
+    fn span_exit(&self, id: &SpanId, duration: Duration) {
         let mut data = self.spans.get_mut(id).unwrap();
         let msg = data.msg_mut();
         let _ = write!(msg, ": span finished in {:.2}s", duration.as_secs_f64());
         bp3d_logger::raw_log(&msg);
     }
 
-    fn span_destroy(&self, _: &Id) {
+    fn span_destroy(&self, _: &SpanId) {
         //self.spans.remove(&id);
     }
 

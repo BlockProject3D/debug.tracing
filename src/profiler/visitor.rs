@@ -32,14 +32,15 @@ use tokio::sync::mpsc;
 use tracing_core::field::Visit;
 use tracing_core::Field;
 use crate::profiler::thread::{Command, FixedBufStr, FixedBufValue, command};
+use crate::util::SpanId;
 
 pub struct ChannelVisitor<'a> {
-    sender: &'a mpsc::Sender<command::Span<command::SpanData>>,
-    span: u64
+    sender: &'a mpsc::Sender<command::Span<command::SpanControl>>,
+    span: SpanId
 }
 
 impl<'a> ChannelVisitor<'a> {
-    pub fn new(sender: &'a mpsc::Sender<command::Span<command::SpanData>>, span: u64) -> Self {
+    pub fn new(sender: &'a mpsc::Sender<command::Span<command::SpanControl>>, span: SpanId) -> Self {
         Self {
             sender,
             span
@@ -47,10 +48,11 @@ impl<'a> ChannelVisitor<'a> {
     }
 
     #[inline]
-    fn value(&self, key: &'static str, value: FixedBufValue) {
-        let _ = self.sender.send(command::Span {
+    fn value(&self, key: &'static str, value: FixedBufValue)
+    {
+        let _ = self.sender.blocking_send(command::Span {
             id: self.span,
-            ty: command::SpanData::Value {
+            ty: command::SpanControl::Value {
                 key,
                 value
             }
@@ -77,9 +79,9 @@ impl<'a> Visit for ChannelVisitor<'a> {
 
     fn record_str(&mut self, field: &Field, value: &str) {
         if field.name() == "message" {
-            let _ = self.sender.send(command::Span {
+            let _ = self.sender.blocking_send(command::Span {
                 id: self.span,
-                ty: command::SpanData::Message {
+                ty: command::SpanControl::Message {
                     message: FixedBufStr::from_str(value)
                 }
             });
@@ -90,9 +92,9 @@ impl<'a> Visit for ChannelVisitor<'a> {
 
     fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
         if field.name() == "message" {
-            let _ = self.sender.send(command::Span {
+            let _ = self.sender.blocking_send(command::Span {
                 id: self.span,
-                ty: command::SpanData::Message {
+                ty: command::SpanControl::Message {
                     message: FixedBufStr::from_debug(value)
                 }
             });

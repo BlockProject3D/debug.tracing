@@ -26,10 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::num::{NonZeroU32, NonZeroU64};
 use std::time::Duration;
 use bp3d_logger::LogMsg;
 use crate::profiler::thread::util::FixedBufStr;
-use crate::util::Meta;
+use crate::util::{Meta, SpanId};
 
 #[derive(Clone, Debug)]
 pub enum FixedBufValue {
@@ -49,45 +50,45 @@ pub enum Command {
     },
 
     SpanAlloc {
-        id: u64,
+        id: SpanId,
         metadata: Meta,
     },
 
     SpanInit {
-        span: u64,
-        parent: Option<u64>, //None must mean that span is at root
+        span: SpanId,
+        parent: Option<SpanId>, //None must mean that span is at root
     },
 
     SpanFollows {
-        span: u64,
-        follows: u64,
+        span: SpanId,
+        follows: SpanId,
     },
 
     SpanValue {
-        span: u64,
+        span: SpanId,
         key: &'static str,
         value: FixedBufValue
     },
 
     SpanMessage {
-        span: u64,
+        span: SpanId,
         message: FixedBufStr<255>
     },
 
     Event {
-        id: u32,
+        id: NonZeroU32,
         timestamp: i64,
         message: LogMsg
     },
 
-    SpanEnter(u64),
+    SpanEnter(SpanId),
 
     SpanExit {
-        span: u64,
+        span: SpanId,
         duration: Duration,
     },
 
-    SpanFree(u64),
+    SpanFree(SpanId),
 
     Terminate,
 }
@@ -109,12 +110,21 @@ pub enum SpanControl {
         metadata: Meta
     },
 
+    Value {
+        key: &'static str,
+        value: FixedBufValue
+    },
+
+    Message {
+        message: FixedBufStr<63>
+    },
+
     Init {
-        parent: Option<u64> //None must mean that span is at root
+        parent: Option<SpanId> //None must mean that span is at root
     },
 
     Follows {
-        follows: u64
+        follows: SpanId
     },
 
     Exit {
@@ -138,12 +148,12 @@ pub enum SpanData {
 
 #[derive(Debug)]
 pub struct Span<T> {
-    pub id: u64,
+    pub id: SpanId,
     pub ty: T
 }
 
 pub struct Event {
-    pub id: u32,
+    pub id: Option<NonZeroU32>,
     pub timestamp: i64,
     pub message: LogMsg
 }

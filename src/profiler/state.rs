@@ -42,7 +42,7 @@ static LOG_CHANNEL: OnceCell<mpsc::Sender<command::Event>> = OnceCell::new();
 pub fn send_message(message: LogMsg) {
     if let Some(val) = LOG_CHANNEL.get() {
         let _ = val.send(command::Event {
-            id: 0,
+            id: None,
             message,
             timestamp: Utc::now().timestamp()
         });
@@ -51,14 +51,14 @@ pub fn send_message(message: LogMsg) {
 
 pub struct ChannelsIn {
     pub span_control: mpsc::Sender<command::Span<command::SpanControl>>,
-    pub span_data: mpsc::Sender<command::Span<command::SpanData>>,
+    //pub span_data: mpsc::Sender<command::Span<command::SpanData>>,
     pub event: mpsc::Sender<command::Event>,
     pub control: mpsc::Sender<command::Control>,
 }
 
 pub struct ChannelsOut {
     pub span_control: mpsc::Receiver<command::Span<command::SpanControl>>,
-    pub span_data: mpsc::Receiver<command::Span<command::SpanData>>,
+    //pub span_data: mpsc::Receiver<command::Span<command::SpanData>>,
     pub event: mpsc::Receiver<command::Event>,
     pub control: mpsc::Receiver<command::Control>
 }
@@ -72,7 +72,7 @@ pub struct ProfilerState {
 impl ProfilerState {
     pub fn new<F: FnOnce(ChannelsOut) + Send + 'static>(thread_fn: F) -> (ProfilerState, ChannelsIn) {
         let (ch_span_control_in, ch_span_control_out) = mpsc::channel(BUF_SIZE);
-        let (ch_span_data_in, ch_span_data_out) = mpsc::channel(BUF_SIZE);
+        //let (ch_span_data_in, ch_span_data_out) = mpsc::channel(BUF_SIZE);
         let (ch_event_in, ch_event_out) = mpsc::channel(BUF_SIZE);
         let (ch_control_in, ch_control_out) = mpsc::channel(BUF_SIZE);
         LOG_CHANNEL.set(ch_event_in.clone()).expect("Cannot initialize profiler more than once!");
@@ -81,13 +81,13 @@ impl ProfilerState {
             send_ch: ch_control_in.clone(),
             thread: Mutex::new(Some(std::thread::spawn(|| thread_fn(ChannelsOut {
                 span_control: ch_span_control_out,
-                span_data: ch_span_data_out,
+                //span_data: ch_span_data_out,
                 event: ch_event_out,
                 control: ch_control_out
             })))),
         }, ChannelsIn {
             span_control: ch_span_control_in,
-            span_data: ch_span_data_in,
+            //span_data: ch_span_data_in,
             event: ch_event_in,
             control: ch_control_in
         })

@@ -26,11 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::util::{hash_static_ref, span_from_id_instance, span_to_id_instance, Meta};
+use crate::util::{hash_static_ref, Meta, SpanId};
 use chrono::{DateTime, Utc};
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -55,13 +56,13 @@ impl<T> TracingSystem<T> {
 
 pub trait Tracer {
     fn enabled(&self) -> bool;
-    fn span_create(&self, id: &Id, new: bool, parent: Option<Id>, span: &Attributes);
-    fn span_values(&self, id: &Id, values: &Record);
-    fn span_follows_from(&self, id: &Id, follows: &Id);
-    fn event(&self, parent: Option<Id>, time: DateTime<Utc>, event: &Event);
-    fn span_enter(&self, id: &Id);
-    fn span_exit(&self, id: &Id, duration: Duration);
-    fn span_destroy(&self, id: &Id);
+    fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, span: &Attributes);
+    fn span_values(&self, id: &SpanId, values: &Record);
+    fn span_follows_from(&self, id: &SpanId, follows: &SpanId);
+    fn event(&self, parent: Option<SpanId>, time: DateTime<Utc>, event: &Event);
+    fn span_enter(&self, id: &SpanId);
+    fn span_exit(&self, id: &SpanId, duration: Duration);
+    fn span_destroy(&self, id: &SpanId);
     fn max_level_hint(&self) -> Option<Level>;
 }
 
@@ -72,14 +73,14 @@ struct SpanData {
 }
 
 struct SpanHead {
-    span_id: u32,
+    span_id: NonZeroU32,
     next_instance_id: u32,
     instance_count: u32,
     freed_instances: VecDeque<u32>,
 }
 
 impl SpanHead {
-    pub fn new(span_id: u32) -> SpanHead {
+    pub fn new(span_id: NonZeroU32) -> SpanHead {
         SpanHead {
             span_id,
             next_instance_id: 0,
@@ -113,7 +114,7 @@ impl SpanHead {
 
 struct Inner {
     spans_by_meta: HashMap<usize, SpanHead>,
-    spans_by_id: HashMap<Id, SpanData>,
+    spans_by_id: HashMap<SpanId, SpanData>,
 }
 
 impl Inner {
@@ -126,11 +127,11 @@ impl Inner {
 }
 
 thread_local! {
-    static SPAN_STACK: RefCell<Vec<Id>> = RefCell::new(Vec::new());
+    static SPAN_STACK: RefCell<Vec<SpanId>> = RefCell::new(Vec::new());
 }
 
 #[inline]
-fn push_span(span: Id) {
+fn push_span(span: SpanId) {
     SPAN_STACK.with(|v| {
         let mut stack = v.borrow_mut();
         stack.push(span);
@@ -138,7 +139,7 @@ fn push_span(span: Id) {
 }
 
 #[inline]
-fn pop_span(span: &Id) {
+fn pop_span(span: &SpanId) {
     SPAN_STACK.with(|v| {
         let mut stack = v.borrow_mut();
         if let Some(id) = stack.iter().position(|v| v == span) {
@@ -148,7 +149,7 @@ fn pop_span(span: &Id) {
 }
 
 #[inline]
-fn current_span() -> Option<Id> {
+fn current_span() -> Option<SpanId> {
     SPAN_STACK.with(|v| {
         let stack = v.borrow();
         stack.last().cloned()
@@ -195,26 +196,28 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
             {
                 Some(v) => {
                     let instance = v.new_instance();
-                    (false, span_from_id_instance(v.span_id, instance))
+                    (false, SpanId::from((v.span_id, instance)))
                 } //Why the fuck doesn't Id implement Copy? It's a fucking u64 so it should be copy fucking hell!
                 None => {
                     //We're only ever fetch_add on the counter so no worries.
                     let span_id = self.counter.fetch_add(1, Ordering::Relaxed);
+                    //SAFETY: The counter is initialized at 1 so fetch_add cannot return 0.
+                    let span_id = unsafe { NonZeroU32::new_unchecked(span_id) };
                     let mut head = SpanHead::new(span_id);
                     let instance = head.new_instance();
                     lock.spans_by_meta
                         .insert(hash_static_ref(span.metadata().callsite().0), head);
-                    (true, span_from_id_instance(span_id, instance))
+                    (true, SpanId::from((span_id, instance)))
                 }
             }
         };
         let parent = if span.is_root() {
             None
         } else {
-            span.parent().cloned().or_else(current_span)
+            span.parent().map(SpanId::from).or_else(current_span)
         };
         lock.spans_by_id.insert(
-            span_id.clone(),
+            span_id,
             SpanData {
                 metadata: span.metadata(),
                 ref_count: 1,
@@ -222,15 +225,15 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
             },
         );
         self.derived.span_create(&span_id, new, parent, span);
-        span_id
+        span_id.into_id()
     }
 
     fn record(&self, span: &Id, values: &Record<'_>) {
-        self.derived.span_values(span, values);
+        self.derived.span_values(&span.into(), values);
     }
 
     fn record_follows_from(&self, span: &Id, follows: &Id) {
-        self.derived.span_follows_from(span, follows);
+        self.derived.span_follows_from(&span.into(), &follows.into());
     }
 
     fn event(&self, event: &Event<'_>) {
@@ -238,34 +241,37 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     }
 
     fn enter(&self, span: &Id) {
+        let span = span.into();
         let mut lock = self.inner.lock().unwrap();
-        if let Some(data) = lock.spans_by_id.get_mut(span) {
+        if let Some(data) = lock.spans_by_id.get_mut(&span) {
             data.last_time = Some(Instant::now());
-            push_span(span.clone());
-            self.derived.span_enter(span);
+            push_span(span);
+            self.derived.span_enter(&span);
         }
     }
 
     fn exit(&self, span: &Id) {
+        let span = span.into();
         let mut lock = self.inner.lock().unwrap();
-        if let Some(data) = lock.spans_by_id.get_mut(span) {
+        if let Some(data) = lock.spans_by_id.get_mut(&span) {
             let duration = data.last_time.map(|v| v.elapsed()).unwrap_or_default();
-            pop_span(span);
-            self.derived.span_exit(span, duration);
+            pop_span(&span);
+            self.derived.span_exit(&span, duration);
         }
     }
 
     fn clone_span(&self, id: &Id) -> Id {
         let mut lock = self.inner.lock().unwrap();
-        if let Some(mut data) = lock.spans_by_id.get_mut(id) {
+        if let Some(mut data) = lock.spans_by_id.get_mut(&id.into()) {
             data.ref_count += 1;
         }
         id.clone()
     }
 
     fn try_close(&self, id: Id) -> bool {
+        let span = id.into();
         let mut lock = self.inner.lock().unwrap();
-        if let Some(data) = lock.spans_by_id.get_mut(&id) {
+        if let Some(data) = lock.spans_by_id.get_mut(&span) {
             data.ref_count -= 1;
             if data.ref_count == 0 {
                 {
@@ -274,11 +280,10 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
                         .spans_by_meta
                         .get_mut(&hash_static_ref(fuckrust))
                         .unwrap();
-                    let (_, instance) = span_to_id_instance(&id);
-                    head.free_instance(instance);
+                    head.free_instance(span.get_instance());
                 }
-                lock.spans_by_id.remove(&id);
-                self.derived.span_destroy(&id);
+                lock.spans_by_id.remove(&span);
+                self.derived.span_destroy(&span);
                 return true;
             }
         }
@@ -290,7 +295,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
             None => Current::none(),
             Some(v) => {
                 let lock = self.inner.lock().unwrap();
-                Current::new(v.clone(), lock.spans_by_id.get(&v).unwrap().metadata)
+                Current::new(v.into_id(), lock.spans_by_id.get(&v).unwrap().metadata)
             }
         }
     }

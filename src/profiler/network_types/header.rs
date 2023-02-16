@@ -142,7 +142,7 @@ impl MsgHeader for SpanAlloc {
 #[derive(Serialize)]
 pub struct SpanParent {
     pub id: u32,
-    pub parent: Option<u32>
+    pub parent_node: u32 //0 = No parent
 }
 
 impl MsgHeader for SpanParent {

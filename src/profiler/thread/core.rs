@@ -30,10 +30,11 @@ use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use std::collections::HashMap;
 use crate::profiler::cpu_info::read_cpu_info;
-use crate::util::span_to_id_instance;
+use crate::util::{span_to_id_instance, SpanId};
 use crossbeam_channel::Receiver;
 use std::io::{Error, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddrV4};
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::time::Duration;
 use serde::Serialize;
@@ -98,8 +99,8 @@ impl Net {
 
 struct Thread {
     channels: ChannelsOut,
-    span_data: HashMap<u32, SpanData>,
-    span_instances: HashMap<u64, SpanInstance>,
+    span_data: HashMap<NonZeroU32, SpanData>,
+    span_instances: HashMap<SpanId, SpanInstance>,
     net: Net,
     logs: Option<PathBuf>
 }
@@ -115,7 +116,7 @@ impl Thread {
         }
     }
 
-    async fn create_runs_file(&self, id: u32) -> Option<BufWriter<File>> {
+    async fn create_runs_file(&self, id: NonZeroU32) -> Option<BufWriter<File>> {
         let filename = format!("{}.csv", id);
         File::create(self.logs.as_ref()?.join(filename)).await.ok().map(BufWriter::new)
     }
@@ -137,12 +138,22 @@ impl Thread {
 
     async fn handle_span_control(&mut self, span: command::Span<command::SpanControl>) {
         match span.ty {
+            command::SpanControl::Value { key, value } => {
+                if let Some(instance) = self.span_instances.get_mut(&span.id) {
+                    instance.append_value(key, &value)
+                }
+            },
+            command::SpanControl::Message { message } => {
+                if let Some(instance) = self.span_instances.get_mut(&span.id) {
+                    instance.append_message(&message)
+                }
+            },
             command::SpanControl::Alloc { metadata } => {
-                let (id, _) = span_to_id_instance(&Id::from_u64(span.id));
+                let id = span.id.get_id();
                 self.span_data.insert(id, SpanData::new(metadata.name(), self.create_runs_file(id).await));
                 let mut payload = self.net.get_payload();
                 let head = nt::header::SpanAlloc {
-                    id,
+                    id: id.get(),
                     metadata: nt::header::Metadata {
                         level: nt::header::Level::from_tracing(*metadata.level()),
                         file: metadata.file().map(|v| payload.write_object(v).unwrap()),
@@ -155,32 +166,32 @@ impl Thread {
                 self.net.network_write(head).await;
             },
             command::SpanControl::Init { parent } => {
-                let (id, instance_id) = span_to_id_instance(&Id::from_u64(span.id));
-                let parent = parent.map(|v| v as _);
+                let id = span.id.get_id();
+                let parent_node = parent.map(|v| v.get_id());
                 if let Some(data) = self.span_data.get_mut(&id) {
-                    if data.parent != parent {
+                    if data.parent != parent_node {
                         self.net.network_write(nt::header::SpanParent {
-                            id,
-                            parent
+                            id: id.get(),
+                            parent_node: parent_node.map(|v| v.get()).unwrap_or(0)
                         }).await;
-                        data.parent = parent;
+                        data.parent = parent_node;
                     }
                     data.instance_count += 1;
                     let instance = self.span_instances.entry(span.id).or_insert_with(SpanInstance::new);
-                    let _ = write!(instance.csv_row, "{},", instance_id);
+                    let _ = write!(instance.csv_row, "{},", parent.map(|v| v.into_u64()).unwrap_or(0));
                 }
             },
             command::SpanControl::Follows { follows } => {
-                let (id, _) = span_to_id_instance(&Id::from_u64(span.id));
-                let (follows, _) = span_to_id_instance(&Id::from_u64(follows));
+                let id = span.id.get_id();
+                let follows = follows.get_id();
                 let head = nt::header::SpanFollows {
-                    id,
-                    follows
+                    id: id.get(),
+                    follows: follows.get()
                 };
                 self.net.network_write(head).await;
             },
             command::SpanControl::Exit { duration } => {
-                let (id, _) = span_to_id_instance(&Id::from_u64(span.id));
+                let id = span.id.get_id();
                 if let Some(data) = self.span_data.get_mut(&id) {
                     data.run_count += 1;
                     //Avoid overflow.
@@ -209,7 +220,7 @@ impl Thread {
                 }
             },
             command::SpanControl::Free => {
-                let (id, _) = span_to_id_instance(&Id::from_u64(span.id));
+                let id = span.id.get_id();
                 if let Some(data) = self.span_data.get_mut(&id) {
                     data.instance_count -= 1;
                 }
@@ -220,7 +231,7 @@ impl Thread {
     async fn handle_event(&mut self, event: command::Event) {
         let mut payload = self.net.get_payload();
         let head = nt::header::SpanEvent {
-            id: event.id,
+            id: event.id.map(|v| v.get()).unwrap_or(0),
             message: payload.write_object(event.message.msg()).unwrap(),
             target: payload.write_object(event.message.target()).unwrap(),
             level: nt::header::Level::from_log(event.message.level()),
@@ -270,7 +281,7 @@ impl Thread {
         loop {
             tokio::select! {
                 cmd = self.channels.span_control.recv() => if let Some(cmd) = cmd { self.handle_span_control(cmd).await },
-                cmd = self.channels.span_data.recv() => if let Some(cmd) = cmd { self.handle_span_data(cmd).await },
+                //cmd = self.channels.span_data.recv() => if let Some(cmd) = cmd { self.handle_span_data(cmd).await },
                 cmd = self.channels.event.recv() => if let Some(cmd) = cmd { self.handle_event(cmd).await },
                 cmd = self.channels.control.recv() => if let Some(cmd) = cmd {
                     if !self.handle_control(cmd).await {

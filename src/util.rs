@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::num::{NonZeroU32, NonZeroU64};
 use tracing_core::span::Id;
 use tracing_core::{Level, Metadata};
 
@@ -63,4 +64,51 @@ pub fn span_from_id_instance(span_id: u32, instance: u32) -> Id {
 pub fn span_to_id_instance(span: &Id) -> (u32, u32) {
     let combined = span.into_u64();
     ((combined >> 32) as u32, combined as u32)
+}
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub struct SpanId(NonZeroU64);
+
+impl From<&Id> for SpanId {
+    fn from(value: &Id) -> Self {
+        SpanId(value.into_non_zero_u64())
+    }
+}
+
+impl From<Id> for SpanId {
+    fn from(value: Id) -> Self {
+        SpanId(value.into_non_zero_u64())
+    }
+}
+
+impl From<(NonZeroU32, u32)> for SpanId {
+    fn from((id, instance): (NonZeroU32, u32)) -> Self {
+        let val = (id.get() as u64) << 32 | instance as u64;
+        //SAFETY: id cannot be 0 so by definition the combination is never 0.
+        unsafe { SpanId(NonZeroU64::new_unchecked(val)) }
+    }
+}
+
+impl SpanId {
+    pub fn into_id(self) -> Id {
+        Id::from_non_zero_u64(self.0)
+    }
+
+    pub fn into_u64(self) -> u64 {
+        self.0.get()
+    }
+
+    pub fn get_id_instance(&self) -> (NonZeroU32, u32) {
+        //SAFETY: id cannot be 0 so by definition the combination is never 0.
+        (unsafe { NonZeroU32::new_unchecked((self.0.get() >> 32) as u32) }, self.0.get() as u32)
+    }
+
+    pub fn get_id(&self) -> NonZeroU32 {
+        //SAFETY: id cannot be 0 so by definition the combination is never 0.
+        unsafe { NonZeroU32::new_unchecked((self.0.get() >> 32) as u32) }
+    }
+
+    pub fn get_instance(&self) -> u32 {
+        self.0.get() as u32
+    }
 }

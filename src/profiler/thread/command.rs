@@ -110,7 +110,7 @@ pub enum SpanControl {
         metadata: Meta
     },
 
-    Value {
+    /*Value {
         key: &'static str,
         value: FixedBufValue
     },
@@ -121,17 +121,21 @@ pub enum SpanControl {
 
     Init {
         parent: Option<SpanId> //None must mean that span is at root
+    },*/
+
+    UpdateParent {
+        parent: Option<NonZeroU32> //None must mean that span is at root
     },
 
     Follows {
         follows: SpanId
     },
 
-    Exit {
+    /*Exit {
         duration: Duration,
-    },
+    },*/
 
-    Free
+    //Free
 }
 
 #[derive(Debug)]

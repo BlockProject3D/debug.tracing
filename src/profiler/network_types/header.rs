@@ -58,7 +58,7 @@ pub struct Duration {
     pub nano_seconds: u32
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Copy, Clone, Debug)]
 #[repr(u8)]
 pub enum Level {
     Trace = 0,
@@ -166,7 +166,7 @@ pub struct SpanEvent {
     pub id: u32,
     pub timestamp: i64,
     pub level: Level,
-    pub target: Vchar,
+    //pub target: Vchar,
     pub message: Vchar
 }
 

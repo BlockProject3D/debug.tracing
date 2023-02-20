@@ -26,15 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::fmt::Write;
 use std::fmt::Debug;
+use std::num::NonZeroU32;
 use crossbeam_channel::Sender;
 use tokio::sync::mpsc;
 use tracing_core::field::Visit;
 use tracing_core::Field;
+use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::thread::{Command, FixedBufStr, FixedBufValue, command};
 use crate::util::SpanId;
 
-pub struct ChannelVisitor<'a> {
+/*pub struct ChannelVisitor<'a> {
     sender: &'a mpsc::Sender<command::Span<command::SpanControl>>,
     span: SpanId
 }
@@ -100,6 +103,114 @@ impl<'a> Visit for ChannelVisitor<'a> {
             });
         } else {
             self.value(field.name(), FixedBufValue::String(FixedBufStr::from_debug(value)));
+        }
+    }
+}*/
+
+pub struct SpanVisitor {
+    msg: SpanLog,
+    parent: Option<NonZeroU32>
+}
+
+impl SpanVisitor {
+    pub fn new(id: NonZeroU32, parent: Option<NonZeroU32>) -> SpanVisitor {
+        SpanVisitor {
+            msg: SpanLog::new(id),
+            parent
+        }
+    }
+
+    pub fn reset(&mut self, parent: Option<NonZeroU32>) -> bool {
+        self.msg.clear();
+        if self.parent != parent {
+            self.parent = parent;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn msg_mut(&mut self) -> &mut SpanLog {
+        &mut self.msg
+    }
+}
+
+impl Visit for SpanVisitor {
+    fn record_f64(&mut self, field: &Field, value: f64) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_i64(&mut self, field: &Field, value: i64) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_u64(&mut self, field: &Field, value: u64) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_bool(&mut self, field: &Field, value: bool) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "message" {
+            let _ = write!(self.msg, "\"{}\"", value);
+        } else {
+            let _ = write!(self.msg, ",\"{}\"=\"{}\"", field.name(), value);
+        }
+    }
+
+    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+        if field.name() == "message" {
+            let _ = write!(self.msg, "\"{:?}\"", value);
+        } else {
+            let _ = write!(self.msg, ",\"{}\"=\"{:?}\"", field.name(), value);
+        }
+    }
+}
+
+pub struct EventVisitor<'a> {
+    msg: &'a mut EventLog,
+}
+
+impl<'a> EventVisitor<'a> {
+    pub fn new(msg: &'a mut EventLog) -> EventVisitor {
+        EventVisitor {
+            msg,
+        }
+    }
+}
+
+impl<'a> Visit for EventVisitor<'a> {
+    fn record_f64(&mut self, field: &Field, value: f64) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_i64(&mut self, field: &Field, value: i64) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_u64(&mut self, field: &Field, value: u64) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_bool(&mut self, field: &Field, value: bool) {
+        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+    }
+
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "message" {
+            let _ = write!(self.msg, "\"{}\"", value);
+        } else {
+            let _ = write!(self.msg, ",\"{}\"=\"{}\"", field.name(), value);
+        }
+    }
+
+    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+        if field.name() == "message" {
+            let _ = write!(self.msg, "\"{:?}\"", value);
+        } else {
+            let _ = write!(self.msg, ",\"{}\"=\"{:?}\"", field.name(), value);
         }
     }
 }

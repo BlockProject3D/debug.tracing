@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,13 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::env::var;
 use tokio::sync::oneshot;
 use crate::core::{Tracer, TracingSystem};
 use crate::profiler::logpump::LOG_PUMP;
 use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
 use crate::profiler::state::{ChannelsIn, ProfilerState};
 use crate::profiler::thread::{Command, command, FixedBufStr, run};
-use crate::profiler::visitor::{ChannelVisitor};
+use crate::profiler::visitor::{/*ChannelVisitor, */EventVisitor, SpanVisitor};
 use crate::profiler::DEFAULT_PORT;
 use chrono::{DateTime, Utc};
 use crossbeam_channel::Sender;
@@ -41,10 +42,13 @@ use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::time::Duration;
 use bp3d_fs::dirs::App;
 use bp3d_logger::LogMsg;
+use dashmap::DashMap;
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{Event, Level};
+use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::util::{extract_target_module, SpanId, tracing_level_to_log};
 use crate::visitor::FastVisitor;
+use crate::profiler::network_types as nt;
 
 struct Guard(ProfilerState);
 
@@ -73,6 +77,7 @@ fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
 }
 
 pub struct Profiler {
+    spans: DashMap<SpanId, SpanVisitor>,
     channels: ChannelsIn
 }
 
@@ -108,7 +113,10 @@ impl Profiler {
         }).unwrap();
         log::set_max_level(log::LevelFilter::Trace);
         Ok(TracingSystem::with_destructor(
-            Profiler { channels },
+            Profiler {
+                spans: DashMap::new(),
+                channels
+            },
             Box::new(Guard(state)),
         ))
     }
@@ -124,22 +132,40 @@ impl Tracer for Profiler {
         true
     }
 
-    fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, span: &Attributes) {
+    fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, attrs: &Attributes) {
         if new {
             self.span_command(id, command::SpanControl::Alloc {
-                metadata: span.metadata()
+                metadata: attrs.metadata()
             });
         }
-        self.span_command(id, command::SpanControl::Init {
+        /*self.span_command(id, command::SpanControl::Init {
             parent
         });
         let mut visitor = ChannelVisitor::new(&self.channels.span_control, *id);
-        span.record(&mut visitor);
+        span.record(&mut visitor);*/
+        let parent = parent.map(|v| v.get_id());
+        if let Some(mut data) = self.spans.get_mut(id) {
+            if data.reset(parent) {
+                self.span_command(id, command::SpanControl::UpdateParent {
+                    parent
+                });
+            }
+            attrs.record(&mut *data);
+        } else {
+            let mut data = SpanVisitor::new(id.get_id(), parent);
+            attrs.record(&mut data);
+            self.spans.insert(*id, data);
+            self.span_command(id, command::SpanControl::UpdateParent {
+                parent
+            });
+        }
     }
 
     fn span_values(&self, id: &SpanId, values: &Record) {
-        let mut visitor = ChannelVisitor::new(&self.channels.span_control, *id);
-        values.record(&mut visitor);
+        let mut span_values = self.spans.get_mut(id).unwrap();
+        values.record(&mut *span_values);
+        /*let mut visitor = ChannelVisitor::new(&self.channels.span_control, *id);
+        values.record(&mut visitor);*/
     }
 
     fn span_follows_from(&self, id: &SpanId, follows: &SpanId) {
@@ -150,29 +176,38 @@ impl Tracer for Profiler {
 
     fn event(&self, parent: Option<SpanId>, time: DateTime<Utc>, event: &Event) {
         let (target, module) = extract_target_module(event.metadata());
-        let mut msg = LogMsg::new(target, tracing_level_to_log(event.metadata().level()));
+        let mut msg = EventLog::new(parent.map(|v| v.get_id()),
+                                    time.timestamp(),
+                                    nt::header::Level::from_tracing(*event.metadata().level()));
         use std::fmt::Write;
-        let _ = write!(msg, "{}: ", module.unwrap_or("main"));
-        let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());
+        let mut visitor = EventVisitor::new(&mut msg);
+        event.record(&mut visitor);
+        let _ = write!(msg, ",{},{}", module.unwrap_or("main"), target);
+        let _ = self.channels.event.blocking_send(msg);
+        /*let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());
         event.record(&mut visitor);
         let _ = self.channels.event.blocking_send(command::Event {
             id: parent.map(|v| v.get_id()),
             message: msg,
             timestamp: time.timestamp()
-        });
+        });*/
     }
 
     fn span_enter(&self, _: &SpanId) {
     }
 
     fn span_exit(&self, id: &SpanId, duration: Duration) {
-        self.span_command(id, command::SpanControl::Exit {
+        let mut span = self.spans.get_mut(id).unwrap();
+        let msg = span.msg_mut();
+        msg.set_duration(&duration);
+        let _ = self.channels.span.blocking_send(msg.clone());
+        /*self.span_command(id, command::SpanControl::Exit {
             duration
-        });
+        });*/
     }
 
     fn span_destroy(&self, id: &SpanId) {
-        self.span_command(id, command::SpanControl::Free);
+        //self.span_command(id, command::SpanControl::Free);
     }
 
     fn max_level_hint(&self) -> Option<Level> {

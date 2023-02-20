@@ -49,6 +49,7 @@ use crate::profiler::thread::command;
 use crate::profiler::thread::state::{SpanData, SpanInstance};
 use crate::profiler::thread::util::read_command_line;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
 
 const OVERFLOW_LIMIT: u32 = 1_000_000_000;
@@ -100,7 +101,7 @@ impl Net {
 struct Thread {
     channels: ChannelsOut,
     span_data: HashMap<NonZeroU32, SpanData>,
-    span_instances: HashMap<SpanId, SpanInstance>,
+    //span_instances: HashMap<SpanId, SpanInstance>,
     net: Net,
     logs: Option<PathBuf>
 }
@@ -110,7 +111,7 @@ impl Thread {
         Thread {
             channels,
             span_data: HashMap::new(),
-            span_instances: HashMap::new(),
+            //span_instances: HashMap::new(),
             net: Net::new(socket),
             logs
         }
@@ -121,8 +122,8 @@ impl Thread {
         File::create(self.logs.as_ref()?.join(filename)).await.ok().map(BufWriter::new)
     }
 
-    async fn handle_span_data(&mut self, span: command::Span<command::SpanData>) {
-        match span.ty {
+    async fn handle_span_data(&mut self, mut log: SpanLog/*, span: command::Span<command::SpanData>*/) {
+        /*match span.ty {
             command::SpanData::Value { key, value } => {
                 if let Some(instance) = self.span_instances.get_mut(&span.id) {
                     instance.append_value(key, &value)
@@ -133,12 +134,47 @@ impl Thread {
                     instance.append_message(&message)
                 }
             }
+        }*/
+        if let Some(data) = self.span_data.get_mut(&log.id()) {
+            let duration = log.get_duration();
+            data.run_count += 1;
+            //Avoid overflow.
+            if data.run_count > OVERFLOW_LIMIT {
+                data.total_time = Duration::ZERO;
+                data.run_count = 0;
+                data.has_overflowed = true;
+            }
+            if !data.has_overflowed { //Hard limit on the number of rows in the CSV to
+                // avoid disk overload.
+                /*if let Some(instance) = self.span_instances.get_mut(&span.id) {
+                    instance.finish(&duration, data.name);
+                    if let Some(file) = &mut data.runs_file {
+                        instance.write(file).await;
+                    }
+                    instance.reset();
+                }*/
+                if let Some(file) = &mut data.runs_file {
+                    use std::fmt::Write;
+                    let _ = write!(log, ",{},{},{}",
+                                   duration.as_secs(), duration.subsec_millis(),
+                                   duration.subsec_micros() - (duration.subsec_millis() * 1000));
+                    let _ = file.write_all(log.msg().as_bytes()).await;
+                    let _ = file.write_all("\n".as_bytes()).await;
+                }
+            }
+            if duration > data.max_time {
+                data.max_time = duration;
+            }
+            if duration < data.min_time {
+                data.min_time = duration;
+            }
+            data.total_time += duration;
         }
     }
 
     async fn handle_span_control(&mut self, span: command::Span<command::SpanControl>) {
         match span.ty {
-            command::SpanControl::Value { key, value } => {
+            /*command::SpanControl::Value { key, value } => {
                 if let Some(instance) = self.span_instances.get_mut(&span.id) {
                     instance.append_value(key, &value)
                 }
@@ -147,7 +183,7 @@ impl Thread {
                 if let Some(instance) = self.span_instances.get_mut(&span.id) {
                     instance.append_message(&message)
                 }
-            },
+            },*/
             command::SpanControl::Alloc { metadata } => {
                 let id = span.id.get_id();
                 self.span_data.insert(id, SpanData::new(metadata.name(), self.create_runs_file(id).await));
@@ -165,7 +201,13 @@ impl Thread {
                 };
                 self.net.network_write(head).await;
             },
-            command::SpanControl::Init { parent } => {
+            command::SpanControl::UpdateParent { parent } => {
+                self.net.network_write(nt::header::SpanParent {
+                    id: span.id.get_id().get(),
+                    parent_node: parent.map(|v| v.get()).unwrap_or(0)
+                }).await;
+            },
+            /*command::SpanControl::Init { parent } => {
                 let id = span.id.get_id();
                 let parent_node = parent.map(|v| v.get_id());
                 if let Some(data) = self.span_data.get_mut(&id) {
@@ -180,7 +222,7 @@ impl Thread {
                     let instance = self.span_instances.entry(span.id).or_insert_with(SpanInstance::new);
                     let _ = write!(instance.csv_row, "{},", parent.map(|v| v.into_u64()).unwrap_or(0));
                 }
-            },
+            },*/
             command::SpanControl::Follows { follows } => {
                 let id = span.id.get_id();
                 let follows = follows.get_id();
@@ -190,7 +232,7 @@ impl Thread {
                 };
                 self.net.network_write(head).await;
             },
-            command::SpanControl::Exit { duration } => {
+            /*command::SpanControl::Exit { duration } => {
                 let id = span.id.get_id();
                 if let Some(data) = self.span_data.get_mut(&id) {
                     data.run_count += 1;
@@ -218,24 +260,24 @@ impl Thread {
                     }
                     data.total_time += duration;
                 }
-            },
-            command::SpanControl::Free => {
+            },*/
+            /*command::SpanControl::Free => {
                 let id = span.id.get_id();
                 if let Some(data) = self.span_data.get_mut(&id) {
                     data.instance_count -= 1;
                 }
-            }
+            }*/
         }
     }
 
-    async fn handle_event(&mut self, event: command::Event) {
+    async fn handle_event(&mut self, event: EventLog) {
         let mut payload = self.net.get_payload();
         let head = nt::header::SpanEvent {
-            id: event.id.map(|v| v.get()).unwrap_or(0),
-            message: payload.write_object(event.message.msg()).unwrap(),
-            target: payload.write_object(event.message.target()).unwrap(),
-            level: nt::header::Level::from_log(event.message.level()),
-            timestamp: event.timestamp
+            id: event.id().map(|v| v.get()).unwrap_or(0),
+            message: payload.write_object(event.msg()).unwrap(),
+            //target: payload.write_object(event.target()).unwrap(),
+            level: event.level(),
+            timestamp: event.timestamp()
         };
         self.net.network_write(head).await;
     }
@@ -280,6 +322,7 @@ impl Thread {
     pub async fn run(&mut self) {
         loop {
             tokio::select! {
+                cmd = self.channels.span.recv() => if let Some(cmd) = cmd { self.handle_span_data(cmd).await },
                 cmd = self.channels.span_control.recv() => if let Some(cmd) = cmd { self.handle_span_control(cmd).await },
                 //cmd = self.channels.span_data.recv() => if let Some(cmd) = cmd { self.handle_span_data(cmd).await },
                 cmd = self.channels.event.recv() => if let Some(cmd) = cmd { self.handle_event(cmd).await },

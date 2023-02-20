@@ -34,32 +34,29 @@ use std::thread::JoinHandle;
 use bp3d_logger::LogMsg;
 use chrono::Utc;
 use once_cell::sync::OnceCell;
+use crate::profiler::log_msg::{EventLog, SpanLog};
 
 const BUF_SIZE: usize = 256; // The maximum count of log messages in the channel.
 
-static LOG_CHANNEL: OnceCell<mpsc::Sender<command::Event>> = OnceCell::new();
+static LOG_CHANNEL: OnceCell<mpsc::Sender<EventLog>> = OnceCell::new();
 
-pub fn send_message(message: LogMsg) {
+pub fn send_message(message: &EventLog) {
     if let Some(val) = LOG_CHANNEL.get() {
-        let _ = val.send(command::Event {
-            id: None,
-            message,
-            timestamp: Utc::now().timestamp()
-        });
+        let _ = val.blocking_send(message.clone());
     }
 }
 
 pub struct ChannelsIn {
+    pub span: mpsc::Sender<SpanLog>,
     pub span_control: mpsc::Sender<command::Span<command::SpanControl>>,
-    //pub span_data: mpsc::Sender<command::Span<command::SpanData>>,
-    pub event: mpsc::Sender<command::Event>,
+    pub event: mpsc::Sender<EventLog>,
     pub control: mpsc::Sender<command::Control>,
 }
 
 pub struct ChannelsOut {
+    pub span: mpsc::Receiver<SpanLog>,
     pub span_control: mpsc::Receiver<command::Span<command::SpanControl>>,
-    //pub span_data: mpsc::Receiver<command::Span<command::SpanData>>,
-    pub event: mpsc::Receiver<command::Event>,
+    pub event: mpsc::Receiver<EventLog>,
     pub control: mpsc::Receiver<command::Control>
 }
 
@@ -72,7 +69,7 @@ pub struct ProfilerState {
 impl ProfilerState {
     pub fn new<F: FnOnce(ChannelsOut) + Send + 'static>(thread_fn: F) -> (ProfilerState, ChannelsIn) {
         let (ch_span_control_in, ch_span_control_out) = mpsc::channel(BUF_SIZE);
-        //let (ch_span_data_in, ch_span_data_out) = mpsc::channel(BUF_SIZE);
+        let (ch_span_in, ch_span_out) = mpsc::channel(BUF_SIZE);
         let (ch_event_in, ch_event_out) = mpsc::channel(BUF_SIZE);
         let (ch_control_in, ch_control_out) = mpsc::channel(BUF_SIZE);
         LOG_CHANNEL.set(ch_event_in.clone()).expect("Cannot initialize profiler more than once!");
@@ -80,14 +77,14 @@ impl ProfilerState {
             exited: AtomicBool::new(false),
             send_ch: ch_control_in.clone(),
             thread: Mutex::new(Some(std::thread::spawn(|| thread_fn(ChannelsOut {
+                span: ch_span_out,
                 span_control: ch_span_control_out,
-                //span_data: ch_span_data_out,
                 event: ch_event_out,
                 control: ch_control_out
             })))),
         }, ChannelsIn {
+            span: ch_span_in,
             span_control: ch_span_control_in,
-            //span_data: ch_span_data_in,
             event: ch_event_in,
             control: ch_control_in
         })

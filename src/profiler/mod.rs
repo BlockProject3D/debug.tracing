@@ -33,6 +33,7 @@ mod network_types;
 mod state;
 mod thread;
 mod visitor;
+mod log_msg;
 
 pub const DEFAULT_PORT: u16 = 4026;
 

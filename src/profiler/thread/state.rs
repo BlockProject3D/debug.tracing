@@ -48,13 +48,13 @@ impl SpanInstanceArray {
 
 pub struct SpanData {
     pub run_count: u32,
-    pub instance_count: u32,
+    //pub instance_count: u32,
     pub has_overflowed: bool,
     pub min_time: Duration,
     pub max_time: Duration,
     pub total_time: Duration,
-    pub parent: Option<NonZeroU32>,
-    pub name: &'static str,
+    //pub parent: Option<NonZeroU32>,
+    //pub name: &'static str,
     pub runs_file: Option<BufWriter<File>>
 }
 
@@ -62,13 +62,13 @@ impl SpanData {
     pub fn new(name: &'static str, runs_file: Option<BufWriter<File>>) -> SpanData {
         SpanData {
             run_count: 0,
-            instance_count: 0,
+            //instance_count: 0,
             has_overflowed: false,
             min_time: Duration::ZERO,
             max_time: Duration::MAX,
             total_time: Duration::ZERO,
-            parent: None,
-            name,
+            //parent: None,
+            //name,
             runs_file
         }
     }

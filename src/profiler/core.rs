@@ -26,28 +26,21 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::env::var;
 use tokio::sync::oneshot;
 use crate::core::{Tracer, TracingSystem};
 use crate::profiler::logpump::LOG_PUMP;
-use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
 use crate::profiler::state::{ChannelsIn, ProfilerState};
-use crate::profiler::thread::{Command, command, FixedBufStr, run};
-use crate::profiler::visitor::{/*ChannelVisitor, */EventVisitor, SpanVisitor};
+use crate::profiler::thread::{command, FixedBufStr, run};
+use crate::profiler::visitor::{EventVisitor, SpanVisitor};
 use crate::profiler::DEFAULT_PORT;
 use chrono::{DateTime, Utc};
-use crossbeam_channel::Sender;
-use std::io::{Error, ErrorKind, Read, Write};
-use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::time::Duration;
 use bp3d_fs::dirs::App;
-use bp3d_logger::LogMsg;
 use dashmap::DashMap;
-use tracing_core::span::{Attributes, Id, Record};
+use tracing_core::span::{Attributes, Record};
 use tracing_core::{Event, Level};
-use crate::profiler::log_msg::{EventLog, SpanLog};
-use crate::util::{extract_target_module, SpanId, tracing_level_to_log};
-use crate::visitor::FastVisitor;
+use crate::profiler::log_msg::{EventLog};
+use crate::util::{extract_target_module, SpanId};
 use crate::profiler::network_types as nt;
 
 struct Guard(ProfilerState);
@@ -56,23 +49,6 @@ impl Drop for Guard {
     fn drop(&mut self) {
         self.0.terminate()
 
-    }
-}
-
-fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
-    let bytes = HELLO_PACKET.to_bytes();
-    let mut block = [0; 40];
-    client.write(&bytes)?;
-    client.read_exact(&mut block)?;
-    let packet = Hello::from_bytes(block);
-    match HELLO_PACKET.matches(&packet) {
-        MatchResult::SignatureMismatch => {
-            Err(Error::new(ErrorKind::Other, "protocol signature mismatch"))
-        }
-        MatchResult::VersionMismatch => {
-            Err(Error::new(ErrorKind::Other, "version signature mismatch"))
-        }
-        MatchResult::Ok => Ok(()),
     }
 }
 
@@ -91,19 +67,13 @@ impl Profiler {
         let port = bp3d_env::get("PROFILER_PORT")
             .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
             .unwrap_or(DEFAULT_PORT);
-        //let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
-        //let listener = TcpListener::bind(addr)?;
         println!("Waiting for debugger to attach to {}...", port);
         //Block software until we receive a debugger connection.
-        //let (mut client, _) = listener.accept()?;
-        //handle_hello(&mut client)?;
         let logs = App::new(app_name).get_logs().ok().map(|v| v.to_owned());
         let (result_in, result_out) = oneshot::channel();
         //Got hit by https://github.com/rust-lang/rust/issues/100905
         let (state, channels) = ProfilerState::new(move |channels| {
             run(port, channels, logs, result_in);
-            //let mut thread = Thread::new(client, channels, logs);
-            //thread.run();
         });
         result_out.blocking_recv().unwrap()?;
         channels.control.blocking_send(command::Control::Project {
@@ -138,11 +108,6 @@ impl Tracer for Profiler {
                 metadata: attrs.metadata()
             });
         }
-        /*self.span_command(id, command::SpanControl::Init {
-            parent
-        });
-        let mut visitor = ChannelVisitor::new(&self.channels.span_control, *id);
-        span.record(&mut visitor);*/
         let parent = parent.map(|v| v.get_id());
         if let Some(mut data) = self.spans.get_mut(id) {
             if data.reset(parent) {
@@ -164,8 +129,6 @@ impl Tracer for Profiler {
     fn span_values(&self, id: &SpanId, values: &Record) {
         let mut span_values = self.spans.get_mut(id).unwrap();
         values.record(&mut *span_values);
-        /*let mut visitor = ChannelVisitor::new(&self.channels.span_control, *id);
-        values.record(&mut visitor);*/
     }
 
     fn span_follows_from(&self, id: &SpanId, follows: &SpanId) {
@@ -184,13 +147,6 @@ impl Tracer for Profiler {
         event.record(&mut visitor);
         let _ = write!(msg, ",{},{}", module.unwrap_or("main"), target);
         let _ = self.channels.event.blocking_send(msg);
-        /*let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());
-        event.record(&mut visitor);
-        let _ = self.channels.event.blocking_send(command::Event {
-            id: parent.map(|v| v.get_id()),
-            message: msg,
-            timestamp: time.timestamp()
-        });*/
     }
 
     fn span_enter(&self, _: &SpanId) {
@@ -201,13 +157,9 @@ impl Tracer for Profiler {
         let msg = span.msg_mut();
         msg.set_duration(&duration);
         let _ = self.channels.span.blocking_send(msg.clone());
-        /*self.span_command(id, command::SpanControl::Exit {
-            duration
-        });*/
     }
 
-    fn span_destroy(&self, id: &SpanId) {
-        //self.span_command(id, command::SpanControl::Free);
+    fn span_destroy(&self, _: &SpanId) {
     }
 
     fn max_level_hint(&self) -> Option<Level> {

@@ -26,50 +26,32 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::{Cursor, Write};
-use std::num::{NonZeroU32, NonZeroU64};
 use std::time::Duration;
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufWriter};
-use crate::profiler::thread::command::FixedBufValue;
-use crate::profiler::thread::util::FixedBufStr;
-use crate::util::SpanId;
+use tokio::io::BufWriter;
 
-pub struct SpanInstanceArray(Vec<SpanInstance>);
-
-impl SpanInstanceArray {
-    pub fn get_mut(&mut self, instance: u32) -> &mut SpanInstance {
-        while instance as usize > self.0.len() {
-            //self.0.push(SpanInstance::new());
-        }
-        &mut self.0[instance as usize]
-    }
-}
+const OVERFLOW_LIMIT: u32 = 1_000_000_000;
 
 pub struct SpanData {
     pub run_count: u32,
-    //pub instance_count: u32,
     pub has_overflowed: bool,
     pub min_time: Duration,
     pub max_time: Duration,
     pub total_time: Duration,
-    //pub parent: Option<NonZeroU32>,
-    //pub name: &'static str,
-    pub runs_file: Option<BufWriter<File>>
+    pub runs_file: Option<BufWriter<File>>,
+    pub last_display_time: std::time::Instant
 }
 
 impl SpanData {
-    pub fn new(name: &'static str, runs_file: Option<BufWriter<File>>) -> SpanData {
+    pub fn new(runs_file: Option<BufWriter<File>>) -> SpanData {
         SpanData {
             run_count: 0,
-            //instance_count: 0,
             has_overflowed: false,
             min_time: Duration::ZERO,
             max_time: Duration::MAX,
             total_time: Duration::ZERO,
-            //parent: None,
-            //name,
-            runs_file
+            runs_file,
+            last_display_time: std::time::Instant::now()
         }
     }
 
@@ -80,58 +62,29 @@ impl SpanData {
             self.total_time / self.run_count
         }
     }
-}
 
-pub struct SpanInstance {
-    message_written: bool,
-    pub csv_row: Cursor<[u8; 1024]>,
-    variables: Cursor<[u8; 1024]>,
-}
-
-impl SpanInstance {
-    pub fn new() -> SpanInstance {
-        SpanInstance {
-            message_written: false,
-            csv_row: Cursor::new([0; 1024]),
-            variables: Cursor::new([0; 1024])
+    pub fn update(&mut self, duration: &Duration) -> bool {
+        self.run_count += 1;
+        //Avoid overflow.
+        if self.run_count > OVERFLOW_LIMIT {
+            self.total_time = Duration::ZERO;
+            self.run_count = 0;
+            self.has_overflowed = true;
         }
-    }
-
-    pub async fn write<T: Unpin + AsyncWriteExt>(&self, mut file: T) {
-        let row_start = &self.csv_row.get_ref()[..self.csv_row.position() as _];
-        let row_end = &self.variables.get_ref()[..self.variables.position() as _];
-        let _ = file.write(row_start).await;
-        let _ = file.write(row_end).await;
-        let _ = file.write(b"\n").await;
-    }
-
-    pub fn reset(&mut self) {
-        self.csv_row.set_position(0);
-        self.variables.set_position(0);
-        self.message_written = false;
-    }
-
-    pub fn finish(&mut self, duration: &Duration, name: &str) {
-        if !self.message_written {
-            let _ = write!(self.csv_row, "{}", name);
+        if duration > &self.max_time {
+            self.max_time = *duration;
         }
-        let _ = write!(self.csv_row, ",{},{},{}",
-                       duration.as_secs(), duration.subsec_millis(),
-                       duration.subsec_micros() - (duration.subsec_millis() * 1000));
-    }
-
-    pub fn append_value(&mut self, name: &'static str, value: &FixedBufValue) {
-        let _ = match value {
-            FixedBufValue::Float(v) => write!(self.variables, ",\"{}\"={}", name, v),
-            FixedBufValue::Signed(v) => write!(self.variables, ",\"{}\"={}", name, v),
-            FixedBufValue::Unsigned(v) => write!(self.variables, ",\"{}\"={}", name, v),
-            FixedBufValue::String(v) => write!(self.variables, ",\"{}\"=\"{}\"", name, v.str()),
-            FixedBufValue::Bool(v) => write!(self.variables, ",\"{}\"={}", name, v)
-        };
-    }
-
-    pub fn append_message(&mut self, message: &FixedBufStr<63>) {
-        let _ = write!(self.csv_row, "\"{}\"", message.str());
-        self.message_written = true;
+        if duration < &self.min_time {
+            self.min_time = *duration;
+        }
+        self.total_time += *duration;
+        let now = std::time::Instant::now();
+        let duration = std::time::Instant::now() - self.last_display_time;
+        if duration.as_millis() > 200 {
+            self.last_display_time = now;
+            true
+        } else {
+            false
+        }
     }
 }

@@ -57,15 +57,6 @@ pub fn tracing_level_to_log(level: &Level) -> log::Level {
     }
 }
 
-pub fn span_from_id_instance(span_id: u32, instance: u32) -> Id {
-    Id::from_u64((span_id as u64) << 32 | instance as u64)
-}
-
-pub fn span_to_id_instance(span: &Id) -> (u32, u32) {
-    let combined = span.into_u64();
-    ((combined >> 32) as u32, combined as u32)
-}
-
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub struct SpanId(NonZeroU64);
 

@@ -32,5 +32,4 @@ pub mod command;
 mod state;
 
 pub use self::core::run;
-pub use command::{Command, FixedBufValue};
 pub use util::FixedBufStr;

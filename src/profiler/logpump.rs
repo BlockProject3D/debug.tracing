@@ -29,7 +29,6 @@
 //! This module contains a log pump to be combined with Profiler in order to redirect the log
 //! crate to the Profiler.
 
-use bp3d_logger::LogMsg;
 use chrono::Utc;
 use crate::profiler::state::send_message;
 use log::{Log, Metadata, Record};
@@ -61,10 +60,7 @@ impl Log for LogPump {
         let mut msg = EventLog::new(None, Utc::now().timestamp(),
                                     nt::header::Level::from_log(record.level()));
         let _ = write!(msg, "{},{},{}", record.args(), module.unwrap_or("main"), target);
-        /*let mut msg = LogMsg::new(target, record.level());
-        use std::fmt::Write;
-        let _ = write!(msg, "{}: {}", module.unwrap_or("main"), record.args());
-        send_message(msg);*/
+        send_message(&msg);
     }
 
     fn flush(&self) {}

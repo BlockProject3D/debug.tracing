@@ -58,6 +58,15 @@ pub struct Duration {
     pub nano_seconds: u32
 }
 
+impl From<&std::time::Duration> for Duration {
+    fn from(value: &std::time::Duration) -> Self {
+        Self {
+            seconds: value.as_secs() as _,
+            nano_seconds: value.subsec_nanos()
+        }
+    }
+}
+
 #[derive(Serialize, Copy, Clone, Debug)]
 #[repr(u8)]
 pub enum Level {
@@ -166,7 +175,6 @@ pub struct SpanEvent {
     pub id: u32,
     pub timestamp: i64,
     pub level: Level,
-    //pub target: Vchar,
     pub message: Vchar
 }
 
@@ -177,9 +185,14 @@ impl MsgHeader for SpanEvent {
 
 #[derive(Serialize)]
 pub struct SpanUpdate {
-    id: u32,
-    instance_count: u32,
-    average_time: Duration,
-    min_time: Duration,
-    max_time: Duration
+    pub id: u32,
+    pub run_count: u32,
+    pub average_time: Duration,
+    pub min_time: Duration,
+    pub max_time: Duration
+}
+
+impl MsgHeader for SpanUpdate {
+    const TYPE: MsgType = MsgType::SpanUpdate;
+    const HAS_PAYLOAD: bool = false;
 }

@@ -26,33 +26,25 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use std::collections::HashMap;
 use crate::profiler::cpu_info::read_cpu_info;
-use crate::util::{span_to_id_instance, SpanId};
-use crossbeam_channel::Receiver;
-use std::io::{Error, ErrorKind, Write};
+use std::io::{Error, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use std::time::Duration;
 use serde::Serialize;
-use tokio::fs::{File, OpenOptions};
+use tokio::fs::File;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
-use tracing_core::span::Id;
 use crate::profiler::network_types as nt;
 use crate::profiler::state::ChannelsOut;
-use crate::profiler::thread::Command;
 use crate::profiler::thread::command;
-use crate::profiler::thread::state::{SpanData, SpanInstance};
+use crate::profiler::thread::state::SpanData;
 use crate::profiler::thread::util::read_command_line;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
-
-const OVERFLOW_LIMIT: u32 = 1_000_000_000;
 
 struct Net {
     socket: BufReader<TcpStream>,
@@ -101,7 +93,6 @@ impl Net {
 struct Thread {
     channels: ChannelsOut,
     span_data: HashMap<NonZeroU32, SpanData>,
-    //span_instances: HashMap<SpanId, SpanInstance>,
     net: Net,
     logs: Option<PathBuf>
 }
@@ -111,7 +102,6 @@ impl Thread {
         Thread {
             channels,
             span_data: HashMap::new(),
-            //span_instances: HashMap::new(),
             net: Net::new(socket),
             logs
         }
@@ -122,37 +112,21 @@ impl Thread {
         File::create(self.logs.as_ref()?.join(filename)).await.ok().map(BufWriter::new)
     }
 
-    async fn handle_span_data(&mut self, mut log: SpanLog/*, span: command::Span<command::SpanData>*/) {
-        /*match span.ty {
-            command::SpanData::Value { key, value } => {
-                if let Some(instance) = self.span_instances.get_mut(&span.id) {
-                    instance.append_value(key, &value)
-                }
-            },
-            command::SpanData::Message { message } => {
-                if let Some(instance) = self.span_instances.get_mut(&span.id) {
-                    instance.append_message(&message)
-                }
-            }
-        }*/
+    async fn handle_span_data(&mut self, mut log: SpanLog) {
         if let Some(data) = self.span_data.get_mut(&log.id()) {
             let duration = log.get_duration();
-            data.run_count += 1;
-            //Avoid overflow.
-            if data.run_count > OVERFLOW_LIMIT {
-                data.total_time = Duration::ZERO;
-                data.run_count = 0;
-                data.has_overflowed = true;
+            if data.update(&duration) {
+                let head = nt::header::SpanUpdate {
+                    id: log.id().get(),
+                    run_count: data.run_count,
+                    average_time: nt::header::Duration::from(&data.get_average()),
+                    min_time: nt::header::Duration::from(&data.min_time),
+                    max_time: nt::header::Duration::from(&data.max_time)
+                };
+                self.net.network_write(head).await;
             }
             if !data.has_overflowed { //Hard limit on the number of rows in the CSV to
                 // avoid disk overload.
-                /*if let Some(instance) = self.span_instances.get_mut(&span.id) {
-                    instance.finish(&duration, data.name);
-                    if let Some(file) = &mut data.runs_file {
-                        instance.write(file).await;
-                    }
-                    instance.reset();
-                }*/
                 if let Some(file) = &mut data.runs_file {
                     use std::fmt::Write;
                     let _ = write!(log, ",{},{},{}",
@@ -162,31 +136,14 @@ impl Thread {
                     let _ = file.write_all("\n".as_bytes()).await;
                 }
             }
-            if duration > data.max_time {
-                data.max_time = duration;
-            }
-            if duration < data.min_time {
-                data.min_time = duration;
-            }
-            data.total_time += duration;
         }
     }
 
     async fn handle_span_control(&mut self, span: command::Span<command::SpanControl>) {
         match span.ty {
-            /*command::SpanControl::Value { key, value } => {
-                if let Some(instance) = self.span_instances.get_mut(&span.id) {
-                    instance.append_value(key, &value)
-                }
-            },
-            command::SpanControl::Message { message } => {
-                if let Some(instance) = self.span_instances.get_mut(&span.id) {
-                    instance.append_message(&message)
-                }
-            },*/
             command::SpanControl::Alloc { metadata } => {
                 let id = span.id.get_id();
-                self.span_data.insert(id, SpanData::new(metadata.name(), self.create_runs_file(id).await));
+                self.span_data.insert(id, SpanData::new(self.create_runs_file(id).await));
                 let mut payload = self.net.get_payload();
                 let head = nt::header::SpanAlloc {
                     id: id.get(),
@@ -207,22 +164,6 @@ impl Thread {
                     parent_node: parent.map(|v| v.get()).unwrap_or(0)
                 }).await;
             },
-            /*command::SpanControl::Init { parent } => {
-                let id = span.id.get_id();
-                let parent_node = parent.map(|v| v.get_id());
-                if let Some(data) = self.span_data.get_mut(&id) {
-                    if data.parent != parent_node {
-                        self.net.network_write(nt::header::SpanParent {
-                            id: id.get(),
-                            parent_node: parent_node.map(|v| v.get()).unwrap_or(0)
-                        }).await;
-                        data.parent = parent_node;
-                    }
-                    data.instance_count += 1;
-                    let instance = self.span_instances.entry(span.id).or_insert_with(SpanInstance::new);
-                    let _ = write!(instance.csv_row, "{},", parent.map(|v| v.into_u64()).unwrap_or(0));
-                }
-            },*/
             command::SpanControl::Follows { follows } => {
                 let id = span.id.get_id();
                 let follows = follows.get_id();
@@ -232,41 +173,6 @@ impl Thread {
                 };
                 self.net.network_write(head).await;
             },
-            /*command::SpanControl::Exit { duration } => {
-                let id = span.id.get_id();
-                if let Some(data) = self.span_data.get_mut(&id) {
-                    data.run_count += 1;
-                    //Avoid overflow.
-                    if data.run_count > OVERFLOW_LIMIT {
-                        data.total_time = Duration::ZERO;
-                        data.run_count = 0;
-                        data.has_overflowed = true;
-                    }
-                    if !data.has_overflowed { //Hard limit on the number of rows in the CSV to
-                        // avoid disk overload.
-                        if let Some(instance) = self.span_instances.get_mut(&span.id) {
-                            instance.finish(&duration, data.name);
-                            if let Some(file) = &mut data.runs_file {
-                                instance.write(file).await;
-                            }
-                            instance.reset();
-                        }
-                    }
-                    if duration > data.max_time {
-                        data.max_time = duration;
-                    }
-                    if duration < data.min_time {
-                        data.min_time = duration;
-                    }
-                    data.total_time += duration;
-                }
-            },*/
-            /*command::SpanControl::Free => {
-                let id = span.id.get_id();
-                if let Some(data) = self.span_data.get_mut(&id) {
-                    data.instance_count -= 1;
-                }
-            }*/
         }
     }
 
@@ -275,7 +181,6 @@ impl Thread {
         let head = nt::header::SpanEvent {
             id: event.id().map(|v| v.get()).unwrap_or(0),
             message: payload.write_object(event.msg()).unwrap(),
-            //target: payload.write_object(event.target()).unwrap(),
             level: event.level(),
             timestamp: event.timestamp()
         };
@@ -324,7 +229,6 @@ impl Thread {
             tokio::select! {
                 cmd = self.channels.span.recv() => if let Some(cmd) = cmd { self.handle_span_data(cmd).await },
                 cmd = self.channels.span_control.recv() => if let Some(cmd) = cmd { self.handle_span_control(cmd).await },
-                //cmd = self.channels.span_data.recv() => if let Some(cmd) = cmd { self.handle_span_data(cmd).await },
                 cmd = self.channels.event.recv() => if let Some(cmd) = cmd { self.handle_event(cmd).await },
                 cmd = self.channels.control.recv() => if let Some(cmd) = cmd {
                     if !self.handle_control(cmd).await {
@@ -333,138 +237,6 @@ impl Thread {
                 }
             }
         }
-        /*loop {
-            let cmd = self.channel.recv().unwrap();
-            match cmd {
-                Command::Project { app_name, name, version } => {
-                    let mut payload = self.net.get_payload();
-                    let app_name = app_name.str();
-                    let name = name.str();
-                    let version = version.str();
-                    let info = read_cpu_info();
-                    let head = nt::header::Project {
-                        app_name: payload.write_object(app_name).unwrap(),
-                        name: payload.write_object(name).unwrap(),
-                        version: payload.write_object(version).unwrap(),
-                        target: nt::header::Target {
-                            arch: payload.write_object(std::env::consts::ARCH).unwrap(),
-                            family: payload.write_object(std::env::consts::FAMILY).unwrap(),
-                            os: payload.write_object(std::env::consts::OS).unwrap()
-                        },
-                        cpu: info.map(|v| nt::header::Cpu {
-                            name: payload.write_object(&*v.name).unwrap(),
-                            core_count: v.core_count
-                        }),
-                        cmd_line: read_command_line(&mut payload)
-                    };
-                    self.net.network_write(head);
-                },
-                Command::SpanAlloc { id, metadata } => {
-                    let (id, _) = span_to_id_instance(&Id::from_u64(id));
-                    self.span_data.insert(id, SpanData::new(metadata.name(), self.create_runs_file(id)));
-                    let mut payload = self.net.get_payload();
-                    let head = nt::header::SpanAlloc {
-                        id,
-                        metadata: nt::header::Metadata {
-                            level: nt::header::Level::from_tracing(*metadata.level()),
-                            file: metadata.file().map(|v| payload.write_object(v).unwrap()),
-                            line: metadata.line(),
-                            module_path: metadata.module_path().map(|v| payload.write_object(v).unwrap()),
-                            name: payload.write_object(metadata.name()).unwrap(),
-                            target: payload.write_object(metadata.target()).unwrap()
-                        }
-                    };
-                    self.net.network_write(head);
-                },
-                Command::SpanInit { span, parent/*, message, value_set, payload*/ } => {
-                    let (id, instance_id) = span_to_id_instance(&Id::from_u64(span));
-                    let parent = parent.map(|v| v as _);
-                    if let Some(data) = self.span_data.get_mut(&id) {
-                        if data.parent != parent {
-                            self.net.network_write(nt::header::SpanParent {
-                                id,
-                                parent
-                            });
-                            data.parent = parent;
-                        }
-                        data.instance_count += 1;
-                        let instance = self.span_instances.entry(span).or_insert_with(SpanInstance::new);
-                        let _ = write!(instance.csv_row, "{},", instance_id);
-                    }
-                },
-                Command::SpanValue { span, key, value } => {
-                    if let Some(instance) = self.span_instances.get_mut(&span) {
-                        instance.append_value(key, &value)
-                    }
-                },
-                Command::SpanMessage { span, message } => {
-                    if let Some(instance) = self.span_instances.get_mut(&span) {
-                        instance.append_message(&message)
-                    }
-                },
-                Command::SpanFollows { span, follows } => {
-                    let (id, _) = span_to_id_instance(&Id::from_u64(span));
-                    let (follows, _) = span_to_id_instance(&Id::from_u64(follows));
-                    let head = nt::header::SpanFollows {
-                        id,
-                        follows
-                    };
-                    self.net.network_write(head);
-                },
-                Command::Event { id, timestamp, message } => {
-                    let mut payload = self.net.get_payload();
-                    let head = nt::header::SpanEvent {
-                        id,
-                        message: payload.write_object(message.msg()).unwrap(),
-                        target: payload.write_object(message.target()).unwrap(),
-                        level: nt::header::Level::from_log(message.level()),
-                        timestamp
-                    };
-                    self.net.network_write(head);
-                },
-                Command::SpanEnter(_) => {},
-                Command::SpanExit { span, duration } => {
-                    let (id, _) = span_to_id_instance(&Id::from_u64(span));
-                    if let Some(data) = self.span_data.get_mut(&id) {
-                        data.run_count += 1;
-                        //Avoid overflow.
-                        if data.run_count > OVERFLOW_LIMIT {
-                            data.total_time = Duration::ZERO;
-                            data.run_count = 0;
-                            data.has_overflowed = true;
-                        }
-                        if !data.has_overflowed { //Hard limit on the number of rows in the CSV to
-                            // avoid disk overload.
-                            if let Some(mut instance) = self.span_instances.remove(&span) {
-                                instance.finish(&duration, data.name);
-                                if let Some(file) = &mut data.runs_file {
-                                    instance.write(file);
-                                }
-                            }
-                        }
-                        if duration > data.max_time {
-                            data.max_time = duration;
-                        }
-                        if duration < data.min_time {
-                            data.min_time = duration;
-                        }
-                        data.total_time += duration;
-                    }
-                },
-                Command::SpanFree(span) => {
-                    let (id, _) = span_to_id_instance(&Id::from_u64(span));
-                    if let Some(data) = self.span_data.get_mut(&id) {
-                        data.instance_count -= 1;
-                    }
-                }
-                Command::Terminate => {
-                    for (_, v) in &mut self.span_data {
-                        let _ = v.runs_file.take();
-                    }
-                    break;
-                }
-            }
-        }*/
     }
 }
 
@@ -489,6 +261,7 @@ async fn init(port: u16) -> std::io::Result<TcpStream> {
     let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
+    //TODO: Re-arm when preliminary performance tests are over
     //handle_hello(&mut socket).await?;
     Ok(socket)
 }

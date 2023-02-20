@@ -31,8 +31,6 @@ use crate::profiler::thread::command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
-use bp3d_logger::LogMsg;
-use chrono::Utc;
 use once_cell::sync::OnceCell;
 use crate::profiler::log_msg::{EventLog, SpanLog};
 
@@ -42,7 +40,7 @@ static LOG_CHANNEL: OnceCell<mpsc::Sender<EventLog>> = OnceCell::new();
 
 pub fn send_message(message: &EventLog) {
     if let Some(val) = LOG_CHANNEL.get() {
-        let _ = val.blocking_send(message.clone());
+        let _ = val.try_send(message.clone());
     }
 }
 

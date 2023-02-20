@@ -29,83 +29,9 @@
 use std::fmt::Write;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
-use crossbeam_channel::Sender;
-use tokio::sync::mpsc;
 use tracing_core::field::Visit;
 use tracing_core::Field;
 use crate::profiler::log_msg::{EventLog, SpanLog};
-use crate::profiler::thread::{Command, FixedBufStr, FixedBufValue, command};
-use crate::util::SpanId;
-
-/*pub struct ChannelVisitor<'a> {
-    sender: &'a mpsc::Sender<command::Span<command::SpanControl>>,
-    span: SpanId
-}
-
-impl<'a> ChannelVisitor<'a> {
-    pub fn new(sender: &'a mpsc::Sender<command::Span<command::SpanControl>>, span: SpanId) -> Self {
-        Self {
-            sender,
-            span
-        }
-    }
-
-    #[inline]
-    fn value(&self, key: &'static str, value: FixedBufValue)
-    {
-        let _ = self.sender.blocking_send(command::Span {
-            id: self.span,
-            ty: command::SpanControl::Value {
-                key,
-                value
-            }
-        });
-    }
-}
-
-impl<'a> Visit for ChannelVisitor<'a> {
-    fn record_f64(&mut self, field: &Field, value: f64) {
-        self.value(field.name(), FixedBufValue::Float(value));
-    }
-
-    fn record_i64(&mut self, field: &Field, value: i64) {
-        self.value(field.name(), FixedBufValue::Signed(value));
-    }
-
-    fn record_u64(&mut self, field: &Field, value: u64) {
-        self.value(field.name(), FixedBufValue::Unsigned(value));
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        self.value(field.name(), FixedBufValue::Bool(value));
-    }
-
-    fn record_str(&mut self, field: &Field, value: &str) {
-        if field.name() == "message" {
-            let _ = self.sender.blocking_send(command::Span {
-                id: self.span,
-                ty: command::SpanControl::Message {
-                    message: FixedBufStr::from_str(value)
-                }
-            });
-        } else {
-            self.value(field.name(), FixedBufValue::String(FixedBufStr::from_str(value)));
-        }
-    }
-
-    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
-        if field.name() == "message" {
-            let _ = self.sender.blocking_send(command::Span {
-                id: self.span,
-                ty: command::SpanControl::Message {
-                    message: FixedBufStr::from_debug(value)
-                }
-            });
-        } else {
-            self.value(field.name(), FixedBufValue::String(FixedBufStr::from_debug(value)));
-        }
-    }
-}*/
 
 pub struct SpanVisitor {
     msg: SpanLog,

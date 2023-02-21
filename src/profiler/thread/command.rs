@@ -27,6 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::{NonZeroU32};
+use crate::profiler::log_msg::SpanLog;
 use crate::profiler::thread::util::FixedBufStr;
 use crate::util::{Meta, SpanId};
 
@@ -42,22 +43,21 @@ pub enum Control {
 }
 
 #[derive(Debug)]
-pub enum SpanControl {
+pub enum Span {
     Alloc {
+        id: NonZeroU32,
         metadata: Meta
     },
 
     UpdateParent {
+        id: NonZeroU32,
         parent: Option<NonZeroU32> //None must mean that span is at root
     },
 
     Follows {
+        id: SpanId,
         follows: SpanId
-    }
-}
+    },
 
-#[derive(Debug)]
-pub struct Span<T> {
-    pub id: SpanId,
-    pub ty: T
+    Log(SpanLog)
 }

@@ -32,7 +32,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
 use once_cell::sync::OnceCell;
-use crate::profiler::log_msg::{EventLog, SpanLog};
+use crate::profiler::log_msg::{EventLog};
 
 const BUF_SIZE: usize = 256; // The maximum count of log messages in the channel.
 
@@ -45,15 +45,13 @@ pub fn send_message(message: &EventLog) {
 }
 
 pub struct ChannelsIn {
-    pub span: mpsc::Sender<SpanLog>,
-    pub span_control: mpsc::Sender<command::Span<command::SpanControl>>,
+    pub span: mpsc::Sender<command::Span>,
     pub event: mpsc::Sender<EventLog>,
     pub control: mpsc::Sender<command::Control>,
 }
 
 pub struct ChannelsOut {
-    pub span: mpsc::Receiver<SpanLog>,
-    pub span_control: mpsc::Receiver<command::Span<command::SpanControl>>,
+    pub span: mpsc::Receiver<command::Span>,
     pub event: mpsc::Receiver<EventLog>,
     pub control: mpsc::Receiver<command::Control>
 }
@@ -66,7 +64,6 @@ pub struct ProfilerState {
 
 impl ProfilerState {
     pub fn new<F: FnOnce(ChannelsOut) + Send + 'static>(thread_fn: F) -> (ProfilerState, ChannelsIn) {
-        let (ch_span_control_in, ch_span_control_out) = mpsc::channel(BUF_SIZE);
         let (ch_span_in, ch_span_out) = mpsc::channel(BUF_SIZE);
         let (ch_event_in, ch_event_out) = mpsc::channel(BUF_SIZE);
         let (ch_control_in, ch_control_out) = mpsc::channel(BUF_SIZE);
@@ -76,13 +73,11 @@ impl ProfilerState {
             send_ch: ch_control_in.clone(),
             thread: Mutex::new(Some(std::thread::spawn(|| thread_fn(ChannelsOut {
                 span: ch_span_out,
-                span_control: ch_span_control_out,
                 event: ch_event_out,
                 control: ch_control_out
             })))),
         }, ChannelsIn {
             span: ch_span_in,
-            span_control: ch_span_control_in,
             event: ch_event_in,
             control: ch_control_in
         })

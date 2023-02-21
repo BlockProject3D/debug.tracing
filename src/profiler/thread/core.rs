@@ -42,12 +42,12 @@ use crate::profiler::state::ChannelsOut;
 use crate::profiler::thread::command;
 use crate::profiler::thread::state::SpanData;
 use crate::profiler::thread::util::read_command_line;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
 
 struct Net {
-    socket: BufReader<TcpStream>,
+    socket: BufWriter<TcpStream>,
     head_buffer: [u8; 64],
     net_buffer: [u8; 1024]
 }
@@ -55,7 +55,7 @@ struct Net {
 impl Net {
     pub fn new(socket: TcpStream) -> Net {
         Net {
-            socket: BufReader::new(socket),
+            socket: BufWriter::new(socket),
             head_buffer: [0; 64],
             net_buffer: [0; 1024]
         }
@@ -139,10 +139,10 @@ impl Thread {
         }
     }
 
-    async fn handle_span_control(&mut self, span: command::Span<command::SpanControl>) {
-        match span.ty {
-            command::SpanControl::Alloc { metadata } => {
-                let id = span.id.get_id();
+    async fn handle_span(&mut self, cmd: command::Span) {
+        match cmd {
+            command::Span::Log(msg) => self.handle_span_data(msg).await,
+            command::Span::Alloc { id, metadata } => {
                 self.span_data.insert(id, SpanData::new(self.create_runs_file(id).await));
                 let mut payload = self.net.get_payload();
                 let head = nt::header::SpanAlloc {
@@ -158,14 +158,14 @@ impl Thread {
                 };
                 self.net.network_write(head).await;
             },
-            command::SpanControl::UpdateParent { parent } => {
+            command::Span::UpdateParent { id, parent } => {
                 self.net.network_write(nt::header::SpanParent {
-                    id: span.id.get_id().get(),
+                    id: id.get(),
                     parent_node: parent.map(|v| v.get()).unwrap_or(0)
                 }).await;
             },
-            command::SpanControl::Follows { follows } => {
-                let id = span.id.get_id();
+            command::Span::Follows { id, follows } => {
+                let id = id.get_id();
                 let follows = follows.get_id();
                 let head = nt::header::SpanFollows {
                     id: id.get(),
@@ -227,8 +227,7 @@ impl Thread {
     pub async fn run(&mut self) {
         loop {
             tokio::select! {
-                cmd = self.channels.span.recv() => if let Some(cmd) = cmd { self.handle_span_data(cmd).await },
-                cmd = self.channels.span_control.recv() => if let Some(cmd) = cmd { self.handle_span_control(cmd).await },
+                cmd = self.channels.span.recv() => if let Some(cmd) = cmd { self.handle_span(cmd).await },
                 cmd = self.channels.event.recv() => if let Some(cmd) = cmd { self.handle_event(cmd).await },
                 cmd = self.channels.control.recv() => if let Some(cmd) = cmd {
                     if !self.handle_control(cmd).await {

@@ -92,8 +92,8 @@ impl Profiler {
     }
 
     #[inline]
-    fn span_command(&self, id: &SpanId, ty: command::SpanControl) {
-        let _ = self.channels.span_control.blocking_send(command::Span { id: *id, ty });
+    fn span_command(&self, cmd: command::Span) {
+        let _ = self.channels.span.blocking_send(cmd);
     }
 }
 
@@ -103,15 +103,15 @@ impl Tracer for Profiler {
     }
 
     fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, attrs: &Attributes) {
+        let node_id = id.get_id();
         if new {
-            self.span_command(id, command::SpanControl::Alloc {
-                metadata: attrs.metadata()
-            });
+            self.span_command(command::Span::Alloc { id: node_id, metadata: attrs.metadata() })
         }
         let parent = parent.map(|v| v.get_id());
         if let Some(mut data) = self.spans.get_mut(id) {
             if data.reset(parent) {
-                self.span_command(id, command::SpanControl::UpdateParent {
+                self.span_command(command::Span::UpdateParent {
+                    id: node_id,
                     parent
                 });
             }
@@ -120,7 +120,8 @@ impl Tracer for Profiler {
             let mut data = SpanVisitor::new(id.get_id(), parent);
             attrs.record(&mut data);
             self.spans.insert(*id, data);
-            self.span_command(id, command::SpanControl::UpdateParent {
+            self.span_command(command::Span::UpdateParent {
+                id: node_id,
                 parent
             });
         }
@@ -132,8 +133,8 @@ impl Tracer for Profiler {
     }
 
     fn span_follows_from(&self, id: &SpanId, follows: &SpanId) {
-        self.span_command(id, command::SpanControl::Follows {
-            follows: *follows
+        self.span_command(command::Span::Follows {
+            id: *id, follows: *follows
         });
     }
 
@@ -156,7 +157,7 @@ impl Tracer for Profiler {
         let mut span = self.spans.get_mut(id).unwrap();
         let msg = span.msg_mut();
         msg.set_duration(&duration);
-        let _ = self.channels.span.blocking_send(msg.clone());
+        self.span_command(command::Span::Log(msg.clone()));
     }
 
     fn span_destroy(&self, _: &SpanId) {

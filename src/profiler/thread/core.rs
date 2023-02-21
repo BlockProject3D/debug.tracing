@@ -142,6 +142,7 @@ impl Thread {
     async fn handle_span(&mut self, cmd: command::Span) {
         match cmd {
             command::Span::Log(msg) => self.handle_span_data(msg).await,
+            command::Span::Event(msg) => self.handle_event(msg).await,
             command::Span::Alloc { id, metadata } => {
                 self.span_data.insert(id, SpanData::new(self.create_runs_file(id).await));
                 let mut payload = self.net.get_payload();
@@ -229,7 +230,6 @@ impl Thread {
         loop {
             tokio::select! {
                 cmd = self.channels.span.recv() => if let Some(cmd) = cmd { self.handle_span(cmd).await },
-                cmd = self.channels.event.recv() => if let Some(cmd) = cmd { self.handle_event(cmd).await },
                 cmd = self.channels.control.recv() => if let Some(cmd) = cmd {
                     if !self.handle_control(cmd).await {
                         break

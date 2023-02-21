@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::{NonZeroU32};
-use crate::profiler::log_msg::SpanLog;
+use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::thread::util::FixedBufStr;
 use crate::util::{Meta, SpanId};
 
@@ -59,5 +59,7 @@ pub enum Span {
         follows: SpanId
     },
 
-    Log(SpanLog)
+    Log(SpanLog),
+
+    Event(EventLog)
 }

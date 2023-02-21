@@ -147,7 +147,7 @@ impl Tracer for Profiler {
         let mut visitor = EventVisitor::new(&mut msg);
         event.record(&mut visitor);
         let _ = write!(msg, ",{},{}", module.unwrap_or("main"), target);
-        let _ = self.channels.event.blocking_send(msg);
+        self.span_command(command::Span::Event(msg));
     }
 
     fn span_enter(&self, _: &SpanId) {

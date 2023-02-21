@@ -214,6 +214,7 @@ impl Thread {
                 true
             },
             command::Control::Terminate => {
+                let _ = self.net.socket.flush().await;
                 for (_, v) in &mut self.span_data {
                     if let Some(mut v) = v.runs_file.take() {
                         let _ = v.flush().await;

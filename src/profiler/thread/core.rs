@@ -251,7 +251,7 @@ async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
             Err(Error::new(ErrorKind::Other, "protocol signature mismatch"))
         }
         MatchResult::VersionMismatch => {
-            Err(Error::new(ErrorKind::Other, "version signature mismatch"))
+            Err(Error::new(ErrorKind::Other, "version mismatch"))
         }
         MatchResult::Ok => Ok(()),
     }
@@ -262,7 +262,7 @@ async fn init(port: u16) -> std::io::Result<TcpStream> {
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
     //TODO: Re-arm when preliminary performance tests are over
-    //handle_hello(&mut socket).await?;
+    handle_hello(&mut socket).await?;
     Ok(socket)
 }
 

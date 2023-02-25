@@ -63,26 +63,26 @@ impl SpanVisitor {
 
 impl Visit for SpanVisitor {
     fn record_f64(&mut self, field: &Field, value: f64) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
         if field.name() == "message" {
             let _ = write!(self.msg, "\"{}\"", value);
         } else {
-            let _ = write!(self.msg, ",\"{}\"=\"{}\"", field.name(), value);
+            let _ = write!(self.msg, ",\"{}={}\"", field.name(), value);
         }
     }
 
@@ -90,7 +90,7 @@ impl Visit for SpanVisitor {
         if field.name() == "message" {
             let _ = write!(self.msg, "\"{:?}\"", value);
         } else {
-            let _ = write!(self.msg, ",\"{}\"=\"{:?}\"", field.name(), value);
+            let _ = write!(self.msg, ",\"{}={:?}\"", field.name(), value);
         }
     }
 }
@@ -109,26 +109,26 @@ impl<'a> EventVisitor<'a> {
 
 impl<'a> Visit for EventVisitor<'a> {
     fn record_f64(&mut self, field: &Field, value: f64) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        let _ = write!(self.msg, ",\"{}\"={}", field.name(), value);
+        let _ = write!(self.msg, ",{}={}", field.name(), value);
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
         if field.name() == "message" {
             let _ = write!(self.msg, "\"{}\"", value);
         } else {
-            let _ = write!(self.msg, ",\"{}\"=\"{}\"", field.name(), value);
+            let _ = write!(self.msg, ",\"{}={}\"", field.name(), value);
         }
     }
 
@@ -136,7 +136,7 @@ impl<'a> Visit for EventVisitor<'a> {
         if field.name() == "message" {
             let _ = write!(self.msg, "\"{:?}\"", value);
         } else {
-            let _ = write!(self.msg, ",\"{}\"=\"{:?}\"", field.name(), value);
+            let _ = write!(self.msg, ",\"{}={:?}\"", field.name(), value);
         }
     }
 }

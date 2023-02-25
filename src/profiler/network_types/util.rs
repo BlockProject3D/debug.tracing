@@ -32,32 +32,32 @@ use crate::profiler::network_types::header::PayloadRef;
 
 pub struct Payload<'a> {
     buffer: &'a mut [u8],
-    cursor: usize
+    cursor: &'a mut usize
 }
 
 impl<'a> Payload<'a> {
-    pub fn new(buffer: &'a mut [u8]) -> Payload<'a> {
+    pub fn new(buffer: &'a mut [u8], cursor: &'a mut usize) -> Payload<'a> {
         Payload {
             buffer,
-            cursor: 0
+            cursor
         }
     }
 
     pub fn write_object<T: WriteInto + ?Sized>(&mut self, obj: &T) -> std::io::Result<PayloadRef> {
-        let start = self.cursor;
+        let start = *self.cursor;
         obj.write_into(self)?;
         Ok(PayloadRef {
             offset: start as _,
-            length: (self.cursor - start) as _
+            length: (*self.cursor - start) as _
         })
     }
 }
 
 impl<'a> Write for Payload<'a> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let len = std::cmp::min(buf.len(), self.buffer.len() - self.cursor);
-        self.buffer[self.cursor..self.cursor + len].copy_from_slice(&buf[..len]);
-        self.cursor += len;
+        let len = std::cmp::min(buf.len(), self.buffer.len() - *self.cursor);
+        self.buffer[*self.cursor..*self.cursor + len].copy_from_slice(&buf[..len]);
+        *self.cursor += len;
         Ok(len)
     }
 
@@ -75,29 +75,29 @@ impl<'a> Seek for Payload<'a> {
         match pos {
             SeekFrom::Start(v) => {
                 if v < self.buffer.len() as _ {
-                    self.cursor = v as _;
+                    *self.cursor = v as _;
                 }
                 Ok(v)
             }
             SeekFrom::End(v) => {
                 let pos = self.buffer.len().wrapping_add(v as _);
                 if pos < self.buffer.len() {
-                    self.cursor = pos;
+                    *self.cursor = pos;
                 }
-                Ok(self.cursor as _)
+                Ok(*self.cursor as _)
             }
             SeekFrom::Current(v) => {
                 let pos = self.cursor.wrapping_add(v as _);
                 if pos < self.buffer.len() {
-                    self.cursor = pos;
+                    *self.cursor = pos;
                 }
-                Ok(self.cursor as _)
+                Ok(*self.cursor as _)
             }
         }
     }
 
     fn stream_position(&mut self) -> std::io::Result<u64> {
-        Ok(self.cursor as _)
+        Ok(*self.cursor as _)
     }
 }
 

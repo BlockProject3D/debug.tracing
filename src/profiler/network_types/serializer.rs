@@ -61,12 +61,8 @@ impl serde::ser::Error for Error {
 pub struct Serializer<'a>(Payload<'a>);
 
 impl<'a> Serializer<'a> {
-    pub fn new(buffer: &'a mut [u8]) -> Serializer<'a> {
-        Serializer(Payload::new(buffer))
-    }
-
-    pub fn length(&mut self) -> usize {
-        self.0.stream_position().unwrap() as _
+    pub fn new(buffer: &'a mut [u8], cursor: &'a mut usize) -> Serializer<'a> {
+        Serializer(Payload::new(buffer, cursor))
     }
 }
 

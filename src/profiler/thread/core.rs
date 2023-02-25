@@ -49,6 +49,7 @@ use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
 struct Net {
     socket: BufWriter<TcpStream>,
     head_buffer: [u8; 64],
+    cursor: usize,
     net_buffer: [u8; 1024]
 }
 
@@ -57,33 +58,31 @@ impl Net {
         Net {
             socket: BufWriter::new(socket),
             head_buffer: [0; 64],
+            cursor: 0,
             net_buffer: [0; 1024]
         }
     }
 
     pub fn get_payload(&mut self) -> nt::util::Payload {
-        nt::util::Payload::new(&mut self.net_buffer)
+        self.cursor = 0;
+        nt::util::Payload::new(&mut self.net_buffer, &mut self.cursor)
     }
 
     pub async fn network_write<H: Serialize + nt::header::MsgHeader>(&mut self, header: H) {
-        let head_len = {
-            let mut serializer = nt::serializer::Serializer::new(&mut self.head_buffer);
-            if let Err(_) = H::TYPE.serialize(&mut serializer) {
-                return;
-            }
-            if let Err(_) = header.serialize(&mut serializer) {
-                return;
-            }
-            serializer.length()
-        };
+        let mut head_len = 0;
+        let mut serializer = nt::serializer::Serializer::new(&mut self.head_buffer, &mut head_len);
+        if let Err(_) = H::TYPE.serialize(&mut serializer) {
+            return;
+        }
+        if let Err(_) = header.serialize(&mut serializer) {
+            return;
+        }
         if let Err(e) = self.socket.write_all(&self.head_buffer[..head_len]).await {
             eprintln!("Failed to write to network: {}", e);
             return;
         }
         if H::HAS_PAYLOAD {
-            //Write the entire network buffer no matter what because Rust borrow checker refuses to
-            // allow passing the size of the payload...
-            if let Err(e) = self.socket.write_all(&self.net_buffer).await {
+            if let Err(e) = self.socket.write_all(&self.net_buffer[..self.cursor]).await {
                 eprintln!("Failed to write to network: {}", e);
             }
         }

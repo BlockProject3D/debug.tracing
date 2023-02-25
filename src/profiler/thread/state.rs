@@ -30,7 +30,7 @@ use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::BufWriter;
 
-const OVERFLOW_LIMIT: u32 = 1_000_000_000;
+const OVERFLOW_LIMIT: u32 = 1_000_000;
 
 pub struct SpanData {
     pub run_count: u32,

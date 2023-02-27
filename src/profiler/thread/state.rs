@@ -47,8 +47,8 @@ impl SpanData {
         SpanData {
             run_count: 0,
             has_overflowed: false,
-            min_time: Duration::ZERO,
-            max_time: Duration::MAX,
+            min_time: Duration::MAX,
+            max_time: Duration::ZERO,
             total_time: Duration::ZERO,
             runs_file,
             last_display_time: std::time::Instant::now()

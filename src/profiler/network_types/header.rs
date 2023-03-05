@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
 #[repr(u8)]
@@ -39,9 +39,21 @@ pub enum MsgType {
     SpanUpdate = 5
 }
 
-pub trait MsgHeader {
+pub trait MsgSize {
+    const SIZE: usize;
+}
+
+pub trait MsgHeader: MsgSize {
     const TYPE: MsgType;
     const HAS_PAYLOAD: bool;
+}
+
+impl<T: MsgSize> MsgSize for Option<T> {
+    const SIZE: usize = T::SIZE + 1;
+}
+
+impl MsgSize for u32 {
+    const SIZE: usize = 4;
 }
 
 #[derive(Serialize, Copy, Clone, Debug)]
@@ -50,12 +62,20 @@ pub struct PayloadRef {
     pub offset: u16
 }
 
+impl MsgSize for PayloadRef {
+    const SIZE: usize = 4;
+}
+
 pub type Vchar = PayloadRef;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Duration {
     pub seconds: u32,
     pub nano_seconds: u32
+}
+
+impl MsgSize for Duration {
+    const SIZE: usize = 8;
 }
 
 impl From<&std::time::Duration> for Duration {
@@ -67,7 +87,7 @@ impl From<&std::time::Duration> for Duration {
     }
 }
 
-#[derive(Serialize, Copy, Clone, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 #[repr(u8)]
 pub enum Level {
     Trace = 0,
@@ -75,6 +95,10 @@ pub enum Level {
     Info = 2,
     Warning = 3,
     Error = 4
+}
+
+impl MsgSize for Level {
+    const SIZE: usize = 1;
 }
 
 impl Level {
@@ -109,6 +133,10 @@ pub struct Metadata {
     pub file: Option<Vchar>
 }
 
+impl MsgSize for Metadata {
+    const SIZE: usize = Level::SIZE + Option::<u32>::SIZE + Vchar::SIZE * 2 + Option::<Vchar>::SIZE * 2;
+}
+
 #[derive(Serialize)]
 pub struct Target {
     pub os: Vchar,
@@ -116,10 +144,18 @@ pub struct Target {
     pub arch: Vchar
 }
 
+impl MsgSize for Target {
+    const SIZE: usize = Vchar::SIZE * 3;
+}
+
 #[derive(Serialize)]
 pub struct Cpu {
     pub name: Vchar,
     pub core_count: u32
+}
+
+impl MsgSize for Cpu {
+    const SIZE: usize = Vchar::SIZE + 4;
 }
 
 #[derive(Serialize)]
@@ -130,6 +166,10 @@ pub struct Project {
     pub cmd_line: Vchar,
     pub target: Target,
     pub cpu: Option<Cpu>
+}
+
+impl MsgSize for Project {
+    const SIZE: usize = Vchar::SIZE * 4 + Target::SIZE + Option::<Cpu>::SIZE;
 }
 
 impl MsgHeader for Project {
@@ -143,6 +183,10 @@ pub struct SpanAlloc {
     pub metadata: Metadata
 }
 
+impl MsgSize for SpanAlloc {
+    const SIZE: usize = 4 + Metadata::SIZE;
+}
+
 impl MsgHeader for SpanAlloc {
     const TYPE: MsgType = MsgType::SpanAlloc;
     const HAS_PAYLOAD: bool = true;
@@ -152,6 +196,10 @@ impl MsgHeader for SpanAlloc {
 pub struct SpanParent {
     pub id: u32,
     pub parent_node: u32 //0 = No parent
+}
+
+impl MsgSize for SpanParent {
+    const SIZE: usize = 8;
 }
 
 impl MsgHeader for SpanParent {
@@ -165,6 +213,10 @@ pub struct SpanFollows {
     pub follows: u32
 }
 
+impl MsgSize for SpanFollows {
+    const SIZE: usize = 8;
+}
+
 impl MsgHeader for SpanFollows {
     const TYPE: MsgType = MsgType::SpanFollows;
     const HAS_PAYLOAD: bool = false;
@@ -176,6 +228,10 @@ pub struct SpanEvent {
     pub timestamp: i64,
     pub level: Level,
     pub message: Vchar
+}
+
+impl MsgSize for SpanEvent {
+    const SIZE: usize = 4 + 8 + Level::SIZE + Vchar::SIZE;
 }
 
 impl MsgHeader for SpanEvent {
@@ -192,7 +248,32 @@ pub struct SpanUpdate {
     pub max_time: Duration
 }
 
+impl MsgSize for SpanUpdate {
+    const SIZE: usize = 8 + Duration::SIZE * 3;
+}
+
 impl MsgHeader for SpanUpdate {
     const TYPE: MsgType = MsgType::SpanUpdate;
     const HAS_PAYLOAD: bool = false;
+}
+
+#[derive(Deserialize)]
+pub struct ClientConfig {
+    pub max_average_points: u32,
+    pub max_rows: u32,
+    pub can_access_path: bool,
+    pub max_level: Option<Level>,
+}
+
+impl MsgSize for ClientConfig {
+    const SIZE: usize = 9 + Option::<Level>::SIZE;
+}
+
+#[derive(Serialize)]
+pub struct ServerConfig {
+    pub logs_path: Option<Vchar>
+}
+
+impl MsgSize for ServerConfig {
+    const SIZE: usize = Option::<Vchar>::SIZE;
 }

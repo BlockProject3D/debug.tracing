@@ -31,5 +31,6 @@ pub mod header;
 pub mod payload;
 pub mod util;
 pub mod serializer;
+pub mod deserializer;
 
 pub use version::*;

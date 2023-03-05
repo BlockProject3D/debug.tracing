@@ -54,7 +54,8 @@ impl Drop for Guard {
 
 pub struct Profiler {
     spans: DashMap<SpanId, SpanVisitor>,
-    channels: ChannelsIn
+    channels: ChannelsIn,
+    max_level: Option<Level>
 }
 
 impl Profiler {
@@ -75,7 +76,7 @@ impl Profiler {
         let (state, channels) = ProfilerState::new(move |channels| {
             run(port, channels, logs, result_in);
         });
-        result_out.blocking_recv().unwrap()?;
+        let max_level = result_out.blocking_recv().unwrap()?;
         channels.control.blocking_send(command::Control::Project {
                 app_name: FixedBufStr::from_str(app_name),
                 name: FixedBufStr::from_str(crate_name),
@@ -85,7 +86,14 @@ impl Profiler {
         Ok(TracingSystem::with_destructor(
             Profiler {
                 spans: DashMap::new(),
-                channels
+                channels,
+                max_level: max_level.map(|v| match v {
+                    nt::header::Level::Trace => Level::TRACE,
+                    nt::header::Level::Debug => Level::DEBUG,
+                    nt::header::Level::Info => Level::INFO,
+                    nt::header::Level::Warning => Level::WARN,
+                    nt::header::Level::Error => Level::ERROR
+                })
             },
             Box::new(Guard(state)),
         ))
@@ -164,6 +172,6 @@ impl Tracer for Profiler {
     }
 
     fn max_level_hint(&self) -> Option<Level> {
-        None
+        self.max_level
     }
 }

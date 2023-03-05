@@ -32,8 +32,8 @@ use crate::profiler::cpu_info::read_cpu_info;
 use std::io::{Error, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::num::NonZeroU32;
-use std::path::PathBuf;
-use serde::Serialize;
+use std::path::{Path, PathBuf};
+use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
@@ -45,6 +45,8 @@ use crate::profiler::thread::util::read_command_line;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
+use crate::profiler::network_types::deserializer::Deserializer;
+use crate::profiler::network_types::header::MsgSize;
 
 struct Net {
     socket: BufWriter<TcpStream>,
@@ -66,6 +68,19 @@ impl Net {
     pub fn get_payload(&mut self) -> nt::util::Payload {
         self.cursor = 0;
         nt::util::Payload::new(&mut self.net_buffer, &mut self.cursor)
+    }
+
+    pub async fn network_write_raw<H: Serialize>(&mut self, header: H, has_payload: bool) -> std::io::Result<()> {
+        let mut head_len = 0;
+        let mut serializer = nt::serializer::Serializer::new(&mut self.head_buffer, &mut head_len);
+        if let Err(e) = header.serialize(&mut serializer) {
+            return Err(Error::new(ErrorKind::Other, e));
+        }
+        self.socket.write_all(&self.head_buffer[..head_len]).await?;
+        if has_payload {
+            self.socket.write_all(&self.net_buffer[..self.cursor]).await?;
+        }
+        Ok(())
     }
 
     pub async fn network_write<H: Serialize + nt::header::MsgHeader>(&mut self, header: H) {
@@ -93,16 +108,18 @@ struct Thread {
     channels: ChannelsOut,
     span_data: HashMap<NonZeroU32, SpanData>,
     net: Net,
-    logs: Option<PathBuf>
+    logs: Option<PathBuf>,
+    config: nt::header::ClientConfig
 }
 
 impl Thread {
-    pub fn new(socket: TcpStream, channels: ChannelsOut, logs: Option<PathBuf>) -> Thread {
+    pub fn new(socket: TcpStream, channels: ChannelsOut, logs: Option<PathBuf>, config: nt::header::ClientConfig) -> Thread {
         Thread {
             channels,
             span_data: HashMap::new(),
             net: Net::new(socket),
-            logs
+            logs,
+            config
         }
     }
 
@@ -117,7 +134,7 @@ impl Thread {
             if data.update(&duration) {
                 let head = nt::header::SpanUpdate {
                     id: log.id().get(),
-                    run_count: data.run_count,
+                    run_count: data.full_run_count,
                     average_time: nt::header::Duration::from(&data.get_average()),
                     min_time: nt::header::Duration::from(&data.min_time),
                     max_time: nt::header::Duration::from(&data.max_time)
@@ -128,9 +145,7 @@ impl Thread {
                 // avoid disk overload.
                 if let Some(file) = &mut data.runs_file {
                     use std::fmt::Write;
-                    let _ = write!(log, ",{},{},{}",
-                                   duration.as_secs(), duration.subsec_millis(),
-                                   duration.subsec_micros() - (duration.subsec_millis() * 1000));
+                    let _ = write!(log, ",{},{}", duration.as_secs(), duration.subsec_nanos());
                     let _ = file.write_all(log.msg().as_bytes()).await;
                     let _ = file.write_all("\n".as_bytes()).await;
                 }
@@ -143,7 +158,7 @@ impl Thread {
             command::Span::Log(msg) => self.handle_span_data(msg).await,
             command::Span::Event(msg) => self.handle_event(msg).await,
             command::Span::Alloc { id, metadata } => {
-                self.span_data.insert(id, SpanData::new(self.create_runs_file(id).await));
+                self.span_data.insert(id, SpanData::new(self.create_runs_file(id).await, self.config.max_rows, self.config.max_average_points));
                 let mut payload = self.net.get_payload();
                 let head = nt::header::SpanAlloc {
                     id: id.get(),
@@ -218,6 +233,9 @@ impl Thread {
                 for (_, v) in &mut self.span_data {
                     if let Some(mut v) = v.runs_file.take() {
                         let _ = v.flush().await;
+                        if !self.config.can_access_path {
+                            //TODO: write the file over network link.
+                        }
                     }
                 }
                 false
@@ -256,16 +274,33 @@ async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
     }
 }
 
-async fn init(port: u16) -> std::io::Result<TcpStream> {
+async fn init(port: u16, logs: Option<&Path>) -> std::io::Result<(TcpStream, nt::header::ClientConfig)> {
     let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
-    //TODO: Re-arm when preliminary performance tests are over
     handle_hello(&mut socket).await?;
-    Ok(socket)
+    let mut net = Net::new(socket);
+    let mut head = nt::header::ServerConfig { logs_path: None };
+    if let Some(logs) = logs {
+        if let Some(str) = logs.to_str() {
+            let mut payload = net.get_payload();
+            head.logs_path = Some(payload.write_object(str)?);
+        }
+    }
+    net.network_write_raw(head, true).await?;
+    net.socket.flush().await?;
+    let mut socket = net.socket.into_inner();
+    let mut buffer: [u8; nt::header::ClientConfig::SIZE] = [0; nt::header::ClientConfig::SIZE];
+    socket.read_exact(&mut buffer).await?;
+    let mut deserializer = Deserializer::new(&buffer);
+    let config = match nt::header::ClientConfig::deserialize(&mut deserializer) {
+        Ok(v) => v,
+        Err(e) => return Err(Error::new(ErrorKind::Other, e))
+    };
+    Ok((socket, config))
 }
 
-pub fn run(port: u16, mut channels: ChannelsOut, logs: Option<PathBuf>, result_channel: oneshot::Sender<std::io::Result<()>>) {
+pub fn run(port: u16, mut channels: ChannelsOut, logs: Option<PathBuf>, result_channel: oneshot::Sender<std::io::Result<Option<nt::header::Level>>>) {
     Builder::new_current_thread().enable_io().build().unwrap().block_on(async {
         tokio::select! {
             cmd = channels.control.recv() => {
@@ -276,18 +311,18 @@ pub fn run(port: u16, mut channels: ChannelsOut, logs: Option<PathBuf>, result_c
                     _ => ()
                 }
             },
-            res = init(port) => {
-                let socket = match res {
-                    Ok(v) => {
-                        result_channel.send(Ok(())).unwrap();
-                        v
+            res = init(port, logs.as_deref()) => {
+                let (socket, config) = match res {
+                    Ok((socket, config)) => {
+                        result_channel.send(Ok(config.max_level)).unwrap();
+                        (socket, config)
                     },
                     Err(e) => {
                         result_channel.send(Err(e)).unwrap();
                         return
                     }
                 };
-                let mut thread = Thread::new(socket, channels, logs);
+                let mut thread = Thread::new(socket, channels, logs, config);
                 thread.run().await;
             }
         }

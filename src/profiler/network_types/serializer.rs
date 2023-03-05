@@ -27,7 +27,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::fmt::{Display, Formatter};
-use std::io::{Seek, Write};
 use byteorder::{LittleEndian, WriteBytesExt};
 use serde::ser::{SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant, StdError};
 use serde::Serialize;
@@ -224,12 +223,12 @@ impl<'a, 'b> serde::Serializer for &'a mut Serializer<'b> {
         self.0.write_u32::<LittleEndian>(v as _).map_err(Error::Io)
     }
 
-    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        self.serialize_bytes(v.as_bytes())
+    fn serialize_str(self, _: &str) -> Result<Self::Ok, Self::Error> {
+        Err(Error::Unsupported)
     }
 
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.0.write(v).map(|_| ()).map_err(Error::Io)
+    fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok, Self::Error> {
+        Err(Error::Unsupported)
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {

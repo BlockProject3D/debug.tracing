@@ -30,46 +30,55 @@ use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::BufWriter;
 
-const OVERFLOW_LIMIT: u32 = 1_000_000;
-
 pub struct SpanData {
-    pub run_count: u32,
+    pub full_run_count: u32,
+    pub average_run_count: u32,
     pub has_overflowed: bool,
     pub min_time: Duration,
     pub max_time: Duration,
     pub total_time: Duration,
+    pub max_rows: u32,
+    pub max_average_points: u32,
     pub runs_file: Option<BufWriter<File>>,
     pub last_display_time: std::time::Instant
 }
 
 impl SpanData {
-    pub fn new(runs_file: Option<BufWriter<File>>) -> SpanData {
+    pub fn new(runs_file: Option<BufWriter<File>>, max_rows: u32, max_average_points: u32) -> SpanData {
         SpanData {
-            run_count: 0,
+            full_run_count: 0,
+            average_run_count: 0,
             has_overflowed: false,
             min_time: Duration::MAX,
             max_time: Duration::ZERO,
             total_time: Duration::ZERO,
             runs_file,
-            last_display_time: std::time::Instant::now()
+            last_display_time: std::time::Instant::now(),
+            max_rows,
+            max_average_points
         }
     }
 
     pub fn get_average(&self) -> Duration {
-        if self.run_count == 0 {
+        if self.average_run_count == 0 {
             Duration::ZERO
         } else {
-            self.total_time / self.run_count
+            self.total_time / self.average_run_count
         }
     }
 
     pub fn update(&mut self, duration: &Duration) -> bool {
-        self.run_count += 1;
-        //Avoid overflow.
-        if self.run_count > OVERFLOW_LIMIT {
-            self.total_time = Duration::ZERO;
-            self.run_count = 0;
+        //Avoid overflow of the full number of rows.
+        if self.full_run_count < self.max_rows {
+            self.full_run_count += 1;
+        } else {
             self.has_overflowed = true;
+        }
+        //Avoid overflow of the average running time.
+        self.average_run_count += 1;
+        if self.average_run_count >= self.max_average_points {
+            self.total_time = Duration::ZERO;
+            self.average_run_count = 0;
         }
         if duration > &self.max_time {
             self.max_time = *duration;

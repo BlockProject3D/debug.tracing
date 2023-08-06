@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -34,7 +34,5 @@ mod state;
 mod thread;
 mod visitor;
 mod log_msg;
-
-pub const DEFAULT_PORT: u16 = 4026;
 
 pub use self::core::Profiler;

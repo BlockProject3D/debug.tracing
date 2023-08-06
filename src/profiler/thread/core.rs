@@ -26,15 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use tokio::net::tcp::{WriteHalf, ReadHalf};
 use tokio::sync::oneshot;
 use std::collections::HashMap;
 use crate::profiler::cpu_info::read_cpu_info;
 use std::io::{Error, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::num::NonZeroU32;
-use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
-use tokio::fs::File;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use crate::profiler::network_types as nt;
@@ -42,27 +41,36 @@ use crate::profiler::state::ChannelsOut;
 use crate::profiler::thread::command;
 use crate::profiler::thread::state::SpanData;
 use crate::profiler::thread::util::read_command_line;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter, BufReader};
 use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
-use crate::profiler::network_types::deserializer::Deserializer;
-use crate::profiler::network_types::header::MsgSize;
 
-struct Net {
-    socket: BufWriter<TcpStream>,
+use super::store::SpanStore;
+
+pub struct Net<'a> {
+    write: BufWriter<WriteHalf<'a>>,
     head_buffer: [u8; 64],
     cursor: usize,
-    net_buffer: [u8; 1024]
+    net_buffer: [u8; 1024],
+    read: BufReader<ReadHalf<'a>>
 }
 
-impl Net {
-    pub fn new(socket: TcpStream) -> Net {
+impl<'a> Net<'a> {
+    pub fn new(socket: &'a mut TcpStream) -> Net<'a> {
+        let (read, write) = socket.split();
         Net {
-            socket: BufWriter::new(socket),
+            write: BufWriter::new(write),
+            read: BufReader::new(read),
             head_buffer: [0; 64],
             cursor: 0,
             net_buffer: [0; 1024]
         }
+    }
+
+    pub async fn network_read<'b, M: nt::header::MsgSize + Deserialize<'b>>(&'b mut self) -> std::io::Result<M> {
+        self.read.read_exact(&mut self.head_buffer[0..M::SIZE]).await?;
+        let mut de = nt::deserializer::Deserializer::new(&self.head_buffer[0..M::SIZE]);
+        M::deserialize(&mut de).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
     pub fn get_payload(&mut self) -> nt::util::Payload {
@@ -76,9 +84,9 @@ impl Net {
         if let Err(e) = header.serialize(&mut serializer) {
             return Err(Error::new(ErrorKind::Other, e));
         }
-        self.socket.write_all(&self.head_buffer[..head_len]).await?;
+        self.write.write_all(&self.head_buffer[..head_len]).await?;
         if has_payload {
-            self.socket.write_all(&self.net_buffer[..self.cursor]).await?;
+            self.write.write_all(&self.net_buffer[..self.cursor]).await?;
         }
         Ok(())
     }
@@ -92,64 +100,38 @@ impl Net {
         if let Err(_) = header.serialize(&mut serializer) {
             return;
         }
-        if let Err(e) = self.socket.write_all(&self.head_buffer[..head_len]).await {
+        if let Err(e) = self.write.write_all(&self.head_buffer[..head_len]).await {
             eprintln!("Failed to write to network: {}", e);
             return;
         }
         if H::HAS_PAYLOAD {
-            if let Err(e) = self.socket.write_all(&self.net_buffer[..self.cursor]).await {
+            if let Err(e) = self.write.write_all(&self.net_buffer[..self.cursor]).await {
                 eprintln!("Failed to write to network: {}", e);
             }
         }
     }
 }
 
-struct Thread {
+struct Thread<'a> {
     channels: ChannelsOut,
     span_data: HashMap<NonZeroU32, SpanData>,
-    net: Net,
-    logs: Option<PathBuf>,
-    config: nt::header::ClientConfig
+    net: Net<'a>,
+    core: SpanStore
 }
 
-impl Thread {
-    pub fn new(socket: TcpStream, channels: ChannelsOut, logs: Option<PathBuf>, config: nt::header::ClientConfig) -> Thread {
+impl<'a> Thread<'a> {
+    pub fn new(socket: &'a mut TcpStream, channels: ChannelsOut, config: nt::header::ClientConfig, max_rows: u32, min_period: u16) -> Thread {
         Thread {
             channels,
             span_data: HashMap::new(),
             net: Net::new(socket),
-            logs,
-            config
+            core: SpanStore::new(max_rows, min_period, &config)
         }
     }
 
-    async fn create_runs_file(&self, id: NonZeroU32) -> Option<BufWriter<File>> {
-        let filename = format!("{}.csv", id);
-        File::create(self.logs.as_ref()?.join(filename)).await.ok().map(BufWriter::new)
-    }
-
-    async fn handle_span_data(&mut self, mut log: SpanLog) {
-        if let Some(data) = self.span_data.get_mut(&log.id()) {
-            let duration = log.get_duration();
-            if data.update(&duration) {
-                let head = nt::header::SpanUpdate {
-                    id: log.id().get(),
-                    run_count: data.full_run_count,
-                    average_time: nt::header::Duration::from(&data.get_average()),
-                    min_time: nt::header::Duration::from(&data.min_time),
-                    max_time: nt::header::Duration::from(&data.max_time)
-                };
-                self.net.network_write(head).await;
-            }
-            if !data.has_overflowed { //Hard limit on the number of rows in the CSV to
-                // avoid disk overload.
-                if let Some(file) = &mut data.runs_file {
-                    use std::fmt::Write;
-                    let _ = write!(log, ",{},{}", duration.as_secs(), duration.subsec_nanos());
-                    let _ = file.write_all(log.msg().as_bytes()).await;
-                    let _ = file.write_all("\n".as_bytes()).await;
-                }
-            }
+    async fn handle_span_data(&mut self, log: SpanLog) {
+        if let Some(msg) = self.core.record(log) {
+            self.net.network_write(msg).await;
         }
     }
 
@@ -158,7 +140,7 @@ impl Thread {
             command::Span::Log(msg) => self.handle_span_data(msg).await,
             command::Span::Event(msg) => self.handle_event(msg).await,
             command::Span::Alloc { id, metadata } => {
-                self.span_data.insert(id, SpanData::new(self.create_runs_file(id).await, self.config.max_rows, self.config.max_average_points));
+                self.span_data.insert(id, SpanData::new());
                 let mut payload = self.net.get_payload();
                 let head = nt::header::SpanAlloc {
                     id: id.get(),
@@ -229,23 +211,31 @@ impl Thread {
                 true
             },
             command::Control::Terminate => {
-                let _ = self.net.socket.flush().await;
-                for (_, v) in &mut self.span_data {
-                    if let Some(mut v) = v.runs_file.take() {
-                        let _ = v.flush().await;
-                        if !self.config.can_access_path {
-                            //TODO: write the file over network link.
-                        }
-                    }
-                }
+                let _ = self.net.write.flush().await;
+                self.core.stop_recording(&mut self.net).await;
+                let _ = self.net.write.flush().await;
                 false
             }
+        }
+    }
+
+    async fn handle_net_command(&mut self, command: std::io::Result<nt::header::ClientRecord>) {
+        match command {
+            Ok(v) => {
+                if v.enable {
+                    self.core.start_recording(v.max_rows);
+                } else {
+                    self.core.stop_recording(&mut self.net).await;
+                }
+            },
+            Err(e) => println!("Failed to read network command: {}", e)
         }
     }
 
     pub async fn run(&mut self) {
         loop {
             tokio::select! {
+                cmd = self.net.network_read::<nt::header::ClientRecord>() => self.handle_net_command(cmd).await,
                 cmd = self.channels.span.recv() => if let Some(cmd) = cmd { self.handle_span(cmd).await },
                 cmd = self.channels.control.recv() => if let Some(cmd) = cmd {
                     if !self.handle_control(cmd).await {
@@ -274,33 +264,20 @@ async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
     }
 }
 
-async fn init(port: u16, logs: Option<&Path>) -> std::io::Result<(TcpStream, nt::header::ClientConfig)> {
+async fn init(port: u16, max_rows: u32) -> std::io::Result<(TcpStream, nt::header::ClientConfig)> {
     let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
     handle_hello(&mut socket).await?;
-    let mut net = Net::new(socket);
-    let mut head = nt::header::ServerConfig { logs_path: None };
-    if let Some(logs) = logs {
-        if let Some(str) = logs.to_str() {
-            let mut payload = net.get_payload();
-            head.logs_path = Some(payload.write_object(str)?);
-        }
-    }
-    net.network_write_raw(head, true).await?;
-    net.socket.flush().await?;
-    let mut socket = net.socket.into_inner();
-    let mut buffer: [u8; nt::header::ClientConfig::SIZE] = [0; nt::header::ClientConfig::SIZE];
-    socket.read_exact(&mut buffer).await?;
-    let mut deserializer = Deserializer::new(&buffer);
-    let config = match nt::header::ClientConfig::deserialize(&mut deserializer) {
-        Ok(v) => v,
-        Err(e) => return Err(Error::new(ErrorKind::Other, e))
-    };
+    let mut net = Net::new(&mut socket);
+    let head = nt::header::ServerConfig { max_rows };
+    net.network_write_raw(head, false).await?;
+    net.write.flush().await?;
+    let config: nt::header::ClientConfig = net.network_read().await?;
     Ok((socket, config))
 }
 
-pub fn run(port: u16, mut channels: ChannelsOut, logs: Option<PathBuf>, result_channel: oneshot::Sender<std::io::Result<Option<nt::header::Level>>>) {
+pub fn run(port: u16, mut channels: ChannelsOut, max_rows: u32, min_period: u16, result_channel: oneshot::Sender<std::io::Result<Option<nt::header::Level>>>) {
     Builder::new_current_thread().enable_io().build().unwrap().block_on(async {
         tokio::select! {
             cmd = channels.control.recv() => {
@@ -311,8 +288,8 @@ pub fn run(port: u16, mut channels: ChannelsOut, logs: Option<PathBuf>, result_c
                     _ => ()
                 }
             },
-            res = init(port, logs.as_deref()) => {
-                let (socket, config) = match res {
+            res = init(port, max_rows) => {
+                let (mut socket, config) = match res {
                     Ok((socket, config)) => {
                         result_channel.send(Ok(config.max_level)).unwrap();
                         (socket, config)
@@ -322,7 +299,7 @@ pub fn run(port: u16, mut channels: ChannelsOut, logs: Option<PathBuf>, result_c
                         return
                     }
                 };
-                let mut thread = Thread::new(socket, channels, logs, config);
+                let mut thread = Thread::new(&mut socket, channels, config, max_rows, min_period);
                 thread.run().await;
             }
         }

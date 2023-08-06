@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,53 +26,43 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::config::model::Config;
 use crate::core::{Tracer, TracingSystem};
 use crate::util::{extract_target_module, SpanId, tracing_level_to_log};
 use crate::visitor::{FastVisitor, SpanVisitor};
 use bp3d_logger::{Colors, LogMsg};
 use chrono::{DateTime, Local, Utc};
 use dashmap::DashMap;
-use std::borrow::Cow;
 use std::fmt::Write;
 use std::time::Duration;
 use tracing_core::span::{Attributes, Record};
 use tracing_core::{Event, Level};
 
 pub struct Logger {
-    disabled: bool,
     level: Level,
     spans: DashMap<SpanId, SpanVisitor>,
+    time_format: String
 }
 
 impl Logger {
-    pub fn new<T: bp3d_logger::GetLogs>(app: T) -> TracingSystem<Logger> {
-        let disabled = bp3d_env::get_bool("LOG_DISABLE").unwrap_or(false);
-        let level = bp3d_env::get("LOG")
-            .map(|v| v.to_lowercase())
-            .map(Cow::Owned)
-            .unwrap_or("info".into());
-        let level = match &*level {
-            "error" => Level::ERROR,
-            "warning" => Level::WARN,
-            "info" => Level::INFO,
-            "debug" => Level::DEBUG,
-            "trace" => Level::TRACE,
-            _ => Level::INFO,
-        };
-        let always_stdout = bp3d_env::get_bool("LOG_STDOUT").unwrap_or(false);
-        let colors = match bp3d_env::get_bool("LOG_COLOR") {
-            None => Colors::Auto,
-            Some(v) => match v {
-                true => Colors::Enabled,
-                false => Colors::Disabled,
-            },
-        };
-        let guard = bp3d_logger::Logger::new()
-            .smart_stderr(!always_stdout)
-            .colors(colors)
-            .add_stdout()
-            .add_file(app)
-            .start();
+    pub fn new<T: bp3d_logger::GetLogs>(app: T, config: &Config) -> TracingSystem<Logger> {
+        let level = config.get_logger().get_level().to_tracing();
+        let mut guard = bp3d_logger::Logger::new();
+        if let Some(console) = &config.get_logger().console {
+            let colors = match console.get_color() {
+                crate::config::model::Color::Auto => Colors::Auto,
+                crate::config::model::Color::Always => Colors::Enabled,
+                crate::config::model::Color::Never => Colors::Disabled
+            };    
+            guard = guard
+                .smart_stderr(console.get_stderr())
+                .colors(colors)
+                .add_stdout()
+        }
+        if config.get_logger().file.is_some() {
+            guard = guard.add_file(app)
+        }
+        let guard = guard.start();
         log::set_max_level(match level {
             Level::ERROR => log::LevelFilter::Error,
             Level::WARN => log::LevelFilter::Warn,
@@ -83,8 +73,8 @@ impl Logger {
         TracingSystem::with_destructor(
             Logger {
                 level,
-                disabled,
                 spans: DashMap::new(),
+                time_format: config.get_logger().get_time_format().into()
             },
             Box::new(guard),
         )
@@ -93,7 +83,7 @@ impl Logger {
 
 impl Tracer for Logger {
     fn enabled(&self) -> bool {
-        !self.disabled
+        true
     }
 
     fn span_create(&self, id: &SpanId, _: bool, _: Option<SpanId>, attrs: &Attributes) {
@@ -117,7 +107,7 @@ impl Tracer for Logger {
     fn event(&self, _: Option<SpanId>, time: DateTime<Utc>, event: &Event) {
         let (target, module) = extract_target_module(event.metadata());
         let time = DateTime::<Local>::from(time);
-        let formatted = time.format("%a %b %d %Y %I:%M:%S %P");
+        let formatted = time.format(&self.time_format);
         let mut msg = LogMsg::new(target, tracing_level_to_log(event.metadata().level()));
         let _ = write!(msg, "({}) {}: ", formatted, module.unwrap_or("main"));
         let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());

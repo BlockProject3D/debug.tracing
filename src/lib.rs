@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -29,11 +29,12 @@
 use crate::core::{Tracer, TracingSystem};
 use crate::logger::Logger;
 use crate::profiler::Profiler;
-use bp3d_fs::dirs::App;
+use bp3d_os::dirs::App;
 use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::subscriber::set_global_default;
 
+mod config;
 mod core;
 mod logger;
 mod profiler;
@@ -73,19 +74,20 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(
     crate_name: T1,
     crate_version: T2,
 ) -> Guard {
-    {
+    let config = {
         let app = App::new(app.as_ref());
-        if let Ok(v) = app.get_documents().map(|v| v.join("environment")) {
-            bp3d_env::add_override_path(&v);
-        }
-    }
-    let profiler = bp3d_env::get_bool("PROFILER").unwrap_or(false);
-    if profiler {
-        Profiler::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref())
+        config::load_config(&app)
+    };
+    let profiler = bp3d_os::env::get_bool("PROFILER").unwrap_or(false);
+    let disable = bp3d_os::env::get_bool("LOG_DISABLE").unwrap_or(false);
+    if config.get_mode() == config::model::Mode::None || disable {
+        Guard(None)
+    } else if config.get_mode() == config::model::Mode::Profiler || profiler {
+        Profiler::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref(), &config)
             .map(load_system)
-            .unwrap_or_else(|_| load_system(Logger::new(app.as_ref())))
+            .unwrap_or_else(|_| load_system(Logger::new(app.as_ref(), &config)))
     } else {
-        load_system(Logger::new(app.as_ref()))
+        load_system(Logger::new(app.as_ref(), &config))
     }
 }
 

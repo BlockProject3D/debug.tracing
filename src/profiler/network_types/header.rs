@@ -36,7 +36,8 @@ pub enum MsgType {
     SpanParent = 2,
     SpanFollows = 3,
     SpanEvent = 4,
-    SpanUpdate = 5
+    SpanUpdate = 5,
+    SpanDataset = 6
 }
 
 pub trait MsgSize {
@@ -257,12 +258,39 @@ impl MsgHeader for SpanUpdate {
     const HAS_PAYLOAD: bool = false;
 }
 
+#[derive(Serialize)]
+pub struct SpanDataset {
+    pub id: u32,
+    pub run_count: u32,
+    pub size: u32
+}
+
+impl MsgSize for SpanDataset {
+    const SIZE: usize = u32::SIZE * 3;
+}
+
+impl MsgHeader for SpanDataset {
+    const TYPE: MsgType = MsgType::SpanDataset;
+
+    const HAS_PAYLOAD: bool = true;
+}
+
+#[derive(Deserialize)]
+pub struct ClientRecord {
+    pub max_rows: u32,
+    pub enable: bool
+}
+
+impl MsgSize for ClientRecord {
+    const SIZE: usize = u32::SIZE + 1;
+}
+
 #[derive(Deserialize)]
 pub struct ClientConfig {
     pub max_average_points: u32,
-    pub max_rows: u32,
-    pub can_access_path: bool,
     pub max_level: Option<Level>,
+    pub record: ClientRecord,
+    pub period: u16
 }
 
 impl MsgSize for ClientConfig {
@@ -271,7 +299,7 @@ impl MsgSize for ClientConfig {
 
 #[derive(Serialize)]
 pub struct ServerConfig {
-    pub logs_path: Option<Vchar>
+    pub max_rows: u32
 }
 
 impl MsgSize for ServerConfig {

@@ -30,6 +30,7 @@ mod core;
 mod util;
 pub mod command;
 mod state;
+mod store;
 
 pub use self::core::run;
 pub use util::FixedBufStr;

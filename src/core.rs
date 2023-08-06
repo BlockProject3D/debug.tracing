@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -262,7 +262,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
 
     fn clone_span(&self, id: &Id) -> Id {
         let mut lock = self.inner.lock().unwrap();
-        if let Some(mut data) = lock.spans_by_id.get_mut(&id.into()) {
+        if let Some(data) = lock.spans_by_id.get_mut(&id.into()) {
             data.ref_count += 1;
         }
         id.clone()

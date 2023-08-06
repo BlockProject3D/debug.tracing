@@ -27,19 +27,18 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use tokio::sync::oneshot;
+use crate::config::model::Config;
 use crate::core::{Tracer, TracingSystem};
 use crate::profiler::logpump::LOG_PUMP;
 use crate::profiler::state::{ChannelsIn, ProfilerState};
 use crate::profiler::thread::{command, FixedBufStr, run};
 use crate::profiler::visitor::{EventVisitor, SpanVisitor};
-use crate::profiler::DEFAULT_PORT;
 use chrono::{DateTime, Utc};
 use std::time::Duration;
-use bp3d_fs::dirs::App;
 use dashmap::DashMap;
 use tracing_core::span::{Attributes, Record};
 use tracing_core::{Event, Level};
-use crate::profiler::log_msg::{EventLog};
+use crate::profiler::log_msg::EventLog;
 use crate::util::{extract_target_module, SpanId};
 use crate::profiler::network_types as nt;
 
@@ -63,18 +62,19 @@ impl Profiler {
         app_name: &str,
         crate_name: &str,
         crate_version: &str,
+        config: &Config
     ) -> std::io::Result<TracingSystem<Profiler>> {
         log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
-        let port = bp3d_env::get("PROFILER_PORT")
-            .map(|v| v.parse().unwrap_or(DEFAULT_PORT))
-            .unwrap_or(DEFAULT_PORT);
+        let port = config.get_profiler().get_port();
         println!("Waiting for debugger to attach to {}...", port);
         //Block software until we receive a debugger connection.
-        let logs = App::new(app_name).get_logs().ok().map(|v| v.to_owned());
+        //let logs = App::new(app_name).get_logs().map(|v| v.to_owned());
         let (result_in, result_out) = oneshot::channel();
         //Got hit by https://github.com/rust-lang/rust/issues/100905
+        let useless = config.get_profiler().get_max_rows();
+        let useless2 = config.get_profiler().get_min_period();
         let (state, channels) = ProfilerState::new(move |channels| {
-            run(port, channels, logs, result_in);
+            run(port, channels, useless, useless2, result_in);
         });
         let max_level = result_out.blocking_recv().unwrap()?;
         channels.control.blocking_send(command::Control::Project {

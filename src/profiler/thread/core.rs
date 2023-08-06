@@ -26,24 +26,24 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tokio::net::tcp::{WriteHalf, ReadHalf};
-use tokio::sync::oneshot;
-use std::collections::HashMap;
 use crate::profiler::cpu_info::read_cpu_info;
-use std::io::{Error, ErrorKind};
-use std::net::{Ipv4Addr, SocketAddrV4};
-use std::num::NonZeroU32;
-use serde::{Deserialize, Serialize};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::runtime::Builder;
+use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types as nt;
+use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
 use crate::profiler::state::ChannelsOut;
 use crate::profiler::thread::command;
 use crate::profiler::thread::state::SpanData;
 use crate::profiler::thread::util::read_command_line;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter, BufReader};
-use crate::profiler::log_msg::{EventLog, SpanLog};
-use crate::profiler::network_types::{Hello, HELLO_PACKET, MatchResult};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::num::NonZeroU32;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::net::tcp::{ReadHalf, WriteHalf};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::runtime::Builder;
+use tokio::sync::oneshot;
 
 use super::store::SpanStore;
 
@@ -52,7 +52,7 @@ pub struct Net<'a> {
     head_buffer: [u8; 64],
     cursor: usize,
     net_buffer: [u8; 1024],
-    read: BufReader<ReadHalf<'a>>
+    read: BufReader<ReadHalf<'a>>,
 }
 
 impl<'a> Net<'a> {
@@ -63,12 +63,16 @@ impl<'a> Net<'a> {
             read: BufReader::new(read),
             head_buffer: [0; 64],
             cursor: 0,
-            net_buffer: [0; 1024]
+            net_buffer: [0; 1024],
         }
     }
 
-    pub async fn network_read<'b, M: nt::header::MsgSize + Deserialize<'b>>(&'b mut self) -> std::io::Result<M> {
-        self.read.read_exact(&mut self.head_buffer[0..M::SIZE]).await?;
+    pub async fn network_read<'b, M: nt::header::MsgSize + Deserialize<'b>>(
+        &'b mut self,
+    ) -> std::io::Result<M> {
+        self.read
+            .read_exact(&mut self.head_buffer[0..M::SIZE])
+            .await?;
         let mut de = nt::deserializer::Deserializer::new(&self.head_buffer[0..M::SIZE]);
         M::deserialize(&mut de).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
@@ -105,16 +109,22 @@ struct Thread<'a> {
     channels: ChannelsOut,
     span_data: HashMap<NonZeroU32, SpanData>,
     net: Net<'a>,
-    core: SpanStore
+    core: SpanStore,
 }
 
 impl<'a> Thread<'a> {
-    pub fn new(socket: &'a mut TcpStream, channels: ChannelsOut, config: nt::header::ClientConfig, max_rows: u32, min_period: u16) -> Thread {
+    pub fn new(
+        socket: &'a mut TcpStream,
+        channels: ChannelsOut,
+        config: nt::header::ClientConfig,
+        max_rows: u32,
+        min_period: u16,
+    ) -> Thread {
         Thread {
             channels,
             span_data: HashMap::new(),
             net: Net::new(socket),
-            core: SpanStore::new(max_rows, min_period, &config)
+            core: SpanStore::new(max_rows, min_period, &config),
         }
     }
 
@@ -137,28 +147,32 @@ impl<'a> Thread<'a> {
                         level: nt::header::Level::from_tracing(*metadata.level()),
                         file: metadata.file().map(|v| payload.write_object(v).unwrap()),
                         line: metadata.line(),
-                        module_path: metadata.module_path().map(|v| payload.write_object(v).unwrap()),
+                        module_path: metadata
+                            .module_path()
+                            .map(|v| payload.write_object(v).unwrap()),
                         name: payload.write_object(metadata.name()).unwrap(),
-                        target: payload.write_object(metadata.target()).unwrap()
-                    }
+                        target: payload.write_object(metadata.target()).unwrap(),
+                    },
                 };
                 self.net.network_write(head).await;
-            },
+            }
             command::Span::UpdateParent { id, parent } => {
-                self.net.network_write(nt::header::SpanParent {
-                    id: id.get(),
-                    parent_node: parent.map(|v| v.get()).unwrap_or(0)
-                }).await;
-            },
+                self.net
+                    .network_write(nt::header::SpanParent {
+                        id: id.get(),
+                        parent_node: parent.map(|v| v.get()).unwrap_or(0),
+                    })
+                    .await;
+            }
             command::Span::Follows { id, follows } => {
                 let id = id.get_id();
                 let follows = follows.get_id();
                 let head = nt::header::SpanFollows {
                     id: id.get(),
-                    follows: follows.get()
+                    follows: follows.get(),
                 };
                 self.net.network_write(head).await;
-            },
+            }
         }
     }
 
@@ -168,14 +182,18 @@ impl<'a> Thread<'a> {
             id: event.id().map(|v| v.get()).unwrap_or(0),
             message: payload.write_object(event.msg()).unwrap(),
             level: event.level(),
-            timestamp: event.timestamp()
+            timestamp: event.timestamp(),
         };
         self.net.network_write(head).await;
     }
 
     async fn handle_control(&mut self, command: command::Control) -> bool {
         match command {
-            command::Control::Project { app_name, name, version } => {
+            command::Control::Project {
+                app_name,
+                name,
+                version,
+            } => {
                 let mut payload = self.net.get_payload();
                 let app_name = app_name.str();
                 let name = name.str();
@@ -188,17 +206,17 @@ impl<'a> Thread<'a> {
                     target: nt::header::Target {
                         arch: payload.write_object(std::env::consts::ARCH).unwrap(),
                         family: payload.write_object(std::env::consts::FAMILY).unwrap(),
-                        os: payload.write_object(std::env::consts::OS).unwrap()
+                        os: payload.write_object(std::env::consts::OS).unwrap(),
                     },
                     cpu: info.map(|v| nt::header::Cpu {
                         name: payload.write_object(&*v.name).unwrap(),
-                        core_count: v.core_count
+                        core_count: v.core_count,
                     }),
-                    cmd_line: read_command_line(&mut payload)
+                    cmd_line: read_command_line(&mut payload),
                 };
                 self.net.network_write(head).await;
                 true
-            },
+            }
             command::Control::Terminate => {
                 let _ = self.net.write.flush().await;
                 self.core.stop_recording(&mut self.net).await;
@@ -216,8 +234,8 @@ impl<'a> Thread<'a> {
                 } else {
                     self.core.stop_recording(&mut self.net).await;
                 }
-            },
-            Err(e) => println!("Failed to read network command: {}", e)
+            }
+            Err(e) => println!("Failed to read network command: {}", e),
         }
     }
 
@@ -246,9 +264,7 @@ async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
         MatchResult::SignatureMismatch => {
             Err(Error::new(ErrorKind::Other, "protocol signature mismatch"))
         }
-        MatchResult::VersionMismatch => {
-            Err(Error::new(ErrorKind::Other, "version mismatch"))
-        }
+        MatchResult::VersionMismatch => Err(Error::new(ErrorKind::Other, "version mismatch")),
         MatchResult::Ok => Ok(()),
     }
 }
@@ -266,7 +282,13 @@ async fn init(port: u16, max_rows: u32) -> std::io::Result<(TcpStream, nt::heade
     Ok((socket, config))
 }
 
-pub fn run(port: u16, mut channels: ChannelsOut, max_rows: u32, min_period: u16, result_channel: oneshot::Sender<std::io::Result<Option<nt::header::Level>>>) {
+pub fn run(
+    port: u16,
+    mut channels: ChannelsOut,
+    max_rows: u32,
+    min_period: u16,
+    result_channel: oneshot::Sender<std::io::Result<Option<nt::header::Level>>>,
+) {
     Builder::new_current_thread().enable_io().build().unwrap().block_on(async {
         tokio::select! {
             cmd = channels.control.recv() => {

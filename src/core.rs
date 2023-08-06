@@ -233,7 +233,8 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     }
 
     fn record_follows_from(&self, span: &Id, follows: &Id) {
-        self.derived.span_follows_from(&span.into(), &follows.into());
+        self.derived
+            .span_follows_from(&span.into(), &follows.into());
     }
 
     fn event(&self, event: &Event<'_>) {

@@ -61,7 +61,7 @@ impl MsgSize for u32 {
 #[derive(Serialize, Copy, Clone, Debug)]
 pub struct PayloadRef {
     pub length: u16,
-    pub offset: u16
+    pub offset: u16,
 }
 
 impl MsgSize for PayloadRef {
@@ -73,7 +73,7 @@ pub type Vchar = PayloadRef;
 #[derive(Serialize, Clone, Debug)]
 pub struct Duration {
     pub seconds: u32,
-    pub nano_seconds: u32
+    pub nano_seconds: u32,
 }
 
 impl MsgSize for Duration {
@@ -84,7 +84,7 @@ impl From<&std::time::Duration> for Duration {
     fn from(value: &std::time::Duration) -> Self {
         Self {
             seconds: value.as_secs() as _,
-            nano_seconds: value.subsec_nanos()
+            nano_seconds: value.subsec_nanos(),
         }
     }
 }
@@ -96,7 +96,7 @@ pub enum Level {
     Debug = 1,
     Info = 2,
     Warning = 3,
-    Error = 4
+    Error = 4,
 }
 
 impl MsgSize for Level {
@@ -110,7 +110,7 @@ impl Level {
             tracing::Level::DEBUG => Level::Debug,
             tracing::Level::WARN => Level::Warning,
             tracing::Level::ERROR => Level::Error,
-            _ => Level::Info
+            _ => Level::Info,
         }
     }
 
@@ -120,7 +120,7 @@ impl Level {
             log::Level::Debug => Level::Debug,
             log::Level::Warn => Level::Warning,
             log::Level::Error => Level::Error,
-            _ => Level::Info
+            _ => Level::Info,
         }
     }
 }
@@ -132,18 +132,19 @@ pub struct Metadata {
     pub name: Vchar,
     pub target: Vchar,
     pub module_path: Option<Vchar>,
-    pub file: Option<Vchar>
+    pub file: Option<Vchar>,
 }
 
 impl MsgSize for Metadata {
-    const SIZE: usize = Level::SIZE + Option::<u32>::SIZE + Vchar::SIZE * 2 + Option::<Vchar>::SIZE * 2;
+    const SIZE: usize =
+        Level::SIZE + Option::<u32>::SIZE + Vchar::SIZE * 2 + Option::<Vchar>::SIZE * 2;
 }
 
 #[derive(Serialize)]
 pub struct Target {
     pub os: Vchar,
     pub family: Vchar,
-    pub arch: Vchar
+    pub arch: Vchar,
 }
 
 impl MsgSize for Target {
@@ -153,7 +154,7 @@ impl MsgSize for Target {
 #[derive(Serialize)]
 pub struct Cpu {
     pub name: Vchar,
-    pub core_count: u32
+    pub core_count: u32,
 }
 
 impl MsgSize for Cpu {
@@ -167,7 +168,7 @@ pub struct Project {
     pub version: Vchar,
     pub cmd_line: Vchar,
     pub target: Target,
-    pub cpu: Option<Cpu>
+    pub cpu: Option<Cpu>,
 }
 
 impl MsgSize for Project {
@@ -182,7 +183,7 @@ impl MsgHeader for Project {
 #[derive(Serialize)]
 pub struct SpanAlloc {
     pub id: u32,
-    pub metadata: Metadata
+    pub metadata: Metadata,
 }
 
 impl MsgSize for SpanAlloc {
@@ -197,7 +198,7 @@ impl MsgHeader for SpanAlloc {
 #[derive(Serialize)]
 pub struct SpanParent {
     pub id: u32,
-    pub parent_node: u32 //0 = No parent
+    pub parent_node: u32, //0 = No parent
 }
 
 impl MsgSize for SpanParent {
@@ -212,7 +213,7 @@ impl MsgHeader for SpanParent {
 #[derive(Serialize)]
 pub struct SpanFollows {
     pub id: u32,
-    pub follows: u32
+    pub follows: u32,
 }
 
 impl MsgSize for SpanFollows {
@@ -229,7 +230,7 @@ pub struct SpanEvent {
     pub id: u32,
     pub timestamp: i64,
     pub level: Level,
-    pub message: Vchar
+    pub message: Vchar,
 }
 
 impl MsgSize for SpanEvent {
@@ -247,7 +248,7 @@ pub struct SpanUpdate {
     pub run_count: u32,
     pub average_time: Duration,
     pub min_time: Duration,
-    pub max_time: Duration
+    pub max_time: Duration,
 }
 
 impl MsgSize for SpanUpdate {
@@ -263,7 +264,7 @@ impl MsgHeader for SpanUpdate {
 pub struct SpanDataset {
     pub id: u32,
     pub run_count: u32,
-    pub size: u32
+    pub size: u32,
 }
 
 impl MsgSize for SpanDataset {
@@ -279,7 +280,7 @@ impl MsgHeader for SpanDataset {
 #[derive(Deserialize)]
 pub struct ClientRecord {
     pub max_rows: u32,
-    pub enable: bool
+    pub enable: bool,
 }
 
 impl MsgSize for ClientRecord {
@@ -291,7 +292,7 @@ pub struct ClientConfig {
     pub max_average_points: u32,
     pub max_level: Option<Level>,
     pub record: ClientRecord,
-    pub period: u16
+    pub period: u16,
 }
 
 impl MsgSize for ClientConfig {
@@ -300,7 +301,7 @@ impl MsgSize for ClientConfig {
 
 #[derive(Serialize)]
 pub struct ServerConfig {
-    pub max_rows: u32
+    pub max_rows: u32,
 }
 
 impl MsgSize for ServerConfig {

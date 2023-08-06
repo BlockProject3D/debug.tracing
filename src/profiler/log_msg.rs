@@ -26,22 +26,28 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::mem::MaybeUninit;
-use std::fmt::Write;
+use crate::profiler::network_types as nt;
 use std::fmt::Result;
+use std::fmt::Write;
+use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::time::Duration;
-use crate::profiler::network_types as nt;
 
 pub const CTRL_LOG_SPAN: usize = std::mem::size_of::<NonZeroU32>() + std::mem::size_of::<u16>();
 pub const CTRL_LOG_EVENT: usize = std::mem::size_of::<i64>()
-    + std::mem::size_of::<Option<NonZeroU32>>() + std::mem::size_of::<u16>() + 1;
+    + std::mem::size_of::<Option<NonZeroU32>>()
+    + std::mem::size_of::<u16>()
+    + 1;
 
 macro_rules! impl_log_msg {
     ($name: ident) => {
         impl $name {
             pub fn msg(&self) -> &str {
-                unsafe { std::str::from_utf8_unchecked(std::mem::transmute(&self.buffer[..self.msg_len as usize])) }
+                unsafe {
+                    std::str::from_utf8_unchecked(std::mem::transmute(
+                        &self.buffer[..self.msg_len as usize],
+                    ))
+                }
             }
 
             pub unsafe fn write(&mut self, buf: &[u8]) -> usize {
@@ -75,7 +81,7 @@ pub struct SpanLog {
     id: NonZeroU32,
     duration_secs: u32,
     duration_nanos: u32,
-    msg_len: u16
+    msg_len: u16,
 }
 
 impl_log_msg!(SpanLog);
@@ -87,7 +93,7 @@ impl SpanLog {
             id,
             msg_len: 0,
             duration_secs: 0,
-            duration_nanos: 0
+            duration_nanos: 0,
         }
     }
 
@@ -116,7 +122,7 @@ pub struct EventLog {
     id: Option<NonZeroU32>,
     timestamp: i64,
     msg_len: u16,
-    level: nt::header::Level
+    level: nt::header::Level,
 }
 
 impl_log_msg!(EventLog);
@@ -128,7 +134,7 @@ impl EventLog {
             id,
             timestamp,
             level,
-            msg_len: 0
+            msg_len: 0,
         }
     }
 

@@ -26,23 +26,23 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Write;
+use crate::profiler::log_msg::{EventLog, SpanLog};
 use std::fmt::Debug;
+use std::fmt::Write;
 use std::num::NonZeroU32;
 use tracing_core::field::Visit;
 use tracing_core::Field;
-use crate::profiler::log_msg::{EventLog, SpanLog};
 
 pub struct SpanVisitor {
     msg: SpanLog,
-    parent: Option<NonZeroU32>
+    parent: Option<NonZeroU32>,
 }
 
 impl SpanVisitor {
     pub fn new(id: NonZeroU32, parent: Option<NonZeroU32>) -> SpanVisitor {
         SpanVisitor {
             msg: SpanLog::new(id),
-            parent
+            parent,
         }
     }
 
@@ -101,9 +101,7 @@ pub struct EventVisitor<'a> {
 
 impl<'a> EventVisitor<'a> {
     pub fn new(msg: &'a mut EventLog) -> EventVisitor {
-        EventVisitor {
-            msg,
-        }
+        EventVisitor { msg }
     }
 }
 

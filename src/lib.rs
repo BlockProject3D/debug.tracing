@@ -83,9 +83,14 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(
     if config.get_mode() == config::model::Mode::None || disable {
         Guard(None)
     } else if config.get_mode() == config::model::Mode::Profiler || profiler {
-        Profiler::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref(), &config)
-            .map(load_system)
-            .unwrap_or_else(|_| load_system(Logger::new(app.as_ref(), &config)))
+        Profiler::new(
+            app.as_ref(),
+            crate_name.as_ref(),
+            crate_version.as_ref(),
+            &config,
+        )
+        .map(load_system)
+        .unwrap_or_else(|_| load_system(Logger::new(app.as_ref(), &config)))
     } else {
         load_system(Logger::new(app.as_ref(), &config))
     }

@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{collections::HashMap, num::NonZeroU32, io::Write};
+use std::{collections::HashMap, io::Write, num::NonZeroU32};
 
-use crate::profiler::{network_types as nt, log_msg::SpanLog};
-use super::{state::SpanData, core::Net};
+use super::{core::Net, state::SpanData};
+use crate::profiler::{log_msg::SpanLog, network_types as nt};
 
 pub struct SpanStore {
     span_data: HashMap<NonZeroU32, SpanData>,
@@ -37,11 +37,15 @@ pub struct SpanStore {
     global_max_rows: u32,
     max_average_points: u32,
     enable_recording: bool,
-    period: u16
+    period: u16,
 }
 
 impl SpanStore {
-    pub fn new(global_max_rows: u32, min_period: u16, config: &nt::header::ClientConfig) -> SpanStore {
+    pub fn new(
+        global_max_rows: u32,
+        min_period: u16,
+        config: &nt::header::ClientConfig,
+    ) -> SpanStore {
         let mut max_rows = config.record.max_rows;
         if max_rows > global_max_rows {
             max_rows = global_max_rows;
@@ -56,7 +60,7 @@ impl SpanStore {
             global_max_rows,
             max_average_points: config.max_average_points,
             enable_recording: config.record.enable,
-            period
+            period,
         }
     }
 
@@ -74,7 +78,7 @@ impl SpanStore {
             let header = nt::header::SpanDataset {
                 id: k.get(),
                 run_count: v.row_count,
-                size: v.runs_file.len() as _
+                size: v.runs_file.len() as _,
             };
             let mut payload = net.get_payload();
             let _ = payload.write_all(&v.runs_file);
@@ -105,7 +109,7 @@ impl SpanStore {
                     run_count: data.row_count,
                     average_time: nt::header::Duration::from(&data.get_average()),
                     min_time: nt::header::Duration::from(&data.min_time),
-                    max_time: nt::header::Duration::from(&data.max_time)
+                    max_time: nt::header::Duration::from(&data.max_time),
                 })
             } else {
                 None

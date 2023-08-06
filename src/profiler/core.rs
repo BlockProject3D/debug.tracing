@@ -26,35 +26,34 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tokio::sync::oneshot;
 use crate::config::model::Config;
 use crate::core::{Tracer, TracingSystem};
+use crate::profiler::log_msg::EventLog;
 use crate::profiler::logpump::LOG_PUMP;
+use crate::profiler::network_types as nt;
 use crate::profiler::state::{ChannelsIn, ProfilerState};
-use crate::profiler::thread::{command, FixedBufStr, run};
+use crate::profiler::thread::{command, run, FixedBufStr};
 use crate::profiler::visitor::{EventVisitor, SpanVisitor};
+use crate::util::{extract_target_module, SpanId};
 use chrono::{DateTime, Utc};
-use std::time::Duration;
 use dashmap::DashMap;
+use std::time::Duration;
+use tokio::sync::oneshot;
 use tracing_core::span::{Attributes, Record};
 use tracing_core::{Event, Level};
-use crate::profiler::log_msg::EventLog;
-use crate::util::{extract_target_module, SpanId};
-use crate::profiler::network_types as nt;
 
 struct Guard(ProfilerState);
 
 impl Drop for Guard {
     fn drop(&mut self) {
         self.0.terminate()
-
     }
 }
 
 pub struct Profiler {
     spans: DashMap<SpanId, SpanVisitor>,
     channels: ChannelsIn,
-    max_level: Option<Level>
+    max_level: Option<Level>,
 }
 
 impl Profiler {
@@ -62,7 +61,7 @@ impl Profiler {
         app_name: &str,
         crate_name: &str,
         crate_version: &str,
-        config: &Config
+        config: &Config,
     ) -> std::io::Result<TracingSystem<Profiler>> {
         log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
         let port = config.get_profiler().get_port();
@@ -77,11 +76,14 @@ impl Profiler {
             run(port, channels, useless, useless2, result_in);
         });
         let max_level = result_out.blocking_recv().unwrap()?;
-        channels.control.blocking_send(command::Control::Project {
+        channels
+            .control
+            .blocking_send(command::Control::Project {
                 app_name: FixedBufStr::from_str(app_name),
                 name: FixedBufStr::from_str(crate_name),
                 version: FixedBufStr::from_str(crate_version),
-        }).unwrap();
+            })
+            .unwrap();
         log::set_max_level(log::LevelFilter::Trace);
         Ok(TracingSystem::with_destructor(
             Profiler {
@@ -92,8 +94,8 @@ impl Profiler {
                     nt::header::Level::Debug => Level::DEBUG,
                     nt::header::Level::Info => Level::INFO,
                     nt::header::Level::Warning => Level::WARN,
-                    nt::header::Level::Error => Level::ERROR
-                })
+                    nt::header::Level::Error => Level::ERROR,
+                }),
             },
             Box::new(Guard(state)),
         ))
@@ -113,14 +115,17 @@ impl Tracer for Profiler {
     fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, attrs: &Attributes) {
         let node_id = id.get_id();
         if new {
-            self.span_command(command::Span::Alloc { id: node_id, metadata: attrs.metadata() })
+            self.span_command(command::Span::Alloc {
+                id: node_id,
+                metadata: attrs.metadata(),
+            })
         }
         let parent = parent.map(|v| v.get_id());
         if let Some(mut data) = self.spans.get_mut(id) {
             if data.reset(parent) {
                 self.span_command(command::Span::UpdateParent {
                     id: node_id,
-                    parent
+                    parent,
                 });
             }
             attrs.record(&mut *data);
@@ -130,7 +135,7 @@ impl Tracer for Profiler {
             self.spans.insert(*id, data);
             self.span_command(command::Span::UpdateParent {
                 id: node_id,
-                parent
+                parent,
             });
         }
     }
@@ -142,15 +147,18 @@ impl Tracer for Profiler {
 
     fn span_follows_from(&self, id: &SpanId, follows: &SpanId) {
         self.span_command(command::Span::Follows {
-            id: *id, follows: *follows
+            id: *id,
+            follows: *follows,
         });
     }
 
     fn event(&self, parent: Option<SpanId>, time: DateTime<Utc>, event: &Event) {
         let (target, module) = extract_target_module(event.metadata());
-        let mut msg = EventLog::new(parent.map(|v| v.get_id()),
-                                    time.timestamp(),
-                                    nt::header::Level::from_tracing(*event.metadata().level()));
+        let mut msg = EventLog::new(
+            parent.map(|v| v.get_id()),
+            time.timestamp(),
+            nt::header::Level::from_tracing(*event.metadata().level()),
+        );
         use std::fmt::Write;
         let mut visitor = EventVisitor::new(&mut msg);
         event.record(&mut visitor);
@@ -158,8 +166,7 @@ impl Tracer for Profiler {
         self.span_command(command::Span::Event(msg));
     }
 
-    fn span_enter(&self, _: &SpanId) {
-    }
+    fn span_enter(&self, _: &SpanId) {}
 
     fn span_exit(&self, id: &SpanId, duration: Duration) {
         let mut span = self.spans.get_mut(id).unwrap();
@@ -168,8 +175,7 @@ impl Tracer for Profiler {
         self.span_command(command::Span::Log(msg.clone()));
     }
 
-    fn span_destroy(&self, _: &SpanId) {
-    }
+    fn span_destroy(&self, _: &SpanId) {}
 
     fn max_level_hint(&self) -> Option<Level> {
         self.max_level

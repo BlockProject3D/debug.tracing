@@ -28,7 +28,7 @@
 
 use crate::config::model::Config;
 use crate::core::{Tracer, TracingSystem};
-use crate::util::{extract_target_module, SpanId, tracing_level_to_log};
+use crate::util::{extract_target_module, tracing_level_to_log, SpanId};
 use crate::visitor::{FastVisitor, SpanVisitor};
 use bp3d_logger::{Colors, LogMsg};
 use chrono::{DateTime, Local, Utc};
@@ -41,7 +41,7 @@ use tracing_core::{Event, Level};
 pub struct Logger {
     level: Level,
     spans: DashMap<SpanId, SpanVisitor>,
-    time_format: String
+    time_format: String,
 }
 
 impl Logger {
@@ -52,8 +52,8 @@ impl Logger {
             let colors = match console.get_color() {
                 crate::config::model::Color::Auto => Colors::Auto,
                 crate::config::model::Color::Always => Colors::Enabled,
-                crate::config::model::Color::Never => Colors::Disabled
-            };    
+                crate::config::model::Color::Never => Colors::Disabled,
+            };
             guard = guard
                 .smart_stderr(console.get_stderr())
                 .colors(colors)
@@ -74,7 +74,7 @@ impl Logger {
             Logger {
                 level,
                 spans: DashMap::new(),
-                time_format: config.get_logger().get_time_format().into()
+                time_format: config.get_logger().get_time_format().into(),
             },
             Box::new(guard),
         )

@@ -37,7 +37,7 @@ pub struct SpanData {
     pub max_time: Duration,
     pub total_time: Duration,
     pub runs_file: Vec<u8>,
-    pub last_display_time: std::time::Instant
+    pub last_display_time: std::time::Instant,
 }
 
 impl SpanData {

@@ -33,28 +33,30 @@ use std::mem::MaybeUninit;
 #[derive(Clone, Debug)]
 pub struct FixedBufStr<const N: usize> {
     len: u8,
-    buffer: [MaybeUninit<u8>; N]
+    buffer: [MaybeUninit<u8>; N],
 }
 
 impl<const N: usize> FixedBufStr<N> {
     pub fn new() -> FixedBufStr<N> {
         FixedBufStr {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
-            len: 0
+            len: 0,
         }
     }
 
     pub fn str(&self) -> &str {
-        unsafe {
-            std::str::from_utf8_unchecked(std::mem::transmute(&self.buffer[..self.len as _]))
-        }
+        unsafe { std::str::from_utf8_unchecked(std::mem::transmute(&self.buffer[..self.len as _])) }
     }
 
     pub fn from_str(value: &str) -> Self {
         let mut buffer = FixedBufStr::new();
         let len = std::cmp::min(value.len(), N);
         unsafe {
-            std::ptr::copy_nonoverlapping(value.as_ptr(), std::mem::transmute(buffer.buffer.as_mut_ptr()), len);
+            std::ptr::copy_nonoverlapping(
+                value.as_ptr(),
+                std::mem::transmute(buffer.buffer.as_mut_ptr()),
+                len,
+            );
         }
         buffer.len = len as _;
         buffer
@@ -71,7 +73,11 @@ impl<const N: usize> Write for FixedBufStr<N> {
     fn write_str(&mut self, value: &str) -> std::fmt::Result {
         let len = std::cmp::min(value.len(), N);
         unsafe {
-            std::ptr::copy_nonoverlapping(value.as_ptr(), std::mem::transmute(self.buffer.as_mut_ptr()), len);
+            std::ptr::copy_nonoverlapping(
+                value.as_ptr(),
+                std::mem::transmute(self.buffer.as_mut_ptr()),
+                len,
+            );
         }
         self.len = len as _;
         Ok(())

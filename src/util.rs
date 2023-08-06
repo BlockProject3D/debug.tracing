@@ -91,7 +91,10 @@ impl SpanId {
 
     pub fn get_id_instance(&self) -> (NonZeroU32, u32) {
         //SAFETY: id cannot be 0 so by definition the combination is never 0.
-        (unsafe { NonZeroU32::new_unchecked((self.0.get() >> 32) as u32) }, self.0.get() as u32)
+        (
+            unsafe { NonZeroU32::new_unchecked((self.0.get() >> 32) as u32) },
+            self.0.get() as u32,
+        )
     }
 
     pub fn get_id(&self) -> NonZeroU32 {

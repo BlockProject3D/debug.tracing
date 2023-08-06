@@ -38,7 +38,7 @@ pub enum MsgType {
     SpanEvent = 4,
     SpanUpdate = 5,
     SpanDataset = 6,
-    ServerConfig = 7
+    ServerConfig = 7,
 }
 
 pub trait MsgSize {

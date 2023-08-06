@@ -82,7 +82,10 @@ impl<'a> Net<'a> {
         nt::util::Payload::new(&mut self.net_buffer, &mut self.cursor)
     }
 
-    pub async fn network_write_raw<H: Serialize + nt::header::MsgHeader>(&mut self, header: H) -> std::io::Result<()> {
+    pub async fn network_write_raw<H: Serialize + nt::header::MsgHeader>(
+        &mut self,
+        header: H,
+    ) -> std::io::Result<()> {
         let mut head_len = 0;
         let mut serializer = nt::serializer::Serializer::new(&mut self.head_buffer, &mut head_len);
         if let Err(e) = H::TYPE.serialize(&mut serializer) {
@@ -93,7 +96,9 @@ impl<'a> Net<'a> {
         }
         self.write.write_all(&self.head_buffer[..head_len]).await?;
         if H::HAS_PAYLOAD {
-            self.write.write_all(&self.net_buffer[..self.cursor]).await?;
+            self.write
+                .write_all(&self.net_buffer[..self.cursor])
+                .await?;
         }
         Ok(())
     }

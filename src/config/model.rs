@@ -28,14 +28,17 @@
 
 use serde::Deserialize;
 
-use super::defaults::{DEFAULT_LEVEL, DEFAULT_COLOR, DEFAULT_STDERR, DEFAULT_TIME_FORMAT, DEFAULT_PORT, DEFAULT_MAX_ROWS, DEFAULT_MODE, DEFAULT_LOGGER, DEFAULT_PROFILER, DEFAULT_MIN_PERIOD};
+use super::defaults::{
+    DEFAULT_COLOR, DEFAULT_LEVEL, DEFAULT_LOGGER, DEFAULT_MAX_ROWS, DEFAULT_MIN_PERIOD,
+    DEFAULT_MODE, DEFAULT_PORT, DEFAULT_PROFILER, DEFAULT_STDERR, DEFAULT_TIME_FORMAT,
+};
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
     Logger,
     Profiler,
-    None
+    None,
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -45,7 +48,7 @@ pub enum Level {
     Debug,
     Info,
     Warning,
-    Error
+    Error,
 }
 
 impl Level {
@@ -65,13 +68,13 @@ impl Level {
 pub enum Color {
     Auto,
     Always,
-    Never
+    Never,
 }
 
 #[derive(Deserialize)]
 pub struct Console {
     pub color: Option<Color>,
-    pub stderr: Option<bool>
+    pub stderr: Option<bool>,
 }
 
 impl Console {
@@ -85,8 +88,7 @@ impl Console {
 }
 
 #[derive(Deserialize)]
-pub struct File {
-}
+pub struct File {}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -94,7 +96,7 @@ pub struct Logger {
     pub level: Option<Level>,
     pub time_format: Option<String>,
     pub console: Option<Console>,
-    pub file: Option<File>
+    pub file: Option<File>,
 }
 
 impl Logger {
@@ -112,7 +114,7 @@ impl Logger {
 pub struct Profiler {
     pub port: Option<u16>,
     pub max_rows: Option<u32>,
-    pub min_period: Option<u16>
+    pub min_period: Option<u16>,
 }
 
 impl Profiler {
@@ -133,7 +135,7 @@ impl Profiler {
 pub struct Config {
     pub mode: Option<Mode>,
     pub logger: Option<Logger>,
-    pub profiler: Option<Profiler>
+    pub profiler: Option<Profiler>,
 }
 
 impl Default for Config {
@@ -141,7 +143,7 @@ impl Default for Config {
         Self {
             mode: None,
             logger: None,
-            profiler: None
+            profiler: None,
         }
     }
 }

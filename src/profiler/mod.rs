@@ -28,11 +28,11 @@
 
 mod core;
 mod cpu_info;
+mod log_msg;
 mod logpump;
 mod network_types;
 mod state;
 mod thread;
 mod visitor;
-mod log_msg;
 
 pub use self::core::Profiler;

@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::model::{Mode, Color, Level, Logger, Console, File, Profiler};
+use super::model::{Color, Console, File, Level, Logger, Mode, Profiler};
 
 pub const DEFAULT_MODE: Mode = Mode::Logger;
 pub const DEFAULT_TIME_FORMAT: &str = "%a %b %d %Y %I:%M:%S %P";
@@ -42,13 +42,13 @@ pub const DEFAULT_LOGGER: Logger = Logger {
     time_format: None,
     console: Some(Console {
         color: None,
-        stderr: None
+        stderr: None,
     }),
-    file: Some(File {})
+    file: Some(File {}),
 };
 
 pub const DEFAULT_PROFILER: Profiler = Profiler {
     port: None,
     max_rows: None,
-    min_period: None
+    min_period: None,
 };

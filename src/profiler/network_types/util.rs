@@ -26,21 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::profiler::network_types::header::PayloadRef;
 use std::fmt::Debug;
 use std::io::{Seek, SeekFrom, Write};
-use crate::profiler::network_types::header::PayloadRef;
 
 pub struct Payload<'a> {
     buffer: &'a mut [u8],
-    cursor: &'a mut usize
+    cursor: &'a mut usize,
 }
 
 impl<'a> Payload<'a> {
     pub fn new(buffer: &'a mut [u8], cursor: &'a mut usize) -> Payload<'a> {
-        Payload {
-            buffer,
-            cursor
-        }
+        Payload { buffer, cursor }
     }
 
     pub fn write_object<T: WriteInto + ?Sized>(&mut self, obj: &T) -> std::io::Result<PayloadRef> {
@@ -48,7 +45,7 @@ impl<'a> Payload<'a> {
         obj.write_into(self)?;
         Ok(PayloadRef {
             offset: start as _,
-            length: (*self.cursor - start) as _
+            length: (*self.cursor - start) as _,
         })
     }
 }

@@ -30,8 +30,8 @@ use bp3d_os::dirs::App;
 
 use self::model::Config;
 
-pub mod model;
 mod defaults;
+pub mod model;
 
 pub fn load_config(app: &App) -> Config {
     match app.get_documents().map(|v| v.join("bp3d-tracing.toml")) {
@@ -41,7 +41,7 @@ pub fn load_config(app: &App) -> Config {
             } else {
                 Config::default()
             }
-        },
+        }
         None => {
             println!("WARNING: Failed to access app documents");
             Config::default()

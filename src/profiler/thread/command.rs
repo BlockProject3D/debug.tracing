@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::{NonZeroU32};
 use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::thread::util::FixedBufStr;
 use crate::util::{Meta, SpanId};
+use std::num::NonZeroU32;
 
 #[derive(Debug)]
 pub enum Control {
@@ -39,27 +39,27 @@ pub enum Control {
         version: FixedBufStr<63>,
     },
 
-    Terminate
+    Terminate,
 }
 
 #[derive(Debug)]
 pub enum Span {
     Alloc {
         id: NonZeroU32,
-        metadata: Meta
+        metadata: Meta,
     },
 
     UpdateParent {
         id: NonZeroU32,
-        parent: Option<NonZeroU32> //None must mean that span is at root
+        parent: Option<NonZeroU32>, //None must mean that span is at root
     },
 
     Follows {
         id: SpanId,
-        follows: SpanId
+        follows: SpanId,
     },
 
     Log(SpanLog),
 
-    Event(EventLog)
+    Event(EventLog),
 }

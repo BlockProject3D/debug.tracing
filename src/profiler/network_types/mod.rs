@@ -26,11 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod version;
+pub mod deserializer;
 pub mod header;
 pub mod payload;
-pub mod util;
 pub mod serializer;
-pub mod deserializer;
+pub mod util;
+mod version;
 
 pub use version::*;

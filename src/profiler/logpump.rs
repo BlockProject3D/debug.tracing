@@ -29,11 +29,11 @@
 //! This module contains a log pump to be combined with Profiler in order to redirect the log
 //! crate to the Profiler.
 
-use chrono::Utc;
-use crate::profiler::state::send_message;
-use log::{Log, Metadata, Record};
 use crate::profiler::log_msg::EventLog;
 use crate::profiler::network_types as nt;
+use crate::profiler::state::send_message;
+use chrono::Utc;
+use log::{Log, Metadata, Record};
 use std::fmt::Write;
 
 pub struct LogPump;
@@ -57,9 +57,18 @@ impl Log for LogPump {
 
     fn log(&self, record: &Record) {
         let (target, module) = extract_target_module(record);
-        let mut msg = EventLog::new(None, Utc::now().timestamp(),
-                                    nt::header::Level::from_log(record.level()));
-        let _ = write!(msg, "{},{},{}", record.args(), module.unwrap_or("main"), target);
+        let mut msg = EventLog::new(
+            None,
+            Utc::now().timestamp(),
+            nt::header::Level::from_log(record.level()),
+        );
+        let _ = write!(
+            msg,
+            "{},{},{}",
+            record.args(),
+            module.unwrap_or("main"),
+            target
+        );
         send_message(&msg);
     }
 

@@ -26,13 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tokio::sync::mpsc;
+use crate::profiler::log_msg::EventLog;
 use crate::profiler::thread::command;
+use once_cell::sync::OnceCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
-use once_cell::sync::OnceCell;
-use crate::profiler::log_msg::{EventLog};
+use tokio::sync::mpsc;
 
 const BUF_SIZE: usize = 256; // The maximum count of log messages in the channel.
 
@@ -51,31 +51,40 @@ pub struct ChannelsIn {
 
 pub struct ChannelsOut {
     pub span: mpsc::Receiver<command::Span>,
-    pub control: mpsc::Receiver<command::Control>
+    pub control: mpsc::Receiver<command::Control>,
 }
 
 pub struct ProfilerState {
     exited: AtomicBool,
     send_ch: mpsc::Sender<command::Control>,
-    thread: Mutex<Option<JoinHandle<()>>>
+    thread: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl ProfilerState {
-    pub fn new<F: FnOnce(ChannelsOut) + Send + 'static>(thread_fn: F) -> (ProfilerState, ChannelsIn) {
+    pub fn new<F: FnOnce(ChannelsOut) + Send + 'static>(
+        thread_fn: F,
+    ) -> (ProfilerState, ChannelsIn) {
         let (ch_span_in, ch_span_out) = mpsc::channel(BUF_SIZE);
         let (ch_control_in, ch_control_out) = mpsc::channel(BUF_SIZE);
-        LOG_CHANNEL.set(ch_span_in.clone()).expect("Cannot initialize profiler more than once!");
-        (ProfilerState {
-            exited: AtomicBool::new(false),
-            send_ch: ch_control_in.clone(),
-            thread: Mutex::new(Some(std::thread::spawn(|| thread_fn(ChannelsOut {
-                span: ch_span_out,
-                control: ch_control_out
-            })))),
-        }, ChannelsIn {
-            span: ch_span_in,
-            control: ch_control_in
-        })
+        LOG_CHANNEL
+            .set(ch_span_in.clone())
+            .expect("Cannot initialize profiler more than once!");
+        (
+            ProfilerState {
+                exited: AtomicBool::new(false),
+                send_ch: ch_control_in.clone(),
+                thread: Mutex::new(Some(std::thread::spawn(|| {
+                    thread_fn(ChannelsOut {
+                        span: ch_span_out,
+                        control: ch_control_out,
+                    })
+                }))),
+            },
+            ChannelsIn {
+                span: ch_span_in,
+                control: ch_control_in,
+            },
+        )
     }
 
     pub fn is_exited(&self) -> bool {
@@ -87,7 +96,9 @@ impl ProfilerState {
             return;
         }
         self.exited.store(true, Ordering::Relaxed);
-        self.send_ch.blocking_send(command::Control::Terminate).unwrap();
+        self.send_ch
+            .blocking_send(command::Control::Terminate)
+            .unwrap();
         let thread = {
             let mut lock = self.thread.lock().unwrap();
             lock.take()

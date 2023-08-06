@@ -26,8 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::Write;
 use crate::profiler::network_types::util::{Payload, WriteInto};
+use std::io::Write;
 
 impl WriteInto for str {
     fn write_into(&self, buf: &mut Payload) -> std::io::Result<()> {

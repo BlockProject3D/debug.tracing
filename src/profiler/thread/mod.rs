@@ -26,11 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod core;
-mod util;
 pub mod command;
+mod core;
 mod state;
 mod store;
+mod util;
 
 pub use self::core::run;
 pub use util::FixedBufStr;

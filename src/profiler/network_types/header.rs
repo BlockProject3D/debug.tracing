@@ -37,7 +37,8 @@ pub enum MsgType {
     SpanFollows = 3,
     SpanEvent = 4,
     SpanUpdate = 5,
-    SpanDataset = 6
+    SpanDataset = 6,
+    ServerConfig = 7
 }
 
 pub trait MsgSize {
@@ -304,4 +305,10 @@ pub struct ServerConfig {
 
 impl MsgSize for ServerConfig {
     const SIZE: usize = Option::<Vchar>::SIZE;
+}
+
+impl MsgHeader for ServerConfig {
+    const TYPE: MsgType = MsgType::ServerConfig;
+
+    const HAS_PAYLOAD: bool = false;
 }

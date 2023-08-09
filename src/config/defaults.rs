@@ -29,7 +29,6 @@
 use super::model::{Color, Console, File, Level, Logger, Mode, Profiler};
 
 pub const DEFAULT_MODE: Mode = Mode::Logger;
-pub const DEFAULT_TIME_FORMAT: &str = "%a %b %d %Y %I:%M:%S %P";
 pub const DEFAULT_COLOR: Color = Color::Auto;
 pub const DEFAULT_LEVEL: Level = Level::Debug;
 pub const DEFAULT_PORT: u16 = 4026;
@@ -39,7 +38,6 @@ pub const DEFAULT_MIN_PERIOD: u16 = 200;
 
 pub const DEFAULT_LOGGER: Logger = Logger {
     level: None,
-    time_format: None,
     console: Some(Console {
         color: None,
         stderr: None,

@@ -16,7 +16,7 @@ categories = ["development-tools", "development-tools::debugging", "development-
 tracing = "0.1.32"
 tracing-core = "0.1.24"
 bp3d-logger = { version = "2.0.0-rc.1.0.0", path = "../debug.logger" }
-chrono = "0.4.23"
+time = { version = "0.3.0", features = ["macros", "formatting"] }
 log = "0.4.16"
 dashmap = "5.4.0"
 serde = { version = "1.0.136", features = ["derive"] }
@@ -25,7 +25,7 @@ toml = "0.7.6"
 crossbeam-channel = "0.5.4"
 once_cell = "1.10.0"
 unbounded-udp = "1.0.0"
-bp3d-os = { version = "1.0.0-rc.1.0.0", features = ["dirs", "env"] }
+bp3d-os = { version = "1.0.0-rc.1.2.0", features = ["dirs", "env", "time"] }
 byteorder = "1.4.3"
 tokio = { version = "1.25.0", features = ["net", "fs", "sync", "rt", "io-util", "macros"] }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -32,8 +32,8 @@
 use crate::profiler::log_msg::EventLog;
 use crate::profiler::network_types as nt;
 use crate::profiler::state::send_message;
-use chrono::Utc;
 use log::{Log, Metadata, Record};
+use time::OffsetDateTime;
 use std::fmt::Write;
 
 pub struct LogPump;
@@ -59,7 +59,7 @@ impl Log for LogPump {
         let (target, module) = extract_target_module(record);
         let mut msg = EventLog::new(
             None,
-            Utc::now().timestamp(),
+            OffsetDateTime::now_utc().unix_timestamp(),
             nt::header::Level::from_log(record.level()),
         );
         let _ = write!(

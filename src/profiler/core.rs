@@ -35,8 +35,8 @@ use crate::profiler::state::{ChannelsIn, ProfilerState};
 use crate::profiler::thread::{command, run, FixedBufStr};
 use crate::profiler::visitor::{EventVisitor, SpanVisitor};
 use crate::util::{extract_target_module, SpanId};
-use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use time::OffsetDateTime;
 use std::time::Duration;
 use tokio::sync::oneshot;
 use tracing_core::span::{Attributes, Record};
@@ -152,11 +152,11 @@ impl Tracer for Profiler {
         });
     }
 
-    fn event(&self, parent: Option<SpanId>, time: DateTime<Utc>, event: &Event) {
+    fn event(&self, parent: Option<SpanId>, event: &Event) {
         let (target, module) = extract_target_module(event.metadata());
         let mut msg = EventLog::new(
             parent.map(|v| v.get_id()),
-            time.timestamp(),
+            OffsetDateTime::now_utc().unix_timestamp(),
             nt::header::Level::from_tracing(*event.metadata().level()),
         );
         use std::fmt::Write;

@@ -30,7 +30,7 @@ use serde::Deserialize;
 
 use super::defaults::{
     DEFAULT_COLOR, DEFAULT_LEVEL, DEFAULT_LOGGER, DEFAULT_MAX_ROWS, DEFAULT_MIN_PERIOD,
-    DEFAULT_MODE, DEFAULT_PORT, DEFAULT_PROFILER, DEFAULT_STDERR, DEFAULT_TIME_FORMAT,
+    DEFAULT_MODE, DEFAULT_PORT, DEFAULT_PROFILER, DEFAULT_STDERR
 };
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -94,7 +94,6 @@ pub struct File {}
 #[serde(rename_all = "kebab-case")]
 pub struct Logger {
     pub level: Option<Level>,
-    pub time_format: Option<String>,
     pub console: Option<Console>,
     pub file: Option<File>,
 }
@@ -102,10 +101,6 @@ pub struct Logger {
 impl Logger {
     pub fn get_level(&self) -> Level {
         self.level.unwrap_or(DEFAULT_LEVEL)
-    }
-
-    pub fn get_time_format(&self) -> &str {
-        self.time_format.as_deref().unwrap_or(DEFAULT_TIME_FORMAT)
     }
 }
 

@@ -27,7 +27,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::util::{hash_static_ref, Meta, SpanId};
-use chrono::{DateTime, Utc};
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -59,7 +58,7 @@ pub trait Tracer {
     fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, span: &Attributes);
     fn span_values(&self, id: &SpanId, values: &Record);
     fn span_follows_from(&self, id: &SpanId, follows: &SpanId);
-    fn event(&self, parent: Option<SpanId>, time: DateTime<Utc>, event: &Event);
+    fn event(&self, parent: Option<SpanId>, event: &Event);
     fn span_enter(&self, id: &SpanId);
     fn span_exit(&self, id: &SpanId, duration: Duration);
     fn span_destroy(&self, id: &SpanId);
@@ -238,7 +237,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
     }
 
     fn event(&self, event: &Event<'_>) {
-        self.derived.event(current_span(), Utc::now(), event);
+        self.derived.event(current_span(), event);
     }
 
     fn enter(&self, span: &Id) {

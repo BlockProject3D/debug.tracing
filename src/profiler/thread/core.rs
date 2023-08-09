@@ -26,7 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::cpu_info::read_cpu_info;
 use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types as nt;
 use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
@@ -34,6 +33,7 @@ use crate::profiler::state::ChannelsOut;
 use crate::profiler::thread::command;
 use crate::profiler::thread::state::SpanData;
 use crate::profiler::thread::util::read_command_line;
+use bp3d_os::cpu_info::read_cpu_info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};

@@ -27,7 +27,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 mod core;
-mod cpu_info;
 mod log_msg;
 mod logpump;
 mod network_types;

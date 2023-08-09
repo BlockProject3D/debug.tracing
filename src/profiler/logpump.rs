@@ -33,8 +33,8 @@ use crate::profiler::log_msg::EventLog;
 use crate::profiler::network_types as nt;
 use crate::profiler::state::send_message;
 use log::{Log, Metadata, Record};
-use time::OffsetDateTime;
 use std::fmt::Write;
+use time::OffsetDateTime;
 
 pub struct LogPump;
 

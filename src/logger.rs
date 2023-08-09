@@ -33,16 +33,16 @@ use crate::visitor::{FastVisitor, SpanVisitor};
 use bp3d_logger::{Colors, LogMsg};
 use bp3d_os::time::LocalOffsetDateTime;
 use dashmap::DashMap;
-use time::OffsetDateTime;
-use time::macros::format_description;
 use std::fmt::Write;
 use std::time::Duration;
+use time::macros::format_description;
+use time::OffsetDateTime;
 use tracing_core::span::{Attributes, Record};
 use tracing_core::{Event, Level};
 
 pub struct Logger {
     level: Level,
-    spans: DashMap<SpanId, SpanVisitor>
+    spans: DashMap<SpanId, SpanVisitor>,
 }
 
 impl Logger {
@@ -74,7 +74,7 @@ impl Logger {
         TracingSystem::with_destructor(
             Logger {
                 level,
-                spans: DashMap::new()
+                spans: DashMap::new(),
             },
             Box::new(guard),
         )
@@ -108,7 +108,10 @@ impl Tracer for Logger {
         let (target, module) = extract_target_module(event.metadata());
         let time = OffsetDateTime::now_local();
         let format = format_description!("[weekday repr:short] [month repr:short] [day] [hour repr:12]:[minute]:[second] [period case:upper]");
-        let formatted = time.unwrap_or_else(OffsetDateTime::now_utc).format(format).unwrap_or_default();
+        let formatted = time
+            .unwrap_or_else(OffsetDateTime::now_utc)
+            .format(format)
+            .unwrap_or_default();
         let mut msg = LogMsg::new(target, tracing_level_to_log(event.metadata().level()));
         let _ = write!(msg, "({}) {}: ", formatted, module.unwrap_or("main"));
         let mut visitor = FastVisitor::new(&mut msg, event.metadata().name());

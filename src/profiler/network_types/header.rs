@@ -302,7 +302,7 @@ impl MsgSize for ClientConfig {
 #[derive(Serialize)]
 pub struct ServerConfig {
     pub max_rows: u32,
-    pub min_period: u16
+    pub min_period: u16,
 }
 
 impl MsgSize for ServerConfig {

@@ -274,13 +274,13 @@ async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
     }
 }
 
-async fn init(port: u16, max_rows: u32) -> std::io::Result<(TcpStream, nt::header::ClientConfig)> {
+async fn init(port: u16, max_rows: u32, min_period: u16) -> std::io::Result<(TcpStream, nt::header::ClientConfig)> {
     let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
     handle_hello(&mut socket).await?;
     let mut net = Net::new(&mut socket);
-    let head = nt::header::ServerConfig { max_rows };
+    let head = nt::header::ServerConfig { max_rows, min_period };
     net.network_write_raw(head).await?;
     net.write.flush().await?;
     let config: nt::header::ClientConfig = net.network_read().await?;
@@ -304,7 +304,7 @@ pub fn run(
                     _ => ()
                 }
             },
-            res = init(port, max_rows) => {
+            res = init(port, max_rows, min_period) => {
                 let (mut socket, config) = match res {
                     Ok((socket, config)) => {
                         result_channel.send(Ok(config.max_level)).unwrap();

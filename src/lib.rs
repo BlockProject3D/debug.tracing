@@ -90,7 +90,10 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(
             &config,
         )
         .map(load_system)
-        .unwrap_or_else(|_| load_system(Logger::new(app.as_ref(), &config)))
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to initialize profiler: {}", e);
+            load_system(Logger::new(app.as_ref(), &config))
+        })
     } else {
         load_system(Logger::new(app.as_ref(), &config))
     }

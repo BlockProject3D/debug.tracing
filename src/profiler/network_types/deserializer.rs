@@ -40,10 +40,10 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Unsupported => write!(f, "unsupported operation"),
-            Error::UnexpectedEOB => write!(f, "unexpected end of buffer"),
-            Error::InvalidUtf8 => write!(f, "invalid UTF-8"),
-            Error::Custom(v) => write!(f, "other error: {}", v),
+            Error::Unsupported => write!(f, "deserializer> unsupported operation"),
+            Error::UnexpectedEOB => write!(f, "deserializer> unexpected end of buffer"),
+            Error::InvalidUtf8 => write!(f, "deserializer> invalid UTF-8"),
+            Error::Custom(v) => write!(f, "deserializer> other error: {}", v),
         }
     }
 }
@@ -399,11 +399,13 @@ impl<'a, 'de> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_enum(Enum { de: self })
     }
 
-    fn deserialize_identifier<V>(self, _: V) -> Result<V::Value, Self::Error>
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unsupported)
+        //Assume the identifier is always for an enum, if not well it could throw Err or a broken value
+        let byte = self.pop_byte()?;
+        visitor.visit_u32(byte as _)
     }
 
     fn deserialize_ignored_any<V>(self, _: V) -> Result<V::Value, Self::Error>

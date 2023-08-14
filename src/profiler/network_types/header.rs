@@ -296,7 +296,7 @@ pub struct ClientConfig {
 }
 
 impl MsgSize for ClientConfig {
-    const SIZE: usize = 9 + Option::<Level>::SIZE;
+    const SIZE: usize = u32::SIZE + Option::<Level>::SIZE + ClientRecord::SIZE + 2;
 }
 
 #[derive(Serialize)]

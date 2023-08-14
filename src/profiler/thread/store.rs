@@ -64,6 +64,10 @@ impl SpanStore {
         }
     }
 
+    pub fn reserve_span(&mut self, id: NonZeroU32) {
+        self.span_data.insert(id, SpanData::new());
+    }
+
     pub fn start_recording(&mut self, mut max_rows: u32) {
         if max_rows > self.global_max_rows {
             max_rows = self.global_max_rows;

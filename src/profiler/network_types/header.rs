@@ -277,7 +277,7 @@ impl MsgHeader for SpanDataset {
     const HAS_PAYLOAD: bool = true;
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 pub struct ClientRecord {
     pub max_rows: u32,
     pub enable: bool,
@@ -287,7 +287,7 @@ impl MsgSize for ClientRecord {
     const SIZE: usize = u32::SIZE + 1;
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 pub struct ClientConfig {
     pub max_average_points: u32,
     pub max_level: Option<Level>,

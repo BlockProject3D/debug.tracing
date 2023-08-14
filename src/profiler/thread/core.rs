@@ -31,14 +31,11 @@ use crate::profiler::network_types as nt;
 use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
 use crate::profiler::state::ChannelsOut;
 use crate::profiler::thread::command;
-use crate::profiler::thread::state::SpanData;
 use crate::profiler::thread::util::read_command_line;
 use bp3d_os::cpu_info::read_cpu_info;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::num::NonZeroU32;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::net::tcp::{ReadHalf, WriteHalf};
 use tokio::net::{TcpListener, TcpStream};
@@ -112,7 +109,6 @@ impl<'a> Net<'a> {
 
 struct Thread<'a> {
     channels: ChannelsOut,
-    span_data: HashMap<NonZeroU32, SpanData>,
     net: Net<'a>,
     core: SpanStore,
 }
@@ -127,7 +123,6 @@ impl<'a> Thread<'a> {
     ) -> Thread {
         Thread {
             channels,
-            span_data: HashMap::new(),
             net: Net::new(socket),
             core: SpanStore::new(max_rows, min_period, &config),
         }
@@ -136,6 +131,7 @@ impl<'a> Thread<'a> {
     async fn handle_span_data(&mut self, log: SpanLog) {
         if let Some(msg) = self.core.record(log) {
             self.net.network_write(msg).await;
+            let _ = self.net.write.flush().await;
         }
     }
 
@@ -144,7 +140,7 @@ impl<'a> Thread<'a> {
             command::Span::Log(msg) => self.handle_span_data(msg).await,
             command::Span::Event(msg) => self.handle_event(msg).await,
             command::Span::Alloc { id, metadata } => {
-                self.span_data.insert(id, SpanData::new());
+                self.core.reserve_span(id);
                 let mut payload = self.net.get_payload();
                 let head = nt::header::SpanAlloc {
                     id: id.get(),

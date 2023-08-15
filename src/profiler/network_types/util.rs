@@ -35,6 +35,12 @@ pub struct Payload<'a> {
     cursor: &'a mut usize,
 }
 
+impl<'a> AsRef<[u8]> for Payload<'a> {
+    fn as_ref(&self) -> &[u8] {
+        &self.buffer[..*self.cursor]
+    }
+}
+
 impl<'a> Payload<'a> {
     pub fn new(buffer: &'a mut [u8], cursor: &'a mut usize) -> Payload<'a> {
         Payload { buffer, cursor }

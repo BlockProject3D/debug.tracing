@@ -28,7 +28,7 @@
 
 use std::{collections::HashMap, io::Write, num::NonZeroU32};
 
-use super::{core::Net, state::SpanData};
+use super::{net::Net, state::SpanData};
 use crate::profiler::{log_msg::SpanLog, network_types as nt};
 
 pub struct SpanStore {
@@ -84,9 +84,7 @@ impl SpanStore {
                 run_count: v.row_count,
                 size: v.runs_file.len() as _,
             };
-            let mut payload = net.get_payload();
-            let _ = payload.write_all(&v.runs_file);
-            net.network_write(header).await;
+            net.network_write(header, Some(&v.runs_file)).await;
             v.row_count = 0;
             v.runs_file.clear();
         }

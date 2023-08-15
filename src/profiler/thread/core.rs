@@ -33,82 +33,19 @@ use crate::profiler::state::ChannelsOut;
 use crate::profiler::thread::command;
 use crate::profiler::thread::util::read_command_line;
 use bp3d_os::cpu_info::read_cpu_info;
-use serde::{Deserialize, Serialize};
 use std::io::{Error, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
-use tokio::net::tcp::{ReadHalf, WriteHalf};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use tokio::sync::oneshot;
 
+use super::net::{SmallPayload, Net, PAYLOAD_NONE};
 use super::store::SpanStore;
-
-pub struct Net<'a> {
-    write: BufWriter<WriteHalf<'a>>,
-    head_buffer: [u8; 64],
-    cursor: usize,
-    net_buffer: [u8; 1024],
-    read: BufReader<ReadHalf<'a>>,
-}
-
-impl<'a> Net<'a> {
-    pub fn new(socket: &'a mut TcpStream) -> Net<'a> {
-        let (read, write) = socket.split();
-        Net {
-            write: BufWriter::new(write),
-            read: BufReader::new(read),
-            head_buffer: [0; 64],
-            cursor: 0,
-            net_buffer: [0; 1024],
-        }
-    }
-
-    pub async fn network_read<'b, M: nt::header::MsgSize + Deserialize<'b>>(
-        &'b mut self,
-    ) -> std::io::Result<M> {
-        self.read
-            .read_exact(&mut self.head_buffer[0..M::SIZE])
-            .await?;
-        let mut de = nt::deserializer::Deserializer::new(&self.head_buffer[0..M::SIZE]);
-        M::deserialize(&mut de).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-    }
-
-    pub fn get_payload(&mut self) -> nt::util::Payload {
-        self.cursor = 0;
-        nt::util::Payload::new(&mut self.net_buffer, &mut self.cursor)
-    }
-
-    pub async fn network_write_raw<H: Serialize + nt::header::MsgHeader>(
-        &mut self,
-        header: H,
-    ) -> std::io::Result<()> {
-        let mut head_len = 0;
-        let mut serializer = nt::serializer::Serializer::new(&mut self.head_buffer, &mut head_len);
-        if let Err(e) = H::TYPE.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        if let Err(e) = header.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        self.write.write_all(&self.head_buffer[..head_len]).await?;
-        if H::HAS_PAYLOAD {
-            self.write
-                .write_all(&self.net_buffer[..self.cursor])
-                .await?;
-        }
-        Ok(())
-    }
-
-    pub async fn network_write<H: Serialize + nt::header::MsgHeader>(&mut self, header: H) {
-        if let Err(e) = self.network_write_raw(header).await {
-            eprintln!("Failed to write to network: {}", e);
-        }
-    }
-}
 
 struct Thread<'a> {
     channels: ChannelsOut,
+    payload: SmallPayload,
     net: Net<'a>,
     core: SpanStore,
 }
@@ -123,6 +60,7 @@ impl<'a> Thread<'a> {
     ) -> Thread {
         Thread {
             channels,
+            payload: SmallPayload::new(),
             net: Net::new(socket),
             core: SpanStore::new(max_rows, min_period, &config),
         }
@@ -130,8 +68,8 @@ impl<'a> Thread<'a> {
 
     async fn handle_span_data(&mut self, log: SpanLog) {
         if let Some(msg) = self.core.record(log) {
-            self.net.network_write(msg).await;
-            let _ = self.net.write.flush().await;
+            self.net.network_write(msg, PAYLOAD_NONE).await;
+            self.net.flush().await;
         }
     }
 
@@ -141,7 +79,7 @@ impl<'a> Thread<'a> {
             command::Span::Event(msg) => self.handle_event(msg).await,
             command::Span::Alloc { id, metadata } => {
                 self.core.reserve_span(id);
-                let mut payload = self.net.get_payload();
+                let mut payload = self.payload.get_payload();
                 let head = nt::header::SpanAlloc {
                     id: id.get(),
                     metadata: nt::header::Metadata {
@@ -155,14 +93,14 @@ impl<'a> Thread<'a> {
                         target: payload.write_object(metadata.target()).unwrap(),
                     },
                 };
-                self.net.network_write(head).await;
+                self.net.network_write(head, Some(payload)).await;
             }
             command::Span::UpdateParent { id, parent } => {
                 self.net
                     .network_write(nt::header::SpanParent {
                         id: id.get(),
                         parent_node: parent.map(|v| v.get()).unwrap_or(0),
-                    })
+                    }, PAYLOAD_NONE)
                     .await;
             }
             command::Span::Follows { id, follows } => {
@@ -172,20 +110,20 @@ impl<'a> Thread<'a> {
                     id: id.get(),
                     follows: follows.get(),
                 };
-                self.net.network_write(head).await;
+                self.net.network_write(head, PAYLOAD_NONE).await;
             }
         }
     }
 
     async fn handle_event(&mut self, event: EventLog) {
-        let mut payload = self.net.get_payload();
+        let mut payload = self.payload.get_payload();
         let head = nt::header::SpanEvent {
             id: event.id().map(|v| v.get()).unwrap_or(0),
             message: payload.write_object(event.msg()).unwrap(),
             level: event.level(),
             timestamp: event.timestamp(),
         };
-        self.net.network_write(head).await;
+        self.net.network_write(head, Some(payload)).await;
     }
 
     async fn handle_control(&mut self, command: command::Control) -> bool {
@@ -195,7 +133,7 @@ impl<'a> Thread<'a> {
                 name,
                 version,
             } => {
-                let mut payload = self.net.get_payload();
+                let mut payload = self.payload.get_payload();
                 let app_name = app_name.str();
                 let name = name.str();
                 let version = version.str();
@@ -215,13 +153,13 @@ impl<'a> Thread<'a> {
                     }),
                     cmd_line: read_command_line(&mut payload),
                 };
-                self.net.network_write(head).await;
+                self.net.network_write(head, Some(payload)).await;
                 true
             }
             command::Control::Terminate => {
-                let _ = self.net.write.flush().await;
+                self.net.flush().await;
                 self.core.stop_recording(&mut self.net).await;
-                let _ = self.net.write.flush().await;
+                self.net.flush().await;
                 false
             }
         }
@@ -284,8 +222,8 @@ async fn init(
         max_rows,
         min_period,
     };
-    net.network_write_raw(head).await?;
-    net.write.flush().await?;
+    net.network_write_raw(head, PAYLOAD_NONE).await?;
+    net.flush_raw().await?;
     let config: nt::header::ClientConfig = net.network_read().await?;
     Ok((socket, config))
 }

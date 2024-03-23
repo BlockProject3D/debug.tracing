@@ -33,11 +33,11 @@ use std::num::NonZeroU32;
 use std::time::Duration;
 use bytesutil::WriteExt;
 
-pub const CTRL_LOG_SPAN: usize = std::mem::size_of::<NonZeroU32>() + std::mem::size_of::<u16>();
+pub const CTRL_LOG_SPAN: usize = std::mem::size_of::<NonZeroU32>() + std::mem::size_of::<u16>() + 1;
 pub const CTRL_LOG_EVENT: usize = std::mem::size_of::<i64>()
     + std::mem::size_of::<Option<NonZeroU32>>()
     + std::mem::size_of::<u16>()
-    + 1;
+    + 2;
 
 pub trait Log : std::io::Write {
     fn increment_var_count(&mut self);
@@ -103,7 +103,7 @@ macro_rules! impl_log_msg {
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct SpanLog {
-    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_SPAN - 1], //TODO: fix
+    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_SPAN],
     id: NonZeroU32,
     duration_secs: u32,
     duration_nanos: u32,
@@ -152,7 +152,7 @@ impl SpanLog {
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct EventLog {
-    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_EVENT - 1], //TODO: fix
+    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_EVENT],
     id: Option<NonZeroU32>,
     timestamp: i64,
     msg_len: u16,

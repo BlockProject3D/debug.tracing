@@ -27,11 +27,11 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::profiler::network_types as nt;
-use std::fmt::Result;
-use std::fmt::Write;
+use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::time::Duration;
+use bytesutil::WriteExt;
 
 pub const CTRL_LOG_SPAN: usize = std::mem::size_of::<NonZeroU32>() + std::mem::size_of::<u16>();
 pub const CTRL_LOG_EVENT: usize = std::mem::size_of::<i64>()
@@ -39,18 +39,52 @@ pub const CTRL_LOG_EVENT: usize = std::mem::size_of::<i64>()
     + std::mem::size_of::<u16>()
     + 1;
 
+pub trait Log : std::io::Write {
+    fn increment_var_count(&mut self);
+    unsafe fn write_single(&mut self, val: u8);
+
+    //The right name for this function should be "write", but unfortunately should this function be named "write", it would be un-callable in Rust.
+    unsafe fn write_multiple(&mut self, buf: &[u8]) -> usize;
+}
+
 macro_rules! impl_log_msg {
     ($name: ident) => {
         impl $name {
-            pub fn msg(&self) -> &str {
+            pub fn as_bytes(&self) -> &[u8] {
                 unsafe {
-                    std::str::from_utf8_unchecked(std::mem::transmute(
+                    std::mem::transmute(
                         &self.buffer[..self.msg_len as usize],
-                    ))
+                    )
+                }
+            }
+        }
+
+        impl std::io::Write for $name {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                unsafe {
+                    Ok(self.write_multiple(buf))
                 }
             }
 
-            pub unsafe fn write(&mut self, buf: &[u8]) -> usize {
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl Log for $name {
+            fn increment_var_count(&mut self) {
+                self.var_count += 1;
+            }
+
+            unsafe fn write_single(&mut self, val: u8) {
+                let len = std::cmp::min(1, self.buffer.len() - self.msg_len as usize);
+                if len > 0 {
+                    self.buffer.as_mut_ptr().offset(self.msg_len as _).write(MaybeUninit::new(val));
+                    self.msg_len += 1;
+                }
+            }
+
+            unsafe fn write_multiple(&mut self, buf: &[u8]) -> usize {
                 let len = std::cmp::min(buf.len(), self.buffer.len() - self.msg_len as usize);
                 if len > 0 {
                     std::ptr::copy_nonoverlapping(
@@ -63,25 +97,18 @@ macro_rules! impl_log_msg {
                 len
             }
         }
-        impl Write for $name {
-            fn write_str(&mut self, s: &str) -> Result {
-                unsafe {
-                    self.write(s.as_bytes());
-                }
-                Ok(())
-            }
-        }
     };
 }
 
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct SpanLog {
-    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_SPAN], //TODO: fix
+    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_SPAN - 1], //TODO: fix
     id: NonZeroU32,
     duration_secs: u32,
     duration_nanos: u32,
     msg_len: u16,
+    var_count: u8
 }
 
 impl_log_msg!(SpanLog);
@@ -91,9 +118,10 @@ impl SpanLog {
         SpanLog {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
             id,
-            msg_len: 0,
+            msg_len: 1,
             duration_secs: 0,
             duration_nanos: 0,
+            var_count: 0
         }
     }
 
@@ -104,6 +132,12 @@ impl SpanLog {
 
     pub fn get_duration(&self) -> Duration {
         Duration::new(self.duration_secs as _, self.duration_nanos)
+    }
+
+    pub fn write_finish(&mut self) {
+        self.buffer[0].write(self.var_count);
+        let _ = self.write_le(self.duration_secs);
+        let _ = self.write_le(self.duration_nanos);
     }
 
     pub fn clear(&mut self) {
@@ -118,35 +152,48 @@ impl SpanLog {
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct EventLog {
-    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_EVENT], //TODO: fix
+    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_EVENT - 1], //TODO: fix
     id: Option<NonZeroU32>,
     timestamp: i64,
     msg_len: u16,
-    level: nt::header::Level,
+    level: nt::message::Level,
+    var_count: u8
 }
 
 impl_log_msg!(EventLog);
 
 impl EventLog {
-    pub fn new(id: Option<NonZeroU32>, timestamp: i64, level: nt::header::Level) -> EventLog {
-        EventLog {
+    pub fn new(id: Option<NonZeroU32>, timestamp: i64, level: nt::message::Level, module: &str, target: &str) -> EventLog {
+        let mut log = EventLog {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
             id,
             timestamp,
             level,
-            msg_len: 0,
+            msg_len: 1,
+            var_count: 0
+        };
+        unsafe {
+            log.write_multiple(target.as_bytes());
+            log.write_single(0);
+            log.write_multiple(module.as_bytes());
+            log.write_single(0)
         }
+        log
     }
 
     pub fn id(&self) -> Option<NonZeroU32> {
         self.id
     }
 
-    pub fn level(&self) -> nt::header::Level {
+    pub fn level(&self) -> nt::message::Level {
         self.level
     }
 
     pub fn timestamp(&self) -> i64 {
         self.timestamp
+    }
+
+    pub fn write_finish(&mut self) {
+        self.buffer[0].write(self.var_count);
     }
 }

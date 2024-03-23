@@ -29,7 +29,7 @@
 //! This module contains the standard declarations for the protocol initialization. All BP3D
 //! protocols (except auto-discovery for now) expose a Hello packet.
 
-use byteorder::{ByteOrder, LittleEndian};
+use bytesutil::{ReadBytes, WriteBytes};
 
 const SIGNATURE: [u8; 8] = *b"BP3DPROF";
 
@@ -77,7 +77,7 @@ impl Hello {
         let mut pre_release: [u8; 24] = [0; 24];
         signature.copy_from_slice(&block[..8]);
         pre_release.copy_from_slice(&block[16..]);
-        let major = LittleEndian::read_u64(&block[8..16]);
+        let major = u64::read_bytes_le(&block[8..16]);
         if pre_release[0] == 0x0 {
             Hello {
                 signature,
@@ -115,7 +115,7 @@ impl Hello {
     pub fn to_bytes(&self) -> [u8; 40] {
         let mut block: [u8; 40] = [0; 40];
         block[..8].copy_from_slice(&self.signature);
-        LittleEndian::write_u64(&mut block[8..16], self.version.major);
+        self.version.major.write_bytes_le(&mut block[8..16]);
         if let Some(pre_release) = &self.version.pre_release {
             block[16..].copy_from_slice(pre_release);
         }

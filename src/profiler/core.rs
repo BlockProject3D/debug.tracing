@@ -90,11 +90,11 @@ impl Profiler {
                 spans: DashMap::new(),
                 channels,
                 max_level: max_level.map(|v| match v {
-                    nt::header::Level::Trace => Level::TRACE,
-                    nt::header::Level::Debug => Level::DEBUG,
-                    nt::header::Level::Info => Level::INFO,
-                    nt::header::Level::Warning => Level::WARN,
-                    nt::header::Level::Error => Level::ERROR,
+                    nt::message::Level::Trace => Level::TRACE,
+                    nt::message::Level::Debug => Level::DEBUG,
+                    nt::message::Level::Info => Level::INFO,
+                    nt::message::Level::Warning => Level::WARN,
+                    nt::message::Level::Error => Level::ERROR,
                 }),
             },
             Box::new(Guard(state)),
@@ -157,12 +157,12 @@ impl Tracer for Profiler {
         let mut msg = EventLog::new(
             parent.map(|v| v.get_id()),
             OffsetDateTime::now_utc().unix_timestamp(),
-            nt::header::Level::from_tracing(*event.metadata().level()),
+            nt::message::Level::from_tracing(*event.metadata().level()),
+            module.unwrap_or("main"),
+            target
         );
-        use std::fmt::Write;
         let mut visitor = EventVisitor::new(&mut msg);
         event.record(&mut visitor);
-        let _ = write!(msg, ",{},{}", module.unwrap_or("main"), target);
         self.span_command(command::Span::Event(msg));
     }
 

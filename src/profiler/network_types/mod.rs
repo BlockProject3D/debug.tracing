@@ -27,10 +27,9 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 pub mod deserializer;
-pub mod header;
-pub mod payload;
+pub mod message;
 pub mod serializer;
-pub mod util;
 mod version;
+pub mod log;
 
 pub use version::*;

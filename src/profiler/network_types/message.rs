@@ -45,7 +45,7 @@ pub trait MsgSize {
     const SIZE: usize;
 }
 
-pub trait MsgHeader: MsgSize {
+pub trait Msg {
     const TYPE: MsgType;
     const HAS_PAYLOAD: bool;
 }
@@ -58,17 +58,9 @@ impl MsgSize for u32 {
     const SIZE: usize = 4;
 }
 
-#[derive(Serialize, Copy, Clone, Debug)]
-pub struct PayloadRef {
-    pub length: u16,
-    pub offset: u16,
+impl MsgSize for u16 {
+    const SIZE: usize = 2;
 }
-
-impl MsgSize for PayloadRef {
-    const SIZE: usize = 4;
-}
-
-pub type Vchar = PayloadRef;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Duration {
@@ -126,71 +118,50 @@ impl Level {
 }
 
 #[derive(Serialize)]
-pub struct Metadata {
+pub struct Metadata<'a> {
     pub level: Level,
     pub line: Option<u32>,
-    pub name: Vchar,
-    pub target: Vchar,
-    pub module_path: Option<Vchar>,
-    pub file: Option<Vchar>,
-}
-
-impl MsgSize for Metadata {
-    const SIZE: usize =
-        Level::SIZE + Option::<u32>::SIZE + Vchar::SIZE * 2 + Option::<Vchar>::SIZE * 2;
+    pub name: &'a str,
+    pub target: &'a str,
+    pub module_path: Option<&'a str>,
+    pub file: Option<&'a str>,
 }
 
 #[derive(Serialize)]
-pub struct Target {
-    pub os: Vchar,
-    pub family: Vchar,
-    pub arch: Vchar,
-}
-
-impl MsgSize for Target {
-    const SIZE: usize = Vchar::SIZE * 3;
+pub struct Target<'a> {
+    pub os: &'a str,
+    pub family: &'a str,
+    pub arch: &'a str,
 }
 
 #[derive(Serialize)]
 pub struct Cpu {
-    pub name: Vchar,
+    pub name: String,
     pub core_count: u32,
 }
 
-impl MsgSize for Cpu {
-    const SIZE: usize = Vchar::SIZE + 4;
-}
-
 #[derive(Serialize)]
-pub struct Project {
-    pub app_name: Vchar,
-    pub name: Vchar,
-    pub version: Vchar,
-    pub cmd_line: Vchar,
-    pub target: Target,
+pub struct Project<'a> {
+    pub app_name: &'a str,
+    pub name: &'a str,
+    pub version: &'a str,
+    pub cmd_line: &'a str,
+    pub target: Target<'a>,
     pub cpu: Option<Cpu>,
 }
 
-impl MsgSize for Project {
-    const SIZE: usize = Vchar::SIZE * 4 + Target::SIZE + Option::<Cpu>::SIZE;
-}
-
-impl MsgHeader for Project {
+impl<'a> Msg for Project<'a> {
     const TYPE: MsgType = MsgType::Project;
     const HAS_PAYLOAD: bool = true;
 }
 
 #[derive(Serialize)]
-pub struct SpanAlloc {
+pub struct SpanAlloc<'a> {
     pub id: u32,
-    pub metadata: Metadata,
+    pub metadata: Metadata<'a>,
 }
 
-impl MsgSize for SpanAlloc {
-    const SIZE: usize = 4 + Metadata::SIZE;
-}
-
-impl MsgHeader for SpanAlloc {
+impl<'a> Msg for SpanAlloc<'a> {
     const TYPE: MsgType = MsgType::SpanAlloc;
     const HAS_PAYLOAD: bool = true;
 }
@@ -205,7 +176,7 @@ impl MsgSize for SpanParent {
     const SIZE: usize = 8;
 }
 
-impl MsgHeader for SpanParent {
+impl Msg for SpanParent {
     const TYPE: MsgType = MsgType::SpanParent;
     const HAS_PAYLOAD: bool = false;
 }
@@ -220,24 +191,20 @@ impl MsgSize for SpanFollows {
     const SIZE: usize = 8;
 }
 
-impl MsgHeader for SpanFollows {
+impl Msg for SpanFollows {
     const TYPE: MsgType = MsgType::SpanFollows;
     const HAS_PAYLOAD: bool = false;
 }
 
 #[derive(Serialize)]
-pub struct SpanEvent {
+pub struct SpanEvent<'a> {
     pub id: u32,
     pub timestamp: i64,
     pub level: Level,
-    pub message: Vchar,
+    pub message: &'a [u8],
 }
 
-impl MsgSize for SpanEvent {
-    const SIZE: usize = 4 + 8 + Level::SIZE + Vchar::SIZE;
-}
-
-impl MsgHeader for SpanEvent {
+impl<'a> Msg for SpanEvent<'a> {
     const TYPE: MsgType = MsgType::SpanEvent;
     const HAS_PAYLOAD: bool = true;
 }
@@ -255,7 +222,7 @@ impl MsgSize for SpanUpdate {
     const SIZE: usize = 8 + Duration::SIZE * 3;
 }
 
-impl MsgHeader for SpanUpdate {
+impl Msg for SpanUpdate {
     const TYPE: MsgType = MsgType::SpanUpdate;
     const HAS_PAYLOAD: bool = false;
 }
@@ -263,15 +230,14 @@ impl MsgHeader for SpanUpdate {
 #[derive(Serialize)]
 pub struct SpanDataset {
     pub id: u32,
-    pub run_count: u32,
-    pub size: u32,
+    pub run_count: u32
 }
 
 impl MsgSize for SpanDataset {
-    const SIZE: usize = u32::SIZE * 3;
+    const SIZE: usize = u32::SIZE * 2;
 }
 
-impl MsgHeader for SpanDataset {
+impl<'a> Msg for SpanDataset {
     const TYPE: MsgType = MsgType::SpanDataset;
 
     const HAS_PAYLOAD: bool = true;
@@ -306,10 +272,10 @@ pub struct ServerConfig {
 }
 
 impl MsgSize for ServerConfig {
-    const SIZE: usize = Option::<Vchar>::SIZE;
+    const SIZE: usize = u32::SIZE + u16::SIZE;
 }
 
-impl MsgHeader for ServerConfig {
+impl Msg for ServerConfig {
     const TYPE: MsgType = MsgType::ServerConfig;
 
     const HAS_PAYLOAD: bool = false;

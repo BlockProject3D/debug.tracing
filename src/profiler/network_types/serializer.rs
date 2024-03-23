@@ -26,14 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::network_types::util::Payload;
-use byteorder::{LittleEndian, WriteBytesExt};
 use serde::ser::{
     SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
     SerializeTupleStruct, SerializeTupleVariant, StdError,
 };
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
+use std::io::Write;
+use bytesutil::WriteExt;
 
 #[derive(Debug)]
 pub enum Error {
@@ -63,15 +63,15 @@ impl serde::ser::Error for Error {
     }
 }
 
-pub struct Serializer<'a>(Payload<'a>);
+pub struct Serializer<'a, W: Write>(&'a mut W);
 
-impl<'a> Serializer<'a> {
-    pub fn new(buffer: &'a mut [u8], cursor: &'a mut usize) -> Serializer<'a> {
-        Serializer(Payload::new(buffer, cursor))
+impl<'a, W: Write> Serializer<'a, W> {
+    pub fn new(writer: &'a mut W) -> Serializer<'a, W> {
+        Serializer(writer)
     }
 }
 
-impl<'a, 'b> SerializeSeq for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> SerializeSeq for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
 
@@ -87,7 +87,7 @@ impl<'a, 'b> SerializeSeq for &'a mut Serializer<'b> {
     }
 }
 
-impl<'a, 'b> SerializeMap for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> SerializeMap for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
 
@@ -110,7 +110,7 @@ impl<'a, 'b> SerializeMap for &'a mut Serializer<'b> {
     }
 }
 
-impl<'a, 'b> SerializeTuple for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> SerializeTuple for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
 
@@ -126,7 +126,7 @@ impl<'a, 'b> SerializeTuple for &'a mut Serializer<'b> {
     }
 }
 
-impl<'a, 'b> SerializeTupleStruct for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> SerializeTupleStruct for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
 
@@ -142,7 +142,7 @@ impl<'a, 'b> SerializeTupleStruct for &'a mut Serializer<'b> {
     }
 }
 
-impl<'a, 'b> SerializeTupleVariant for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> SerializeTupleVariant for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
 
@@ -158,7 +158,7 @@ impl<'a, 'b> SerializeTupleVariant for &'a mut Serializer<'b> {
     }
 }
 
-impl<'a, 'b> SerializeStruct for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> SerializeStruct for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
 
@@ -174,7 +174,7 @@ impl<'a, 'b> SerializeStruct for &'a mut Serializer<'b> {
     }
 }
 
-impl<'a, 'b> SerializeStructVariant for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> SerializeStructVariant for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
 
@@ -190,7 +190,7 @@ impl<'a, 'b> SerializeStructVariant for &'a mut Serializer<'b> {
     }
 }
 
-impl<'a, 'b> serde::Serializer for &'a mut Serializer<'b> {
+impl<'a, 'b, W: Write> serde::Serializer for &'a mut Serializer<'b, W> {
     type Ok = ();
     type Error = Error;
     type SerializeSeq = Self;
@@ -210,55 +210,56 @@ impl<'a, 'b> serde::Serializer for &'a mut Serializer<'b> {
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.0.write_i8(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.0.write_i16::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.0.write_i32::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.0.write_i64::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.0.write_u8(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.0.write_u16::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.0.write_u32::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.0.write_u64::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.0.write_f32::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.0.write_f64::<LittleEndian>(v).map_err(Error::Io)
+        self.0.write_le(v).map_err(Error::Io)
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        self.0.write_u32::<LittleEndian>(v as _).map_err(Error::Io)
+        self.0.write_le(v as u32).map_err(Error::Io)
     }
 
-    fn serialize_str(self, _: &str) -> Result<Self::Ok, Self::Error> {
-        Err(Error::Unsupported)
+    fn serialize_str(self, s: &str) -> Result<Self::Ok, Self::Error> {
+        self.0.write(s.as_bytes()).map_err(Error::Io)?;
+        self.0.write_le(0u8).map_err(Error::Io)
     }
 
-    fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Err(Error::Unsupported)
+    fn serialize_bytes(self, buffer: &[u8]) -> Result<Self::Ok, Self::Error> {
+        self.0.write(buffer).map(|_| ()).map_err(Error::Io)
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {

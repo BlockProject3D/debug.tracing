@@ -26,7 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::network_types as nt;
 use std::fmt::{Debug, Write};
 use std::mem::MaybeUninit;
 
@@ -61,12 +60,6 @@ impl<const N: usize> FixedBufStr<N> {
         buffer.len = len as _;
         buffer
     }
-
-    pub fn from_debug<T: Debug>(value: T) -> Self {
-        let mut buffer = FixedBufStr::new();
-        let _ = write!(buffer, "{:?}", value);
-        buffer
-    }
 }
 
 impl<const N: usize> Write for FixedBufStr<N> {
@@ -84,13 +77,18 @@ impl<const N: usize> Write for FixedBufStr<N> {
     }
 }
 
-pub fn read_command_line(payload: &mut nt::util::Payload) -> nt::header::Vchar {
-    let mut r = payload.write_object("").unwrap();
+pub fn read_command_line<W: Write>(write: &mut W) {
     for v in std::env::args_os() {
-        let head = payload.write_object(&*v.to_string_lossy()).unwrap();
-        use std::io::Write;
-        payload.write(b" ").unwrap();
-        r.length += head.length + 1;
+        let _ = write!(write, "{} ", v.to_string_lossy());
     }
-    r
 }
+
+macro_rules! wrap_io_debug_error {
+    ($e: expr) => {
+        if let Err(e) = $e {
+            eprintln!("Failed to write to network: {}", e);
+        }
+    };
+}
+
+pub(crate) use wrap_io_debug_error;

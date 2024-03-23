@@ -28,10 +28,10 @@
 
 use crate::profiler::log_msg::{EventLog, SpanLog};
 use std::fmt::Debug;
-use std::fmt::Write;
 use std::num::NonZeroU32;
 use tracing_core::field::Visit;
 use tracing_core::Field;
+use crate::profiler::network_types as nt;
 
 pub struct SpanVisitor {
     msg: SpanLog,
@@ -63,35 +63,27 @@ impl SpanVisitor {
 
 impl Visit for SpanVisitor {
     fn record_f64(&mut self, field: &Field, value: f64) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(&mut self.msg);
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(&mut self.msg);
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(&mut self.msg);
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(&mut self.msg);
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
-        if field.name() == "message" {
-            let _ = write!(self.msg, "\"{}\"", value);
-        } else {
-            let _ = write!(self.msg, ",\"{}={}\"", field.name(), value);
-        }
+        nt::log::Field::new(field.name(), value).write_into(&mut self.msg);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
-        if field.name() == "message" {
-            let _ = write!(self.msg, "\"{:?}\"", value);
-        } else {
-            let _ = write!(self.msg, ",\"{}={:?}\"", field.name(), value);
-        }
+        nt::log::Field::new(field.name(), value).write_into(&mut self.msg);
     }
 }
 
@@ -107,34 +99,26 @@ impl<'a> EventVisitor<'a> {
 
 impl<'a> Visit for EventVisitor<'a> {
     fn record_f64(&mut self, field: &Field, value: f64) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(self.msg);
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(self.msg);
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(self.msg);
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        let _ = write!(self.msg, ",{}={}", field.name(), value);
+        nt::log::Field::new(field.name(), value).write_into(self.msg);
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
-        if field.name() == "message" {
-            let _ = write!(self.msg, "\"{}\"", value);
-        } else {
-            let _ = write!(self.msg, ",\"{}={}\"", field.name(), value);
-        }
+        nt::log::Field::new(field.name(), value).write_into(self.msg);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
-        if field.name() == "message" {
-            let _ = write!(self.msg, "\"{:?}\"", value);
-        } else {
-            let _ = write!(self.msg, ",\"{}={:?}\"", field.name(), value);
-        }
+        nt::log::Field::new(field.name(), value).write_into(self.msg);
     }
 }

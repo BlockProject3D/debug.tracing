@@ -132,28 +132,42 @@ impl<'a, 'de> EnumAccess<'de> for Enum<'a, 'de> {
     }
 }
 
-pub struct Deserializer<'a>(&'a [u8]);
+pub struct Deserializer<'a>{
+    buffer: &'a [u8],
+    cursor: usize
+}
 
 impl<'a> Deserializer<'a> {
     pub fn new(buffer: &'a [u8]) -> Deserializer<'a> {
-        Deserializer(buffer)
+        Deserializer {
+            buffer,
+            cursor: 0
+        }
+    }
+
+    pub fn buffer(&self) -> &[u8] {
+        &self.buffer[self.cursor..]
+    }
+
+    pub fn advance(&mut self, len: usize) {
+        self.cursor += len;
     }
 
     pub fn pop_bytes(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
-        if self.0.len() < buffer.len() {
+        if self.buffer().len() < buffer.len() {
             return Err(Error::UnexpectedEOB);
         }
-        buffer.copy_from_slice(&self.0[..buffer.len()]);
-        self.0 = &self.0[buffer.len()..];
+        buffer.copy_from_slice(&self.buffer()[..buffer.len()]);
+        self.advance(buffer.len());
         Ok(())
     }
 
     pub fn pop_byte(&mut self) -> Result<u8, Error> {
-        if self.0.len() == 0 {
+        if self.buffer().len() == 0 {
             return Err(Error::UnexpectedEOB);
         }
-        let v = self.0[0];
-        self.0 = &self.0[1..];
+        let v = self.buffer()[0];
+        self.advance(1);
         Ok(v)
     }
 }
@@ -278,32 +292,60 @@ impl<'a, 'de> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_str<V>(self, _: V) -> Result<V::Value, Self::Error>
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unsupported)
+        let mut i = 0;
+        while i < self.buffer().len() && self.buffer()[i] != 0 {
+            i += 1;
+        }
+        if i >= self.buffer().len() as _ {
+            return Err(Error::UnexpectedEOB);
+        }
+        let cursor = self.cursor;
+        self.advance(i);
+        let bytes = &self.buffer[cursor..i];
+        visitor.visit_borrowed_str(std::str::from_utf8(bytes).map_err(|_| Error::InvalidUtf8)?)
     }
 
-    fn deserialize_string<V>(self, _: V) -> Result<V::Value, Self::Error>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unsupported)
+        let mut i = 0;
+        while i < self.buffer().len() && self.buffer()[i] != 0 {
+            i += 1;
+        }
+        let mut v = vec![0u8; i];
+        self.pop_bytes(&mut v)?;
+        visitor.visit_string(String::from_utf8(v).map_err(|_| Error::InvalidUtf8)?)
     }
 
-    fn deserialize_bytes<V>(self, _: V) -> Result<V::Value, Self::Error>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unsupported)
+        if self.cursor >= self.buffer().len() as _ {
+            return Err(Error::UnexpectedEOB);
+        }
+        let cursor = self.cursor;
+        self.advance(self.buffer.len() - cursor);
+        let bytes = &self.buffer[cursor..];
+        visitor.visit_borrowed_bytes(bytes)
     }
 
-    fn deserialize_byte_buf<V>(self, _: V) -> Result<V::Value, Self::Error>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unsupported)
+        if self.cursor >= self.buffer().len() as _ {
+            return Err(Error::UnexpectedEOB);
+        }
+        let cursor = self.cursor;
+        self.advance(self.buffer.len() - cursor);
+        let bytes = &self.buffer[cursor..];
+        visitor.visit_byte_buf(bytes.into())
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>

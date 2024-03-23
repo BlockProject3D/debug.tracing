@@ -27,9 +27,11 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::{collections::HashMap, io::Write, num::NonZeroU32};
+use bytesutil::WriteExt;
 
 use super::{net::Net, state::SpanData};
 use crate::profiler::{log_msg::SpanLog, network_types as nt};
+use crate::profiler::thread::util::wrap_io_debug_error;
 
 pub struct SpanStore {
     span_data: HashMap<NonZeroU32, SpanData>,
@@ -44,7 +46,7 @@ impl SpanStore {
     pub fn new(
         global_max_rows: u32,
         min_period: u16,
-        config: &nt::header::ClientConfig,
+        config: &nt::message::ClientConfig,
     ) -> SpanStore {
         let mut max_rows = config.record.max_rows;
         if max_rows > global_max_rows {
@@ -79,39 +81,36 @@ impl SpanStore {
     pub async fn stop_recording(&mut self, net: &mut Net<'_>) {
         self.enable_recording = false;
         for (k, v) in &mut self.span_data {
-            let header = nt::header::SpanDataset {
+            let msg = nt::message::SpanDataset {
                 id: k.get(),
-                run_count: v.row_count,
-                size: v.runs_file.len() as _,
+                run_count: v.row_count
             };
-            net.network_write(header, Some(&v.runs_file)).await;
+            wrap_io_debug_error!(net.network_write_fixed_payload(msg, &v.runs_file).await);
             v.row_count = 0;
             v.runs_file.clear();
         }
     }
 
-    pub fn record(&mut self, mut log: SpanLog) -> Option<nt::header::SpanUpdate> {
+    pub fn record(&mut self, mut log: SpanLog) -> Option<nt::message::SpanUpdate> {
         if let Some(data) = self.span_data.get_mut(&log.id()) {
-            let duration = log.get_duration();
-            data.update(&duration, self.max_average_points);
+            data.update(&log.get_duration(), self.max_average_points);
             if self.enable_recording && data.row_count < self.max_rows {
                 data.row_count += 1;
                 let buffer = &mut data.runs_file;
-                use std::fmt::Write;
-                let _ = write!(log, ",{},{}", duration.as_secs(), duration.subsec_nanos());
-                let _ = buffer.write_all(log.msg().as_bytes());
-                let _ = buffer.write_all("\n".as_bytes());
+                log.write_finish();
+                let _ = buffer.write_le(log.as_bytes().len() as u16);
+                let _ = buffer.write_all(log.as_bytes());
             }
             let now = std::time::Instant::now();
             let duration = std::time::Instant::now() - data.last_display_time;
             if duration.as_millis() as u16 > self.period {
                 data.last_display_time = now;
-                Some(nt::header::SpanUpdate {
+                Some(nt::message::SpanUpdate {
                     id: log.id().get(),
                     run_count: data.row_count,
-                    average_time: nt::header::Duration::from(&data.get_average()),
-                    min_time: nt::header::Duration::from(&data.min_time),
-                    max_time: nt::header::Duration::from(&data.max_time),
+                    average_time: nt::message::Duration::from(&data.get_average()),
+                    min_time: nt::message::Duration::from(&data.min_time),
+                    max_time: nt::message::Duration::from(&data.max_time),
                 })
             } else {
                 None

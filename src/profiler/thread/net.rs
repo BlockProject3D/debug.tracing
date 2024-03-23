@@ -26,38 +26,17 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::{ErrorKind, Error};
+use std::io::{ErrorKind, Error, Cursor};
 
 use crate::profiler::network_types as nt;
 use serde::{Deserialize, Serialize};
 use tokio::{io::{BufWriter, BufReader, AsyncReadExt, AsyncWriteExt}, net::{tcp::{WriteHalf, ReadHalf}, TcpStream}};
 
-pub struct SmallPayload {
-    cursor: usize,
-    net_buffer: [u8; 1024]
-}
-
-impl SmallPayload {
-    pub fn new() -> SmallPayload {
-        SmallPayload {
-            cursor: 0,
-            net_buffer: [0; 1024]
-        }
-    }
-
-    pub fn get_payload(&mut self) -> nt::util::Payload {
-        self.cursor = 0;
-        nt::util::Payload::new(&mut self.net_buffer, &mut self.cursor)
-    }
-}
-
 pub struct Net<'a> {
     write: BufWriter<WriteHalf<'a>>,
-    head_buffer: [u8; 64],
     read: BufReader<ReadHalf<'a>>,
+    fixed_buffer: [u8; 64]
 }
-
-pub const PAYLOAD_NONE: Option<[u8; 0]> = None;
 
 impl<'a> Net<'a> {
     pub fn new(socket: &'a mut TcpStream) -> Net<'a> {
@@ -65,55 +44,76 @@ impl<'a> Net<'a> {
         Net {
             write: BufWriter::new(write),
             read: BufReader::new(read),
-            head_buffer: [0; 64]
+            fixed_buffer: [0; 64]
         }
     }
 
-    pub async fn flush_raw(&mut self) -> std::io::Result<()> {
+    pub async fn flush(&mut self) -> std::io::Result<()> {
         self.write.flush().await
     }
 
-    pub async fn flush(&mut self) {
-        if let Err(e) = self.write.flush().await {
-            eprintln!("Failed to write to network: {}", e);
-        }
-    }
-
-    pub async fn network_read<'b, M: nt::header::MsgSize + Deserialize<'b>>(
+    pub async fn network_read_fixed<'b, M: nt::message::MsgSize + Deserialize<'b>>(
         &'b mut self,
     ) -> std::io::Result<M> {
         self.read
-            .read_exact(&mut self.head_buffer[0..M::SIZE])
+            .read_exact(&mut self.fixed_buffer[0..M::SIZE])
             .await?;
-        let mut de = nt::deserializer::Deserializer::new(&self.head_buffer[0..M::SIZE]);
-        M::deserialize(&mut de).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        let mut de = nt::deserializer::Deserializer::new(&self.fixed_buffer[0..M::SIZE]);
+        M::deserialize(&mut de).map_err(|e| Error::new(ErrorKind::Other, e))
     }
 
-    pub async fn network_write_raw<H: Serialize + nt::header::MsgHeader, P: AsRef<[u8]>>(
+    pub async fn network_write_fixed<M: Serialize + nt::message::MsgSize + nt::message::Msg>(
         &mut self,
-        header: H,
-        payload: Option<P>
+        message: M
     ) -> std::io::Result<()> {
-        let mut head_len = 0;
-        let mut serializer = nt::serializer::Serializer::new(&mut self.head_buffer, &mut head_len);
-        if let Err(e) = H::TYPE.serialize(&mut serializer) {
+        let mut cursor = Cursor::new(&mut self.fixed_buffer as &mut [u8]);
+        let mut serializer = nt::serializer::Serializer::new(&mut cursor);
+        if let Err(e) = M::TYPE.serialize(&mut serializer) {
             return Err(Error::new(ErrorKind::Other, e));
         }
-        if let Err(e) = header.serialize(&mut serializer) {
+        if let Err(e) = message.serialize(&mut serializer) {
             return Err(Error::new(ErrorKind::Other, e));
         }
-        self.write.write_all(&self.head_buffer[..head_len]).await?;
-        if let Some(payload) = payload {
-            self.write
-                .write_all(payload.as_ref())
-                .await?;
-        }
+        self.write.write_u32_le(M::SIZE as _).await?;
+        self.write.write_all(&self.fixed_buffer[..M::SIZE]).await?;
         Ok(())
     }
 
-    pub async fn network_write<H: Serialize + nt::header::MsgHeader, P: AsRef<[u8]>>(&mut self, header: H, payload: Option<P>) {
-        if let Err(e) = self.network_write_raw(header, payload).await {
-            eprintln!("Failed to write to network: {}", e);
+    pub async fn network_write_dyn<M: Serialize + nt::message::Msg, B: AsMut<[u8]>>(
+        &mut self,
+        message: M,
+        mut buffer: B
+    ) -> std::io::Result<()> {
+        let mut cursor = Cursor::new(buffer.as_mut());
+        let mut serializer = nt::serializer::Serializer::new(&mut cursor);
+        if let Err(e) = M::TYPE.serialize(&mut serializer) {
+            return Err(Error::new(ErrorKind::Other, e));
         }
+        if let Err(e) = message.serialize(&mut serializer) {
+            return Err(Error::new(ErrorKind::Other, e));
+        }
+        self.write.write_u32_le(cursor.position() as _).await?;
+        let motherfuckingrust = cursor.position() as usize;
+        self.write.write_all(&buffer.as_mut()[..motherfuckingrust]).await?;
+        Ok(())
+    }
+
+    pub async fn network_write_fixed_payload<M: Serialize + nt::message::Msg + nt::message::MsgSize, B: AsRef<[u8]>>(
+        &mut self,
+        message: M,
+        buffer: B
+    ) -> std::io::Result<()> {
+        let mut cursor = Cursor::new(&mut self.fixed_buffer as &mut [u8]);
+        let mut serializer = nt::serializer::Serializer::new(&mut cursor);
+        if let Err(e) = M::TYPE.serialize(&mut serializer) {
+            return Err(Error::new(ErrorKind::Other, e));
+        }
+        if let Err(e) = message.serialize(&mut serializer) {
+            return Err(Error::new(ErrorKind::Other, e));
+        }
+        self.write.write_u32_le((M::SIZE + buffer.as_ref().len()) as _).await?;
+        self.write.write_all(&self.fixed_buffer[..M::SIZE]).await?;
+        self.write.write_all(buffer.as_ref()).await?;
+        Ok(())
     }
 }

@@ -51,6 +51,12 @@ impl Guard {
     }
 }
 
+impl Drop for Guard {
+    fn drop(&mut self) {
+        drop(self.0.take());
+    }
+}
+
 fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> Guard {
     set_global_default(system.system).expect("bp3d-tracing can only be initialized once!");
     Guard(system.destructor)

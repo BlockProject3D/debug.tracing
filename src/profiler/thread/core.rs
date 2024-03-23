@@ -30,7 +30,7 @@ use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types as nt;
 use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
 use crate::profiler::state::ChannelsOut;
-use crate::profiler::thread::command;
+use crate::profiler::thread::{command, FixedBufStr};
 use crate::profiler::thread::util::read_command_line;
 use bp3d_os::cpu_info::read_cpu_info;
 use std::io::{Error, ErrorKind};
@@ -39,13 +39,14 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use tokio::sync::oneshot;
+use crate::profiler::thread::util::wrap_io_debug_error;
 
-use super::net::{SmallPayload, Net, PAYLOAD_NONE};
+use super::net::Net;
 use super::store::SpanStore;
 
 struct Thread<'a> {
     channels: ChannelsOut,
-    payload: SmallPayload,
+    msg: [u8; 1024],
     net: Net<'a>,
     core: SpanStore,
 }
@@ -54,13 +55,13 @@ impl<'a> Thread<'a> {
     pub fn new(
         socket: &'a mut TcpStream,
         channels: ChannelsOut,
-        config: nt::header::ClientConfig,
+        config: nt::message::ClientConfig,
         max_rows: u32,
         min_period: u16,
     ) -> Thread {
         Thread {
             channels,
-            payload: SmallPayload::new(),
+            msg: [0; 1024],
             net: Net::new(socket),
             core: SpanStore::new(max_rows, min_period, &config),
         }
@@ -68,8 +69,8 @@ impl<'a> Thread<'a> {
 
     async fn handle_span_data(&mut self, log: SpanLog) {
         if let Some(msg) = self.core.record(log) {
-            self.net.network_write(msg, PAYLOAD_NONE).await;
-            self.net.flush().await;
+            wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
+            wrap_io_debug_error!(self.net.flush().await);
         }
     }
 
@@ -79,51 +80,47 @@ impl<'a> Thread<'a> {
             command::Span::Event(msg) => self.handle_event(msg).await,
             command::Span::Alloc { id, metadata } => {
                 self.core.reserve_span(id);
-                let mut payload = self.payload.get_payload();
-                let head = nt::header::SpanAlloc {
+                let msg = nt::message::SpanAlloc {
                     id: id.get(),
-                    metadata: nt::header::Metadata {
-                        level: nt::header::Level::from_tracing(*metadata.level()),
-                        file: metadata.file().map(|v| payload.write_object(v).unwrap()),
+                    metadata: nt::message::Metadata {
+                        level: nt::message::Level::from_tracing(*metadata.level()),
+                        file: metadata.file(),
                         line: metadata.line(),
-                        module_path: metadata
-                            .module_path()
-                            .map(|v| payload.write_object(v).unwrap()),
-                        name: payload.write_object(metadata.name()).unwrap(),
-                        target: payload.write_object(metadata.target()).unwrap(),
+                        module_path: metadata.module_path(),
+                        name: metadata.name(),
+                        target: metadata.target(),
                     },
                 };
-                self.net.network_write(head, Some(payload)).await;
+                wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
             }
             command::Span::UpdateParent { id, parent } => {
-                self.net
-                    .network_write(nt::header::SpanParent {
-                        id: id.get(),
-                        parent_node: parent.map(|v| v.get()).unwrap_or(0),
-                    }, PAYLOAD_NONE)
-                    .await;
+                let msg = nt::message::SpanParent {
+                    id: id.get(),
+                    parent_node: parent.map(|v| v.get()).unwrap_or(0),
+                };
+                wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
             }
             command::Span::Follows { id, follows } => {
                 let id = id.get_id();
                 let follows = follows.get_id();
-                let head = nt::header::SpanFollows {
+                let msg = nt::message::SpanFollows {
                     id: id.get(),
                     follows: follows.get(),
                 };
-                self.net.network_write(head, PAYLOAD_NONE).await;
+                wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
             }
         }
     }
 
-    async fn handle_event(&mut self, event: EventLog) {
-        let mut payload = self.payload.get_payload();
-        let head = nt::header::SpanEvent {
+    async fn handle_event(&mut self, mut event: EventLog) {
+        event.write_finish();
+        let msg = nt::message::SpanEvent {
             id: event.id().map(|v| v.get()).unwrap_or(0),
-            message: payload.write_object(event.msg()).unwrap(),
+            message: event.as_bytes(),
             level: event.level(),
             timestamp: event.timestamp(),
         };
-        self.net.network_write(head, Some(payload)).await;
+        wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
     }
 
     async fn handle_control(&mut self, command: command::Control) -> bool {
@@ -133,39 +130,40 @@ impl<'a> Thread<'a> {
                 name,
                 version,
             } => {
-                let mut payload = self.payload.get_payload();
+                let mut cmd_line: FixedBufStr<128> = FixedBufStr::new();
+                read_command_line(&mut cmd_line);
                 let app_name = app_name.str();
                 let name = name.str();
                 let version = version.str();
                 let info = read_cpu_info();
-                let head = nt::header::Project {
-                    app_name: payload.write_object(app_name).unwrap(),
-                    name: payload.write_object(name).unwrap(),
-                    version: payload.write_object(version).unwrap(),
-                    target: nt::header::Target {
-                        arch: payload.write_object(std::env::consts::ARCH).unwrap(),
-                        family: payload.write_object(std::env::consts::FAMILY).unwrap(),
-                        os: payload.write_object(std::env::consts::OS).unwrap(),
+                let msg = nt::message::Project {
+                    app_name,
+                    name,
+                    version,
+                    target: nt::message::Target {
+                        arch: std::env::consts::ARCH,
+                        family: std::env::consts::FAMILY,
+                        os: std::env::consts::OS,
                     },
-                    cpu: info.map(|v| nt::header::Cpu {
-                        name: payload.write_object(&*v.name).unwrap(),
+                    cpu: info.map(|v| nt::message::Cpu {
+                        name: v.name,
                         core_count: v.core_count,
                     }),
-                    cmd_line: read_command_line(&mut payload),
+                    cmd_line: cmd_line.str()
                 };
-                self.net.network_write(head, Some(payload)).await;
+                wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
                 true
             }
             command::Control::Terminate => {
-                self.net.flush().await;
+                wrap_io_debug_error!(self.net.flush().await);
                 self.core.stop_recording(&mut self.net).await;
-                self.net.flush().await;
+                wrap_io_debug_error!(self.net.flush().await);
                 false
             }
         }
     }
 
-    async fn handle_net_command(&mut self, command: std::io::Result<nt::header::ClientRecord>) {
+    async fn handle_net_command(&mut self, command: std::io::Result<nt::message::ClientRecord>) {
         match command {
             Ok(v) => {
                 if v.enable {
@@ -181,7 +179,7 @@ impl<'a> Thread<'a> {
     pub async fn run(&mut self) {
         loop {
             tokio::select! {
-                cmd = self.net.network_read::<nt::header::ClientRecord>() => self.handle_net_command(cmd).await,
+                cmd = self.net.network_read_fixed::<nt::message::ClientRecord>() => self.handle_net_command(cmd).await,
                 cmd = self.channels.span.recv() => if let Some(cmd) = cmd { self.handle_span(cmd).await },
                 cmd = self.channels.control.recv() => if let Some(cmd) = cmd {
                     if !self.handle_control(cmd).await {
@@ -212,19 +210,19 @@ async fn init(
     port: u16,
     max_rows: u32,
     min_period: u16,
-) -> std::io::Result<(TcpStream, nt::header::ClientConfig)> {
+) -> std::io::Result<(TcpStream, nt::message::ClientConfig)> {
     let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
     handle_hello(&mut socket).await?;
     let mut net = Net::new(&mut socket);
-    let head = nt::header::ServerConfig {
+    let msg = nt::message::ServerConfig {
         max_rows,
         min_period,
     };
-    net.network_write_raw(head, PAYLOAD_NONE).await?;
-    net.flush_raw().await?;
-    let config: nt::header::ClientConfig = net.network_read().await?;
+    net.network_write_fixed(msg).await?;
+    net.flush().await?;
+    let config: nt::message::ClientConfig = net.network_read_fixed().await?;
     Ok((socket, config))
 }
 
@@ -233,7 +231,7 @@ pub fn run(
     mut channels: ChannelsOut,
     max_rows: u32,
     min_period: u16,
-    result_channel: oneshot::Sender<std::io::Result<Option<nt::header::Level>>>,
+    result_channel: oneshot::Sender<std::io::Result<Option<nt::message::Level>>>,
 ) {
     Builder::new_current_thread().enable_io().build().unwrap().block_on(async {
         tokio::select! {

@@ -67,8 +67,7 @@ pub trait Tracer {
 
 struct SpanData {
     ref_count: usize,
-    metadata: Meta,
-    last_time: Option<Instant>,
+    metadata: Meta
 }
 
 struct SpanHead {
@@ -125,33 +124,48 @@ impl Inner {
     }
 }
 
+struct SpanLocal {
+    id: SpanId,
+    last_time: Instant
+}
+
+impl SpanLocal {
+    pub fn new(id: SpanId) -> SpanLocal {
+        SpanLocal {
+            id,
+            last_time: Instant::now()
+        }
+    }
+}
+
 thread_local! {
-    static SPAN_STACK: RefCell<Vec<SpanId>> = RefCell::new(Vec::new());
+    static SPAN_STACK: RefCell<Vec<SpanLocal>> = RefCell::new(Vec::new());
 }
 
 #[inline]
 fn push_span(span: SpanId) {
     SPAN_STACK.with(|v| {
         let mut stack = v.borrow_mut();
-        stack.push(span);
+        stack.push(SpanLocal::new(span));
     });
 }
 
 #[inline]
-fn pop_span(span: &SpanId) {
+fn pop_span(span: SpanId) -> Option<Duration> {
     SPAN_STACK.with(|v| {
         let mut stack = v.borrow_mut();
-        if let Some(id) = stack.iter().position(|v| v == span) {
-            stack.remove(id);
-        }
-    });
+        let id = stack.iter().position(|v| v.id == span)?;
+        let instant = stack[id].last_time;
+        stack.remove(id);
+        Some(instant.elapsed())
+    })
 }
 
 #[inline]
 fn current_span() -> Option<SpanId> {
     SPAN_STACK.with(|v| {
         let stack = v.borrow();
-        stack.last().cloned()
+        stack.last().map(|v| v.id.clone())
     })
 }
 
@@ -219,8 +233,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
             span_id,
             SpanData {
                 metadata: span.metadata(),
-                ref_count: 1,
-                last_time: None,
+                ref_count: 1
             },
         );
         self.derived.span_create(&span_id, new, parent, span);
@@ -242,20 +255,13 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
 
     fn enter(&self, span: &Id) {
         let span = span.into();
-        let mut lock = self.inner.lock().unwrap();
-        if let Some(data) = lock.spans_by_id.get_mut(&span) {
-            data.last_time = Some(Instant::now());
-            push_span(span);
-            self.derived.span_enter(&span);
-        }
+        push_span(span);
+        self.derived.span_enter(&span);
     }
 
     fn exit(&self, span: &Id) {
         let span = span.into();
-        let mut lock = self.inner.lock().unwrap();
-        if let Some(data) = lock.spans_by_id.get_mut(&span) {
-            let duration = data.last_time.map(|v| v.elapsed()).unwrap_or_default();
-            pop_span(&span);
+        if let Some(duration) = pop_span(span) {
             self.derived.span_exit(&span, duration);
         }
     }

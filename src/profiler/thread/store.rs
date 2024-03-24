@@ -98,7 +98,6 @@ impl SpanStore {
                 data.row_count += 1;
                 let buffer = &mut data.runs_file;
                 log.write_finish();
-                let _ = buffer.write_le(log.as_bytes().len() as u16);
                 let _ = buffer.write_all(log.as_bytes());
             }
             let now = std::time::Instant::now();

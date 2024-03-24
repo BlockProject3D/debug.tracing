@@ -125,7 +125,7 @@ impl<'a, V: FieldValue> Field<'a, V> {
     }
 
     pub fn write_into<W: Log>(self, log: &mut W) {
-        if self.name != "message"{
+        {
             //rust is too stupid to understand that formatter is not after write_str
             let mut formatter = Formatter::new(log);
             let _ = formatter.write_str(self.name);

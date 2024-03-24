@@ -33,9 +33,7 @@ use crate::profiler::log_msg::EventLog;
 use crate::profiler::network_types as nt;
 use crate::profiler::state::send_message;
 use log::{Log, Metadata, Record};
-use std::fmt::Write;
 use time::OffsetDateTime;
-use crate::profiler::network_types::log::Formatter;
 
 pub struct LogPump;
 
@@ -58,17 +56,14 @@ impl Log for LogPump {
 
     fn log(&self, record: &Record) {
         let (target, module) = extract_target_module(record);
-        let mut msg = EventLog::new(
+        let msg = EventLog::new(
             None,
             OffsetDateTime::now_utc().unix_timestamp(),
             nt::message::Level::from_log(record.level()),
             module.unwrap_or("main"),
             target
         );
-        {
-            let mut formatter = Formatter::new(&mut msg);
-            let _ = write!(formatter, "{}", record.args());
-        }
+        nt::log::Field::new("message", record.args());
         send_message(&msg);
     }
 

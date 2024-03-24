@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Write};
+use std::fmt::{Debug, Display, Write};
 use bytesutil::WriteTo;
 use crate::profiler::log_msg::Log;
 
@@ -66,6 +66,15 @@ impl FieldValue for i64 {
     }
 }
 
+impl<D: Display> FieldValue for &D {
+    fn write_field<W: Log>(&self, log: &mut W) -> std::io::Result<()> {
+        FieldType::STR.write_field(log)?;
+        let mut formatter = Formatter::new(log);
+        let _ = write!(formatter, "{}", self);
+        Ok(())
+    }
+}
+
 impl FieldValue for &dyn Debug {
     fn write_field<W: Log>(&self, log: &mut W) -> std::io::Result<()> {
         FieldType::STR.write_field(log)?;
@@ -116,7 +125,7 @@ impl<'a, V: FieldValue> Field<'a, V> {
     }
 
     pub fn write_into<W: Log>(self, log: &mut W) {
-        {
+        if self.name != "message"{
             //rust is too stupid to understand that formatter is not after write_str
             let mut formatter = Formatter::new(log);
             let _ = formatter.write_str(self.name);

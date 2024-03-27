@@ -27,9 +27,9 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 pub mod deserializer;
+pub mod log;
 pub mod message;
 pub mod serializer;
 mod version;
-pub mod log;
 
 pub use version::*;

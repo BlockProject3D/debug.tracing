@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use bytesutil::WriteExt;
 use serde::ser::{
     SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
     SerializeTupleStruct, SerializeTupleVariant, StdError,
@@ -33,7 +34,6 @@ use serde::ser::{
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::io::Write;
-use bytesutil::WriteExt;
 
 #[derive(Debug)]
 pub enum Error {

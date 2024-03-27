@@ -1,6 +1,6 @@
-use std::fmt::{Debug, Display, Write};
-use bytesutil::WriteTo;
 use crate::profiler::log_msg::Log;
+use bytesutil::WriteTo;
+use std::fmt::{Debug, Display, Write};
 
 #[derive(Copy, Clone)]
 enum FieldType {
@@ -14,7 +14,7 @@ enum FieldType {
     U64 = 8,
     F64 = 9,
     STR = 10,
-    BOOL = 11
+    BOOL = 11,
 }
 
 impl FieldValue for FieldType {
@@ -105,7 +105,7 @@ impl FieldValue for bool {
         FieldType::BOOL.write_field(log)?;
         match *self {
             true => unsafe { log.write_single(1) },
-            false => unsafe { log.write_single(0) }
+            false => unsafe { log.write_single(0) },
         }
         Ok(())
     }
@@ -113,15 +113,12 @@ impl FieldValue for bool {
 
 pub struct Field<'a, V: FieldValue> {
     pub name: &'a str,
-    pub value: V
+    pub value: V,
 }
 
 impl<'a, V: FieldValue> Field<'a, V> {
     pub fn new(name: &'a str, value: V) -> Field<'a, V> {
-        Field {
-            name,
-            value
-        }
+        Field { name, value }
     }
 
     pub fn write_into<W: Log>(self, log: &mut W) {

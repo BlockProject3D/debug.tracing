@@ -26,12 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{collections::HashMap, io::Write, num::NonZeroU32};
 use bytesutil::WriteExt;
+use std::{collections::HashMap, io::Write, num::NonZeroU32};
 
 use super::{net::Net, state::SpanData};
-use crate::profiler::{log_msg::SpanLog, network_types as nt};
 use crate::profiler::thread::util::wrap_io_debug_error;
+use crate::profiler::{log_msg::SpanLog, network_types as nt};
 
 pub struct SpanStore {
     span_data: HashMap<NonZeroU32, SpanData>,
@@ -83,7 +83,7 @@ impl SpanStore {
         for (k, v) in &mut self.span_data {
             let msg = nt::message::SpanDataset {
                 id: k.get(),
-                run_count: v.row_count
+                run_count: v.row_count,
             };
             wrap_io_debug_error!(net.network_write_fixed_payload(msg, &v.runs_file).await);
             v.row_count = 0;

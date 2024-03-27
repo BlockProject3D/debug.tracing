@@ -67,7 +67,7 @@ pub trait Tracer {
 
 struct SpanData {
     ref_count: usize,
-    metadata: Meta
+    metadata: Meta,
 }
 
 struct SpanHead {
@@ -126,14 +126,14 @@ impl Inner {
 
 struct SpanLocal {
     id: SpanId,
-    last_time: Instant
+    last_time: Instant,
 }
 
 impl SpanLocal {
     pub fn new(id: SpanId) -> SpanLocal {
         SpanLocal {
             id,
-            last_time: Instant::now()
+            last_time: Instant::now(),
         }
     }
 }
@@ -233,7 +233,7 @@ impl<T: 'static + Tracer> Subscriber for BaseTracer<T> {
             span_id,
             SpanData {
                 metadata: span.metadata(),
-                ref_count: 1
+                ref_count: 1,
             },
         );
         self.derived.span_create(&span_id, new, parent, span);

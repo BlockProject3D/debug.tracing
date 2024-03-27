@@ -28,10 +28,10 @@
 
 pub mod command;
 mod core;
+mod net;
 mod state;
 mod store;
 mod util;
-mod net;
 
 pub use self::core::run;
 pub use util::FixedBufStr;

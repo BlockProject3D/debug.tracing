@@ -61,7 +61,7 @@ impl Log for LogPump {
             OffsetDateTime::now_utc().unix_timestamp(),
             nt::message::Level::from_log(record.level()),
             module.unwrap_or("main"),
-            target
+            target,
         );
         nt::log::Field::new("message", record.args());
         send_message(&msg);

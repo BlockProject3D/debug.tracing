@@ -27,11 +27,11 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::profiler::log_msg::{EventLog, SpanLog};
+use crate::profiler::network_types as nt;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
 use tracing_core::field::Visit;
 use tracing_core::Field;
-use crate::profiler::network_types as nt;
 
 pub struct SpanVisitor {
     msg: SpanLog,

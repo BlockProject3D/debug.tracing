@@ -159,7 +159,7 @@ impl Tracer for Profiler {
             OffsetDateTime::now_utc().unix_timestamp(),
             nt::message::Level::from_tracing(*event.metadata().level()),
             module.unwrap_or("main"),
-            target
+            target,
         );
         let mut visitor = EventVisitor::new(&mut msg);
         event.record(&mut visitor);

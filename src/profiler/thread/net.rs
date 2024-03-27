@@ -26,16 +26,22 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::{ErrorKind, Error, Cursor};
+use std::io::{Cursor, Error, ErrorKind};
 
 use crate::profiler::network_types as nt;
 use serde::{Deserialize, Serialize};
-use tokio::{io::{BufWriter, BufReader, AsyncReadExt, AsyncWriteExt}, net::{tcp::{WriteHalf, ReadHalf}, TcpStream}};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
+    net::{
+        tcp::{ReadHalf, WriteHalf},
+        TcpStream,
+    },
+};
 
 pub struct Net<'a> {
     write: BufWriter<WriteHalf<'a>>,
     read: BufReader<ReadHalf<'a>>,
-    fixed_buffer: [u8; 64]
+    fixed_buffer: [u8; 64],
 }
 
 impl<'a> Net<'a> {
@@ -44,7 +50,7 @@ impl<'a> Net<'a> {
         Net {
             write: BufWriter::new(write),
             read: BufReader::new(read),
-            fixed_buffer: [0; 64]
+            fixed_buffer: [0; 64],
         }
     }
 
@@ -64,7 +70,7 @@ impl<'a> Net<'a> {
 
     pub async fn network_write_fixed<M: Serialize + nt::message::MsgSize + nt::message::Msg>(
         &mut self,
-        message: M
+        message: M,
     ) -> std::io::Result<()> {
         let mut cursor = Cursor::new(&mut self.fixed_buffer as &mut [u8]);
         let mut serializer = nt::serializer::Serializer::new(&mut cursor);
@@ -75,14 +81,16 @@ impl<'a> Net<'a> {
             return Err(Error::new(ErrorKind::Other, e));
         }
         self.write.write_u32_le((M::SIZE + 1) as _).await?;
-        self.write.write_all(&self.fixed_buffer[..M::SIZE + 1]).await?;
+        self.write
+            .write_all(&self.fixed_buffer[..M::SIZE + 1])
+            .await?;
         Ok(())
     }
 
     pub async fn network_write_dyn<M: Serialize + nt::message::Msg, B: AsMut<[u8]>>(
         &mut self,
         message: M,
-        mut buffer: B
+        mut buffer: B,
     ) -> std::io::Result<()> {
         let mut cursor = Cursor::new(buffer.as_mut());
         let mut serializer = nt::serializer::Serializer::new(&mut cursor);
@@ -94,14 +102,19 @@ impl<'a> Net<'a> {
         }
         self.write.write_u32_le(cursor.position() as _).await?;
         let motherfuckingrust = cursor.position() as usize;
-        self.write.write_all(&buffer.as_mut()[..motherfuckingrust]).await?;
+        self.write
+            .write_all(&buffer.as_mut()[..motherfuckingrust])
+            .await?;
         Ok(())
     }
 
-    pub async fn network_write_fixed_payload<M: Serialize + nt::message::Msg + nt::message::MsgSize, B: AsRef<[u8]>>(
+    pub async fn network_write_fixed_payload<
+        M: Serialize + nt::message::Msg + nt::message::MsgSize,
+        B: AsRef<[u8]>,
+    >(
         &mut self,
         message: M,
-        buffer: B
+        buffer: B,
     ) -> std::io::Result<()> {
         let mut cursor = Cursor::new(&mut self.fixed_buffer as &mut [u8]);
         let mut serializer = nt::serializer::Serializer::new(&mut cursor);
@@ -111,8 +124,12 @@ impl<'a> Net<'a> {
         if let Err(e) = message.serialize(&mut serializer) {
             return Err(Error::new(ErrorKind::Other, e));
         }
-        self.write.write_u32_le((M::SIZE + 1 + buffer.as_ref().len()) as _).await?;
-        self.write.write_all(&self.fixed_buffer[..M::SIZE + 1]).await?;
+        self.write
+            .write_u32_le((M::SIZE + 1 + buffer.as_ref().len()) as _)
+            .await?;
+        self.write
+            .write_all(&self.fixed_buffer[..M::SIZE + 1])
+            .await?;
         self.write.write_all(buffer.as_ref()).await?;
         Ok(())
     }

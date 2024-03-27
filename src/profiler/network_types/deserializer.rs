@@ -132,17 +132,14 @@ impl<'a, 'de> EnumAccess<'de> for Enum<'a, 'de> {
     }
 }
 
-pub struct Deserializer<'a>{
+pub struct Deserializer<'a> {
     buffer: &'a [u8],
-    cursor: usize
+    cursor: usize,
 }
 
 impl<'a> Deserializer<'a> {
     pub fn new(buffer: &'a [u8]) -> Deserializer<'a> {
-        Deserializer {
-            buffer,
-            cursor: 0
-        }
+        Deserializer { buffer, cursor: 0 }
     }
 
     pub fn buffer(&self) -> &[u8] {

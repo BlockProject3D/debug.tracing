@@ -30,8 +30,9 @@ use crate::profiler::log_msg::{EventLog, SpanLog};
 use crate::profiler::network_types as nt;
 use crate::profiler::network_types::{Hello, MatchResult, HELLO_PACKET};
 use crate::profiler::state::ChannelsOut;
-use crate::profiler::thread::{command, FixedBufStr};
 use crate::profiler::thread::util::read_command_line;
+use crate::profiler::thread::util::wrap_io_debug_error;
+use crate::profiler::thread::{command, FixedBufStr};
 use bp3d_os::cpu_info::read_cpu_info;
 use std::io::{Error, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4};
@@ -39,7 +40,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use tokio::sync::oneshot;
-use crate::profiler::thread::util::wrap_io_debug_error;
 
 use super::net::Net;
 use super::store::SpanStore;
@@ -119,7 +119,11 @@ impl<'a> Thread<'a> {
             level: event.level(),
             timestamp: event.timestamp(),
         };
-        wrap_io_debug_error!(self.net.network_write_fixed_payload(msg, event.as_bytes()).await);
+        wrap_io_debug_error!(
+            self.net
+                .network_write_fixed_payload(msg, event.as_bytes())
+                .await
+        );
     }
 
     async fn handle_control(&mut self, command: command::Control) -> bool {
@@ -148,7 +152,7 @@ impl<'a> Thread<'a> {
                         name: v.name,
                         core_count: v.core_count,
                     }),
-                    cmd_line: cmd_line.str()
+                    cmd_line: cmd_line.str(),
                 };
                 wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
                 true

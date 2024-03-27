@@ -237,7 +237,7 @@ impl Msg for SpanUpdate {
 #[derive(Serialize)]
 pub struct SpanDataset {
     pub id: u32,
-    pub run_count: u32
+    pub run_count: u32,
 }
 
 impl MsgSize for SpanDataset {

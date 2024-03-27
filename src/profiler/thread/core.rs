@@ -116,11 +116,10 @@ impl<'a> Thread<'a> {
         event.write_finish();
         let msg = nt::message::SpanEvent {
             id: event.id().map(|v| v.get()).unwrap_or(0),
-            message: event.as_bytes(),
             level: event.level(),
             timestamp: event.timestamp(),
         };
-        wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
+        wrap_io_debug_error!(self.net.network_write_fixed_payload(msg, event.as_bytes()).await);
     }
 
     async fn handle_control(&mut self, command: command::Control) -> bool {
@@ -130,7 +129,7 @@ impl<'a> Thread<'a> {
                 name,
                 version,
             } => {
-                let mut cmd_line: FixedBufStr<128> = FixedBufStr::new();
+                let mut cmd_line: FixedBufStr<255> = FixedBufStr::new();
                 read_command_line(&mut cmd_line);
                 let app_name = app_name.str();
                 let name = name.str();

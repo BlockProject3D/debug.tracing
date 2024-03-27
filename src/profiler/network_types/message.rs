@@ -62,6 +62,10 @@ impl MsgSize for u16 {
     const SIZE: usize = 2;
 }
 
+impl MsgSize for i64 {
+    const SIZE: usize = 8;
+}
+
 #[derive(Serialize, Clone, Debug)]
 pub struct Duration {
     pub seconds: u32,
@@ -197,16 +201,19 @@ impl Msg for SpanFollows {
 }
 
 #[derive(Serialize)]
-pub struct SpanEvent<'a> {
+pub struct SpanEvent {
     pub id: u32,
     pub timestamp: i64,
     pub level: Level,
-    pub message: &'a [u8],
 }
 
-impl<'a> Msg for SpanEvent<'a> {
+impl Msg for SpanEvent {
     const TYPE: MsgType = MsgType::SpanEvent;
     const HAS_PAYLOAD: bool = true;
+}
+
+impl MsgSize for SpanEvent {
+    const SIZE: usize = u32::SIZE + i64::SIZE + Level::SIZE;
 }
 
 #[derive(Serialize)]

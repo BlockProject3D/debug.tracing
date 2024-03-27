@@ -141,7 +141,8 @@ impl SpanLog {
     }
 
     pub fn clear(&mut self) {
-        self.msg_len = 0;
+        self.msg_len = 1;
+        self.var_count = 0;
     }
 
     pub fn id(&self) -> NonZeroU32 {

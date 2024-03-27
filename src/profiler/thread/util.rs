@@ -64,15 +64,15 @@ impl<const N: usize> FixedBufStr<N> {
 
 impl<const N: usize> Write for FixedBufStr<N> {
     fn write_str(&mut self, value: &str) -> std::fmt::Result {
-        let len = std::cmp::min(value.len(), N);
+        let len = std::cmp::min(value.len(), self.buffer.len() - self.len as usize);
         unsafe {
             std::ptr::copy_nonoverlapping(
                 value.as_ptr(),
-                std::mem::transmute(self.buffer.as_mut_ptr()),
+                std::mem::transmute(self.buffer.as_mut_ptr().offset(self.len as _)),
                 len,
             );
         }
-        self.len = len as _;
+        self.len += len as u8;
         Ok(())
     }
 }

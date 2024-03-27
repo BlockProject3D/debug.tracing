@@ -74,8 +74,8 @@ impl<'a> Net<'a> {
         if let Err(e) = message.serialize(&mut serializer) {
             return Err(Error::new(ErrorKind::Other, e));
         }
-        self.write.write_u32_le(M::SIZE as _).await?;
-        self.write.write_all(&self.fixed_buffer[..M::SIZE]).await?;
+        self.write.write_u32_le((M::SIZE + 1) as _).await?;
+        self.write.write_all(&self.fixed_buffer[..M::SIZE + 1]).await?;
         Ok(())
     }
 
@@ -111,8 +111,8 @@ impl<'a> Net<'a> {
         if let Err(e) = message.serialize(&mut serializer) {
             return Err(Error::new(ErrorKind::Other, e));
         }
-        self.write.write_u32_le((M::SIZE + buffer.as_ref().len()) as _).await?;
-        self.write.write_all(&self.fixed_buffer[..M::SIZE]).await?;
+        self.write.write_u32_le((M::SIZE + 1 + buffer.as_ref().len()) as _).await?;
+        self.write.write_all(&self.fixed_buffer[..M::SIZE + 1]).await?;
         self.write.write_all(buffer.as_ref()).await?;
         Ok(())
     }

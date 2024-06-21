@@ -1,4 +1,4 @@
-// Copyright (c) 2023, BlockProject 3D
+// Copyright (c) 2024, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::config::model::Config;
-use crate::core::{Tracer, TracingSystem};
+use crate::tracing_core::{Tracer, TracingSystem};
 use crate::profiler::log_msg::EventLog;
 use crate::profiler::logpump::LOG_PUMP;
 use crate::profiler::network_types as nt;
@@ -111,7 +111,7 @@ impl Tracer for Profiler {
     fn enabled(&self) -> bool {
         true
     }
-
+//Possibly make a feature to optimize this assuming spans are created, entered and exited on the same thread instead of just entered and exited on the same thread
     fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, attrs: &Attributes) {
         let node_id = id.get_id();
         if new {

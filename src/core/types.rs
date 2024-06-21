@@ -26,46 +26,29 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! This module contains a log pump to be combined with Profiler in order to redirect the log
-//! crate to the Profiler.
+use std::fmt::Debug;
+use serde::{Deserialize, Serialize};
 
-use crate::profiler::log_msg::EventLog;
-use crate::profiler::network_types as nt;
-use crate::profiler::state::send_message;
-use log::{Log, Metadata, Record};
-use time::OffsetDateTime;
-
-pub struct LogPump;
-
-pub static LOG_PUMP: LogPump = LogPump;
-
-fn extract_target_module<'a>(record: &'a Record) -> (&'a str, Option<&'a str>) {
-    let base_string = record.module_path().unwrap_or_else(|| record.target());
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
+#[derive(Serialize, Deserialize, Copy, Clone, Debug)]
+#[repr(u8)]
+pub enum Level {
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warning = 3,
+    Error = 4,
 }
 
-impl Log for LogPump {
-    fn enabled(&self, _: &Metadata) -> bool {
-        true
-    }
+pub struct Metadata {
+    pub name: &'static str,
+    pub target: &'static str,
+    pub module_path: Option<&'static str>,
+    pub file: Option<&'static str>,
+    pub line: Option<u32>,
+    pub level: Level
+}
 
-    fn log(&self, record: &Record) {
-        let (target, module) = extract_target_module(record);
-        let mut msg = EventLog::new(
-            None,
-            OffsetDateTime::now_utc().unix_timestamp(), //TODO: Maybe change that to unix_timestamp_nanos / 1000
-            nt::message::Level::from_log(record.level()),
-            module.unwrap_or("main"),
-            target,
-        );
-        nt::log::Field::new("message", record.args()).write_into(&mut msg);
-        send_message(&msg);
-    }
-
-    fn flush(&self) {}
+pub enum MetadataRef {
+    Borrowed(&'static Metadata),
+    Owned(Metadata)
 }

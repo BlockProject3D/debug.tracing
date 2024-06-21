@@ -26,46 +26,32 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! This module contains a log pump to be combined with Profiler in order to redirect the log
-//! crate to the Profiler.
+use std::fmt::Debug;
 
-use crate::profiler::log_msg::EventLog;
-use crate::profiler::network_types as nt;
-use crate::profiler::state::send_message;
-use log::{Log, Metadata, Record};
-use time::OffsetDateTime;
+pub trait Visitor {
+    fn visit_int(&mut self, name: &str, value: i64) {
+        self.visit_debug(name, value);
+    }
 
-pub struct LogPump;
+    fn visit_uint(&mut self, name: &str, value: u64) {
+        self.visit_debug(name, value);
+    }
 
-pub static LOG_PUMP: LogPump = LogPump;
+    fn visit_float(&mut self, name: &str, value: f32) {
+        self.visit_debug(name, value);
+    }
 
-fn extract_target_module<'a>(record: &'a Record) -> (&'a str, Option<&'a str>) {
-    let base_string = record.module_path().unwrap_or_else(|| record.target());
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
+    fn visit_double(&mut self, name: &str, value: f64) {
+        self.visit_debug(name, value);
+    }
+
+    fn visit_string(&mut self, name: &str, value: &str) {
+        self.visit_debug(name, value);
+    }
+
+    fn visit_debug<T: Debug>(&mut self, name: &str, debug: T);
 }
 
-impl Log for LogPump {
-    fn enabled(&self, _: &Metadata) -> bool {
-        true
-    }
-
-    fn log(&self, record: &Record) {
-        let (target, module) = extract_target_module(record);
-        let mut msg = EventLog::new(
-            None,
-            OffsetDateTime::now_utc().unix_timestamp(), //TODO: Maybe change that to unix_timestamp_nanos / 1000
-            nt::message::Level::from_log(record.level()),
-            module.unwrap_or("main"),
-            target,
-        );
-        nt::log::Field::new("message", record.args()).write_into(&mut msg);
-        send_message(&msg);
-    }
-
-    fn flush(&self) {}
+pub trait FieldSet {
+    fn record<V: Visitor>(self, visitor: &mut V);
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, BlockProject 3D
+// Copyright (c) 2024, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::config::model::Config;
-use crate::core::{Tracer, TracingSystem};
+use crate::tracing_core::{Tracer, TracingSystem};
 use crate::util::{extract_target_module, tracing_level_to_log, SpanId};
 use crate::visitor::{FastVisitor, SpanVisitor};
 use bp3d_logger::{Colors, LogMsg};

@@ -26,46 +26,39 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! This module contains a log pump to be combined with Profiler in order to redirect the log
-//! crate to the Profiler.
+use std::num::NonZeroU32;
+use std::sync::OnceLock;
+use crate::core::field::FieldSet;
+use crate::core::logger::Logger;
+use crate::core::profiler::Profiler;
+use crate::core::types::MetadataRef;
 
-use crate::profiler::log_msg::EventLog;
-use crate::profiler::network_types as nt;
-use crate::profiler::state::send_message;
-use log::{Log, Metadata, Record};
-use time::OffsetDateTime;
+pub struct Engine {
 
-pub struct LogPump;
-
-pub static LOG_PUMP: LogPump = LogPump;
-
-fn extract_target_module<'a>(record: &'a Record) -> (&'a str, Option<&'a str>) {
-    let base_string = record.module_path().unwrap_or_else(|| record.target());
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
 }
 
-impl Log for LogPump {
-    fn enabled(&self, _: &Metadata) -> bool {
-        true
+impl Profiler for Engine {
+    fn section_register(&self, metadata: MetadataRef) -> NonZeroU32 {
+        todo!()
     }
 
-    fn log(&self, record: &Record) {
-        let (target, module) = extract_target_module(record);
-        let mut msg = EventLog::new(
-            None,
-            OffsetDateTime::now_utc().unix_timestamp(), //TODO: Maybe change that to unix_timestamp_nanos / 1000
-            nt::message::Level::from_log(record.level()),
-            module.unwrap_or("main"),
-            target,
-        );
-        nt::log::Field::new("message", record.args()).write_into(&mut msg);
-        send_message(&msg);
+    fn section_create(&self, id: NonZeroU32) {
+        todo!()
     }
 
-    fn flush(&self) {}
+    fn section_follows(&self, id: NonZeroU32, follows: NonZeroU32) {
+        todo!()
+    }
+
+    fn section_exit<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: F) {
+        todo!()
+    }
 }
+
+impl Logger for Engine {
+    fn log_msg<F: FieldSet>(&self, metadata: MetadataRef, fields: F) {
+        todo!()
+    }
+}
+
+pub static ENGINE: OnceLock<Engine> = OnceLock::new();

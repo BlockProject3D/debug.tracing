@@ -1,4 +1,4 @@
-// Copyright (c) 2023, BlockProject 3D
+// Copyright (c) 2024, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::core::{Tracer, TracingSystem};
+use crate::tracing_core::{Tracer, TracingSystem};
 use crate::logger::Logger;
 use crate::profiler::Profiler;
 use bp3d_os::dirs::App;
@@ -35,11 +35,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::subscriber::set_global_default;
 
 mod config;
-mod core;
+mod tracing_core;
 mod logger;
 mod profiler;
 mod util;
 mod visitor;
+mod core;
 
 /// The guard to ensure proper termination of logging and tracing systems.
 pub struct Guard(Option<Box<dyn Any>>);

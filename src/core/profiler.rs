@@ -26,46 +26,56 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! This module contains a log pump to be combined with Profiler in order to redirect the log
-//! crate to the Profiler.
+use std::mem::ManuallyDrop;
+use std::num::NonZeroU32;
+use std::time::Instant;
+use crate::core::engine::ENGINE;
+use crate::core::field::FieldSet;
+use crate::core::types::{Metadata, MetadataRef};
 
-use crate::profiler::log_msg::EventLog;
-use crate::profiler::network_types as nt;
-use crate::profiler::state::send_message;
-use log::{Log, Metadata, Record};
-use time::OffsetDateTime;
-
-pub struct LogPump;
-
-pub static LOG_PUMP: LogPump = LogPump;
-
-fn extract_target_module<'a>(record: &'a Record) -> (&'a str, Option<&'a str>) {
-    let base_string = record.module_path().unwrap_or_else(|| record.target());
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
+thread_local! {
+    static CUR_TIME: Instant = Instant::now();
 }
 
-impl Log for LogPump {
-    fn enabled(&self, _: &Metadata) -> bool {
-        true
+pub struct EnteredSection<F: FieldSet> {
+    id: NonZeroU32,
+    start: u64,
+    fields: ManuallyDrop<F>
+}
+
+impl<F: FieldSet> Drop for EnteredSection<F> {
+    fn drop(&mut self) {
+        let engine = unsafe { ENGINE.get().unwrap_unchecked() };
+        let end = CUR_TIME.with(|v| v.elapsed().as_nanos() as _);
+        let fields = unsafe { ManuallyDrop::into_inner(std::ptr::read(&self.fields)) };
+        engine.section_exit(self.id, self.start, end, fields);
+    }
+}
+
+pub struct ProfilerSection {
+    id: Option<NonZeroU32>
+}
+
+impl ProfilerSection {
+    pub fn new(metadata: &'static Metadata) -> Self {
+        let id = ENGINE.get().map(|engine| engine.section_register(MetadataRef::Borrowed(metadata)));
+        Self {
+            id,
+        }
     }
 
-    fn log(&self, record: &Record) {
-        let (target, module) = extract_target_module(record);
-        let mut msg = EventLog::new(
-            None,
-            OffsetDateTime::now_utc().unix_timestamp(), //TODO: Maybe change that to unix_timestamp_nanos / 1000
-            nt::message::Level::from_log(record.level()),
-            module.unwrap_or("main"),
-            target,
-        );
-        nt::log::Field::new("message", record.args()).write_into(&mut msg);
-        send_message(&msg);
+    pub fn enter<F: FieldSet>(&self, fields: F) -> Option<EnteredSection<F>> {
+        self.id.map(|id| EnteredSection {
+            id,
+            start: CUR_TIME.with(|v| v.elapsed().as_nanos() as _),
+            fields: ManuallyDrop::new(fields)
+        })
     }
+}
 
-    fn flush(&self) {}
+pub trait Profiler {
+    fn section_register(&self, metadata: MetadataRef) -> NonZeroU32;
+    fn section_create(&self, id: NonZeroU32);
+    fn section_follows(&self, id: NonZeroU32, follows: NonZeroU32);
+    fn section_exit<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: F);
 }

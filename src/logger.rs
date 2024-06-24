@@ -26,9 +26,15 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::core::field::FieldSet;
-use crate::core::types::MetadataRef;
+use std::fmt::Arguments;
+use bp3d_logger::{Level, Location};
+use crate::field::FieldSet;
+
+pub struct Callsite {
+    location: Location,
+    level: Level
+}
 
 pub trait Logger {
-    fn log_msg<F: FieldSet>(&self, metadata: MetadataRef, fields: F);
+    fn log_msg<F: FieldSet>(&self, callsite: &'static Callsite, msg: Arguments, fields: F);
 }

@@ -30,3 +30,4 @@ mod core;
 pub mod profiler;
 pub mod field;
 mod util;
+mod logger;

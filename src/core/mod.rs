@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::sync::OnceLock;
+
 pub mod types;
-mod profiler;
-mod logger;
-mod metadata;
-mod field;
-mod macros;
+//mod macros;
 mod engine;
+
+pub static ENGINE: OnceLock<engine::Engine> = OnceLock::new();

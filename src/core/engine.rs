@@ -27,38 +27,28 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::NonZeroU32;
-use std::sync::OnceLock;
-use crate::core::field::FieldSet;
-use crate::core::logger::Logger;
-use crate::core::profiler::Profiler;
-use crate::core::types::MetadataRef;
+use crate::field::FieldSet;
 
 pub struct Engine {
 
 }
 
-impl Profiler for Engine {
-    fn section_register(&self, metadata: MetadataRef) -> NonZeroU32 {
-        todo!()
-    }
-
-    fn section_create(&self, id: NonZeroU32) {
-        todo!()
-    }
-
-    fn section_follows(&self, id: NonZeroU32, follows: NonZeroU32) {
+impl crate::profiler::Profiler for Engine {
+    fn section_register(&self, section: &'static crate::profiler::section::Section) -> NonZeroU32 {
         todo!()
     }
 
     fn section_exit<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: F) {
         todo!()
     }
-}
 
-impl Logger for Engine {
-    fn log_msg<F: FieldSet>(&self, metadata: MetadataRef, fields: F) {
+    fn section_enter(&self, id: NonZeroU32) {
         todo!()
     }
 }
 
-pub static ENGINE: OnceLock<Engine> = OnceLock::new();
+/*impl Logger for Engine {
+    fn log_msg<F: FieldSet>(&self, metadata: MetadataRef, fields: F) {
+        todo!()
+    }
+}*/

@@ -26,7 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod core;
-pub mod profiler;
-pub mod field;
-mod util;
+use std::num::NonZeroU32;
+use crate::field::FieldSet;
+use crate::profiler::section::Section;
+
+pub trait Profiler {
+    fn section_register(&self, section: &'static Section) -> NonZeroU32;
+    fn section_enter(&self, id: NonZeroU32);
+    fn section_exit<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: F);
+}

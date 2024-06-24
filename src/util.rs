@@ -26,56 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::mem::ManuallyDrop;
-use std::num::NonZeroU32;
-use std::time::Instant;
-use crate::core::engine::ENGINE;
-use crate::core::field::FieldSet;
-use crate::core::types::{Metadata, MetadataRef};
-
-thread_local! {
-    static CUR_TIME: Instant = Instant::now();
-}
-
-pub struct EnteredSection<F: FieldSet> {
-    id: NonZeroU32,
-    start: u64,
-    fields: ManuallyDrop<F>
-}
-
-impl<F: FieldSet> Drop for EnteredSection<F> {
-    fn drop(&mut self) {
-        let engine = unsafe { ENGINE.get().unwrap_unchecked() };
-        let end = CUR_TIME.with(|v| v.elapsed().as_nanos() as _);
-        let fields = unsafe { ManuallyDrop::into_inner(std::ptr::read(&self.fields)) };
-        engine.section_exit(self.id, self.start, end, fields);
-    }
-}
-
-pub struct ProfilerSection {
-    id: Option<NonZeroU32>
-}
-
-impl ProfilerSection {
-    pub fn new(metadata: &'static Metadata) -> Self {
-        let id = ENGINE.get().map(|engine| engine.section_register(MetadataRef::Borrowed(metadata)));
-        Self {
-            id,
-        }
-    }
-
-    pub fn enter<F: FieldSet>(&self, fields: F) -> Option<EnteredSection<F>> {
-        self.id.map(|id| EnteredSection {
-            id,
-            start: CUR_TIME.with(|v| v.elapsed().as_nanos() as _),
-            fields: ManuallyDrop::new(fields)
-        })
-    }
-}
-
-pub trait Profiler {
-    fn section_register(&self, metadata: MetadataRef) -> NonZeroU32;
-    fn section_create(&self, id: NonZeroU32);
-    fn section_follows(&self, id: NonZeroU32, follows: NonZeroU32);
-    fn section_exit<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: F);
+#[macro_export]
+macro_rules! location {
+    () => {bp3d_logger::Location::new(module_path!(), file!(), line!())};
 }

@@ -26,32 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Debug;
+pub mod section;
+mod interface;
 
-pub trait Visitor {
-    fn visit_int(&mut self, name: &str, value: i64) {
-        self.visit_debug(name, value);
-    }
-
-    fn visit_uint(&mut self, name: &str, value: u64) {
-        self.visit_debug(name, value);
-    }
-
-    fn visit_float(&mut self, name: &str, value: f32) {
-        self.visit_debug(name, value);
-    }
-
-    fn visit_double(&mut self, name: &str, value: f64) {
-        self.visit_debug(name, value);
-    }
-
-    fn visit_string(&mut self, name: &str, value: &str) {
-        self.visit_debug(name, value);
-    }
-
-    fn visit_debug<T: Debug>(&mut self, name: &str, debug: T);
-}
-
-pub trait FieldSet {
-    fn record<V: Visitor>(self, visitor: &mut V);
-}
+pub use interface::*;

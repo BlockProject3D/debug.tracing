@@ -30,34 +30,34 @@ use std::fmt::Debug;
 
 pub trait Visitor {
     fn visit_int(&mut self, name: &str, value: i64) {
-        self.visit_debug(name, value);
+        self.visit_debug(name, &value);
     }
 
     fn visit_uint(&mut self, name: &str, value: u64) {
-        self.visit_debug(name, value);
+        self.visit_debug(name, &value);
     }
 
     fn visit_float(&mut self, name: &str, value: f32) {
-        self.visit_debug(name, value);
+        self.visit_debug(name, &value);
     }
 
     fn visit_double(&mut self, name: &str, value: f64) {
-        self.visit_debug(name, value);
+        self.visit_debug(name, &value);
     }
 
     fn visit_string(&mut self, name: &str, value: &str) {
-        self.visit_debug(name, value);
+        self.visit_debug(name, &value);
     }
 
-    fn visit_debug<T: Debug>(&mut self, name: &str, debug: T);
+    fn visit_debug<T: Debug>(&mut self, name: &str, debug: &T);
 }
 
 pub trait FieldSet {
-    fn record<V: Visitor>(self, visitor: &mut V);
+    fn record<V: Visitor>(&self, visitor: &mut V);
 }
 
 impl FieldSet for () {
-    fn record<V: Visitor>(self, _: &mut V) {
+    fn record<V: Visitor>(&self, _: &mut V) {
     }
 }
 
@@ -65,7 +65,7 @@ macro_rules! impl_tuple_fieldset {
     ($(($($id: tt: $name: ident),*)),*) => {
         $(
             impl<$($name: FieldSet),*> FieldSet for ($($name),*) {
-                fn record<V: Visitor>(self, visitor: &mut V) {
+                fn record<V: Visitor>(&self, visitor: &mut V) {
                     $(
                         self.$id.record(visitor);
                     )*
@@ -92,9 +92,9 @@ macro_rules! impl_fieldset {
     ($($t: ty => $func: ident),*) => {
         $(
             impl FieldSet for (&str, $t) {
-                fn record<V: Visitor>(self, visitor: &mut V) {
+                fn record<V: Visitor>(&self, visitor: &mut V) {
                     let (name, value) = self;
-                    visitor.$func(name, value as _);
+                    visitor.$func(name, *value as _);
                 }
             }
         )*
@@ -118,8 +118,8 @@ impl_fieldset! {
 pub struct D<T>(pub T);
 
 impl<T: Debug> FieldSet for (&str, D<T>) {
-    fn record<V: Visitor>(self, visitor: &mut V) {
-        visitor.visit_debug(self.0, self.1.0);
+    fn record<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_debug(self.0, &self.1.0);
     }
 }
 

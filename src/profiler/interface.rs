@@ -32,6 +32,5 @@ use crate::profiler::section::Section;
 
 pub trait Profiler {
     fn section_register(&self, section: &'static Section) -> NonZeroU32;
-    fn section_enter(&self, id: NonZeroU32);
-    fn section_exit<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: F);
+    fn section_record<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: &F);
 }

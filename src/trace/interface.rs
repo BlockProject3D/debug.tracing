@@ -26,45 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Arguments;
 use std::num::NonZeroU32;
 use crate::field::FieldSet;
+use crate::trace::span::Callsite;
 
-pub enum Engine {
-    None,
-
-}
-
-impl crate::profiler::Profiler for Engine {
-    fn section_register(&self, section: &'static crate::profiler::section::Section) -> NonZeroU32 {
-        todo!()
-    }
-
-    fn section_record<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: &F) {
-        todo!()
-    }
-}
-
-impl crate::trace::Tracer for Engine {
-    fn span_create<F: FieldSet>(&self, callsite: &'static crate::trace::span::Callsite, fields: &F) -> NonZeroU32 {
-        todo!()
-    }
-
-    fn span_enter(&self, id: NonZeroU32) {
-        todo!()
-    }
-
-    fn span_record<F: FieldSet>(&self, id: NonZeroU32, fields: &F) {
-        todo!()
-    }
-
-    fn span_exit(&self, id: NonZeroU32) {
-        todo!()
-    }
-}
-
-impl crate::logger::Logger for Engine {
-    fn log<F: FieldSet>(&self, callsite: &'static crate::logger::Callsite, msg: Arguments, fields: &F) {
-        todo!()
-    }
+pub trait Tracer {
+    fn span_create<F: FieldSet>(&self, callsite: &'static Callsite, fields: &F) -> NonZeroU32;
+    fn span_enter(&self, id: NonZeroU32);
+    fn span_record<F: FieldSet>(&self, id: NonZeroU32, fields: &F);
+    fn span_exit(&self, id: NonZeroU32);
 }

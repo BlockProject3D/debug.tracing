@@ -26,7 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::mem::ManuallyDrop;
 use std::num::NonZeroU32;
 use std::sync::{OnceLock};
 use std::time::Instant;
@@ -54,15 +53,14 @@ thread_local! {
 pub struct Entered<F: FieldSet> {
     id: NonZeroU32,
     start: u64,
-    fields: ManuallyDrop<F>
+    fields: F
 }
 
 impl<F: FieldSet> Drop for Entered<F> {
     fn drop(&mut self) {
         let end = CUR_TIME.with(|v| v.elapsed().as_nanos() as _);
         let engine = unsafe { crate::core::ENGINE.get().unwrap_unchecked() };
-        let fields = unsafe { ManuallyDrop::into_inner(std::ptr::read(&self.fields)) };
-        engine.section_exit(self.id, self.start, end, fields);
+        engine.section_record(self.id, self.start, end, &self.fields);
     }
 }
 
@@ -70,6 +68,7 @@ pub struct Section {
     name: &'static str,
     location: Location,
     level: Level,
+    parent: Option<&'static Section>,
     id: OnceLock<Option<NonZeroU32>>
 }
 
@@ -79,8 +78,14 @@ impl Section {
             name,
             location,
             level,
+            parent: None,
             id: OnceLock::new()
         }
+    }
+
+    pub const fn set_parent(mut self, parent: &'static Section) -> Self {
+        self.parent = Some(parent);
+        self
     }
 
     pub fn name(&self) -> &'static str {
@@ -95,12 +100,20 @@ impl Section {
         self.level
     }
 
+    pub fn parent(&self) -> Option<&'static Section> {
+        self.parent
+    }
+
+    pub fn get_id(&'static self) -> &Option<NonZeroU32> {
+        self.id.get_or_init(|| crate::core::ENGINE.get().map(|v| v.section_register(self)))
+    }
+
     pub fn enter<F: FieldSet>(&'static self, fields: F) -> Option<Entered<F>> {
-        let id = self.id.get_or_init(|| crate::core::ENGINE.get().map(|v| v.section_register(self)));
+        let id = self.get_id();
         id.map(|id| Entered {
             id,
             start: CUR_TIME.with(|v| v.elapsed().as_nanos() as _),
-            fields: ManuallyDrop::new(fields)
+            fields
         })
     }
 }
@@ -114,6 +127,8 @@ mod tests {
     #[test]
     fn api_test() {
         static SECTION: Section = Section::new("api_test", location!(), Level::Event);
+        static SECTION2: Section = Section::new("api_test2", location!(), Level::Event)
+            .set_parent(&SECTION);
         assert!(SECTION.enter(()).is_none());
         assert!(SECTION.enter(("test", 42)).is_none());
         assert!(SECTION.enter(("test", "test 123")).is_none());

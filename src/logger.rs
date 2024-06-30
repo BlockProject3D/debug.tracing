@@ -36,5 +36,5 @@ pub struct Callsite {
 }
 
 pub trait Logger {
-    fn log_msg<F: FieldSet>(&self, callsite: &'static Callsite, msg: Arguments, fields: F);
+    fn log<F: FieldSet>(&self, callsite: &'static Callsite, msg: Arguments, fields: &F);
 }

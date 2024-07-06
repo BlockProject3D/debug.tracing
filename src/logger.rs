@@ -35,6 +35,28 @@ pub struct Callsite {
     level: Level
 }
 
+impl Callsite {
+    pub const fn new(location: Location, level: Level) -> Self {
+        Self {
+            location,
+            level
+        }
+    }
+}
+
 pub trait Logger {
     fn log<F: FieldSet>(&self, callsite: &'static Callsite, msg: Arguments, fields: &F);
+}
+
+#[cfg(test)]
+mod tests {
+    use bp3d_logger::Level;
+    use crate::log;
+
+    #[test]
+    fn api_test() {
+        let i = 42;
+        log!(Level::Info, {i}, "test: {i}: {}", i);
+        log!(Level::Error, "test: {}", i);
+    }
 }

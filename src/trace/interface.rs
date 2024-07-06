@@ -31,7 +31,8 @@ use crate::field::FieldSet;
 use crate::trace::span::Callsite;
 
 pub trait Tracer {
-    fn span_create<F: FieldSet>(&self, callsite: &'static Callsite, fields: &F) -> NonZeroU32;
+    fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32;
+    fn span_create<F: FieldSet>(&self, callsite: NonZeroU32, fields: &F) -> NonZeroU32;
     fn span_enter(&self, id: NonZeroU32);
     fn span_record<F: FieldSet>(&self, id: NonZeroU32, fields: &F);
     fn span_exit(&self, id: NonZeroU32);

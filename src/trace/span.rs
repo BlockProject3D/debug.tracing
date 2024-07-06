@@ -27,21 +27,28 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::NonZeroU32;
+use std::sync::OnceLock;
 use bp3d_logger::Location;
 use crate::field::FieldSet;
 use crate::trace::Tracer;
 
 pub struct Callsite {
     name: &'static str,
-    location: Location
+    location: Location,
+    id: OnceLock<Option<NonZeroU32>>
 }
 
 impl Callsite {
     pub const fn new(name: &'static str, location: Location) -> Self {
         Self {
             name,
-            location
+            location,
+            id: OnceLock::new()
         }
+    }
+
+    pub fn get_id(&'static self) -> &Option<NonZeroU32> {
+        self.id.get_or_init(|| crate::core::ENGINE.get().map(|v| v.register_callsite(self)))
     }
 }
 
@@ -51,7 +58,9 @@ pub struct Span {
 
 impl Span {
     pub fn new<F: FieldSet>(callsite: &'static Callsite, fields: &F) -> Self {
-        let id = crate::core::ENGINE.get().map(|v| v.span_create(callsite, fields));
+        let id = callsite.get_id()
+            .map(|cid| crate::core::ENGINE.get().map(|v| v.span_create(cid, fields)))
+            .flatten();
         Self {
             id
         }

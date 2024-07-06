@@ -29,6 +29,7 @@
 use std::fmt::Arguments;
 use std::num::NonZeroU32;
 use crate::field::FieldSet;
+use crate::trace::span::Callsite;
 
 pub enum Engine {
     None,
@@ -46,7 +47,11 @@ impl crate::profiler::Profiler for Engine {
 }
 
 impl crate::trace::Tracer for Engine {
-    fn span_create<F: FieldSet>(&self, callsite: &'static crate::trace::span::Callsite, fields: &F) -> NonZeroU32 {
+    fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32 {
+        todo!()
+    }
+
+    fn span_create<F: FieldSet>(&self, callsite: NonZeroU32, fields: &F) -> NonZeroU32 {
         todo!()
     }
 

@@ -122,7 +122,24 @@ impl Section {
 mod tests {
     use crate::{field, fields, location};
     use crate::field::D;
+    use crate::profiler::profiler_section_register;
     use crate::profiler::section::{Level, Section};
+
+    mod whatever {
+        use std::num::NonZeroU32;
+        use crate::profiler::section::Section;
+
+        /*#[no_mangle]
+        pub extern "Rust" fn profiler_section_register(section: &'static Section) -> NonZeroU32 {
+            unsafe { NonZeroU32::new_unchecked(1) }
+        }*/
+    }
+
+    #[test]
+    fn basic() {
+        static SECTION: Section = Section::new("api_test", location!(), Level::Event);
+        unsafe { profiler_section_register(&SECTION) };
+    }
 
     #[test]
     fn api_test() {

@@ -34,3 +34,7 @@ pub trait Profiler {
     fn section_register(&self, section: &'static Section) -> NonZeroU32;
     fn section_record<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: &F);
 }
+
+extern "Rust" {
+    pub fn profiler_section_register(section: &'static Section) -> NonZeroU32;
+}

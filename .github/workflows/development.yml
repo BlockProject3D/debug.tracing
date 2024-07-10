@@ -5,15 +5,15 @@ on:
   - workflow_dispatch
 
 jobs:
-  test-build:
+  Test:
     uses: BlockProject3D/workflows/.github/workflows/Build_Test.yml@main
 
-  analyze:
+  Analyze:
     uses: BlockProject3D/workflows/.github/workflows/Analyze.yml@main
-    needs: test-build
+    needs: Test
 
-  release:
+  Release:
     uses: BlockProject3D/workflows/.github/workflows/Release.yml@main
-    needs: test-build
+    needs: Test
     secrets:
       RELEASE_TOKEN: "this is not a secret"

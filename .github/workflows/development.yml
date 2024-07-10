@@ -6,16 +6,14 @@ on:
 
 jobs:
   test-build:
-    uses: bp3d-actions/workflows/.github/workflows/Build_Test.yml@main
-    secrets: inherit
+    uses: BlockProject3D/workflows/.github/workflows/Build_Test.yml@main
 
   analyze:
-    uses: bp3d-actions/workflows/.github/workflows/Analyze.yml@main
+    uses: BlockProject3D/workflows/.github/workflows/Analyze.yml@main
     needs: test-build
-    secrets: inherit
 
   release:
-    uses: bp3d-actions/workflows/.github/workflows/Release.yml@main
+    uses: BlockProject3D/workflows/.github/workflows/Release.yml@main
     needs: test-build
     secrets:
       RELEASE_TOKEN: "this is not a secret"

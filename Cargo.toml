@@ -1,2 +1,2 @@
 [workspace]
-members = ["tracing"]
+members = ["core"]

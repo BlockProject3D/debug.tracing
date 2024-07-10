@@ -15,3 +15,5 @@ jobs:
   release:
     uses: bp3d-actions/workflows/.github/workflows/Release.yml@main
     needs: test-build
+    secrets:
+      RELEASE_TOKEN: "this is not a secret"

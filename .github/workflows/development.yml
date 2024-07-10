@@ -7,10 +7,12 @@ on:
 jobs:
   test-build:
     uses: bp3d-actions/workflows/.github/workflows/Build_Test.yml@main
+    secrets: inherit
 
   analyze:
     uses: bp3d-actions/workflows/.github/workflows/Analyze.yml@main
     needs: test-build
+    secrets: inherit
 
   release:
     uses: bp3d-actions/workflows/.github/workflows/Release.yml@main

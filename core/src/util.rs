@@ -30,4 +30,3 @@
 macro_rules! location {
     () => {bp3d_logger::Location::new(module_path!(), file!(), line!())};
 }
-//

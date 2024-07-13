@@ -37,3 +37,11 @@ pub trait Tracer {
     fn span_record(&self, id: NonZeroU32, fields: &FieldSet);
     fn span_exit(&self, id: NonZeroU32);
 }
+
+extern "Rust" {
+    pub fn tracer_register_callsite(callsite: &'static Callsite) -> NonZeroU32;
+    pub fn tracer_span_create(callsite: NonZeroU32, fields: &FieldSet) -> NonZeroU32;
+    pub fn tracer_span_enter(id: NonZeroU32);
+    pub fn tracer_span_record(id: NonZeroU32, fields: &FieldSet);
+    pub fn tracer_span_exit(id: NonZeroU32);
+}

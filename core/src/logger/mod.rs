@@ -26,24 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#[macro_export]
-macro_rules! log {
-    ($level: expr, $({$($field: tt)*})*, $msg: literal $(,$($args: tt)*)?) => {
-        {
-            static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
-            use $crate::logger::Logger;
-            $crate::core::ENGINE.get().map(|v|
-                v.log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[$($crate::field!($($field)*),)*]))
-            );
-        }
-    };
-    ($level: expr, $msg: literal $(,$($args: tt)*)?) => {
-        {
-            static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
-            use $crate::logger::Logger;
-            $crate::core::ENGINE.get().map(|v|
-                v.log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[]))
-            );
-        }
-    };
-}
+mod interface;
+pub mod macros;
+
+pub use interface::*;

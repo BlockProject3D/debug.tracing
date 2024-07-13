@@ -31,7 +31,7 @@ use std::sync::{OnceLock};
 use std::time::Instant;
 use bp3d_logger::Location;
 use crate::field::FieldSet;
-use crate::profiler::Profiler;
+use crate::profiler::{Profiler, profiler_section_record, profiler_section_register};
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -59,8 +59,7 @@ pub struct Entered<'a> {
 impl<'a> Drop for Entered<'a> {
     fn drop(&mut self) {
         let end = CUR_TIME.with(|v| v.elapsed().as_nanos() as _);
-        let engine = unsafe { crate::core::ENGINE.get().unwrap_unchecked() };
-        engine.section_record(self.id, self.start, end, &self.fields);
+        unsafe { profiler_section_record(self.id, self.start, end, &self.fields) };
     }
 }
 
@@ -69,7 +68,7 @@ pub struct Section {
     location: Location,
     level: Level,
     parent: Option<&'static Section>,
-    id: OnceLock<Option<NonZeroU32>>
+    id: OnceLock<NonZeroU32>
 }
 
 impl Section {
@@ -104,17 +103,17 @@ impl Section {
         self.parent
     }
 
-    pub fn get_id(&'static self) -> &Option<NonZeroU32> {
-        self.id.get_or_init(|| crate::core::ENGINE.get().map(|v| v.section_register(self)))
+    pub fn get_id(&'static self) -> &NonZeroU32 {
+        self.id.get_or_init(|| unsafe { profiler_section_register(self) })
     }
 
-    pub fn enter<'a>(&'static self, fields: FieldSet<'a>) -> Option<Entered<'a>> {
+    pub fn enter<'a>(&'static self, fields: FieldSet<'a>) -> Entered<'a> {
         let id = self.get_id();
-        id.map(|id| Entered {
-            id,
+        Entered {
+            id: *id,
             start: CUR_TIME.with(|v| v.elapsed().as_nanos() as _),
             fields
-        })
+        }
     }
 }
 
@@ -123,16 +122,6 @@ mod tests {
     use crate::{field, fields, location};
     use crate::profiler::profiler_section_register;
     use crate::profiler::section::{Level, Section};
-
-    mod whatever {
-        use std::num::NonZeroU32;
-        use crate::profiler::section::Section;
-
-        /*#[no_mangle]
-        pub extern "Rust" fn profiler_section_register(section: &'static Section) -> NonZeroU32 {
-            unsafe { NonZeroU32::new_unchecked(1) }
-        }*/
-    }
 
     #[test]
     fn basic() {
@@ -154,6 +143,6 @@ mod tests {
         let value = 32;
         let str = "this is a test";
         let lvl = Level::Event;
-        assert!(SECTION.enter(fields!({value} {str} {?lvl} {test = value})).is_none());
+        SECTION.enter(fields!({value} {str} {?lvl} {test = value}));
     }
 }

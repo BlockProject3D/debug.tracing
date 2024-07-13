@@ -28,5 +28,7 @@
 
 #[macro_export]
 macro_rules! location {
-    () => {bp3d_logger::Location::new(module_path!(), file!(), line!())};
+    () => {
+        bp3d_logger::Location::new(module_path!(), file!(), line!())
+    };
 }

@@ -34,26 +34,26 @@ pub enum FieldValue<'a> {
     Float(f32),
     Double(f64),
     String(&'a str),
-    Debug(&'a dyn Debug)
+    Debug(&'a dyn Debug),
 }
 
 pub struct Field<'a> {
     name: &'a str,
-    value: FieldValue<'a>
+    value: FieldValue<'a>,
 }
 
 impl<'a> Field<'a> {
     pub fn new(name: &'a str, value: impl Into<FieldValue<'a>>) -> Self {
         Self {
             name,
-            value: value.into()
+            value: value.into(),
         }
     }
 
     pub fn new_debug(name: &'a str, value: &'a dyn Debug) -> Self {
         Self {
             name,
-            value: FieldValue::Debug(value)
+            value: FieldValue::Debug(value),
         }
     }
 
@@ -105,17 +105,25 @@ impl<'a> FieldSet<'a> {
         Self(fields)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&'a Field<'a>> {
+    pub fn iter(&self) -> impl Iterator<Item = &'a Field<'a>> {
         self.0.iter()
     }
 }
 
 #[macro_export]
 macro_rules! field {
-    ($name: ident) => {$crate::field::Field::new(stringify!($name), $name)};
-    (?$name: ident) => {$crate::field::Field::new_debug(stringify!($name), &$name)};
-    ($name: ident = $value: expr) => {$crate::field::Field::new(stringify!($name), $value)};
-    ($name: ident = ?$value: expr) => {$crate::field::Field::new_debug(stringify!($name), &$value)};
+    ($name: ident) => {
+        $crate::field::Field::new(stringify!($name), $name)
+    };
+    (?$name: ident) => {
+        $crate::field::Field::new_debug(stringify!($name), &$name)
+    };
+    ($name: ident = $value: expr) => {
+        $crate::field::Field::new(stringify!($name), $value)
+    };
+    ($name: ident = ?$value: expr) => {
+        $crate::field::Field::new_debug(stringify!($name), &$value)
+    };
 }
 
 #[macro_export]

@@ -27,9 +27,9 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 mod core;
-pub mod profiler;
 pub mod field;
-mod util;
 pub mod logger;
-pub mod trace;
 mod macros;
+pub mod profiler;
+pub mod trace;
+mod util;

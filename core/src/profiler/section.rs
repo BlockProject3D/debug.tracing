@@ -26,12 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::NonZeroU32;
-use std::sync::{OnceLock};
-use std::time::Instant;
-use bp3d_logger::Location;
 use crate::field::FieldSet;
 use crate::profiler::Profiler;
+use bp3d_logger::Location;
+use std::num::NonZeroU32;
+use std::sync::OnceLock;
+use std::time::Instant;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -43,7 +43,7 @@ pub enum Level {
     Periodic = 1,
 
     // An event based section.
-    Event = 2
+    Event = 2,
 }
 
 thread_local! {
@@ -53,7 +53,7 @@ thread_local! {
 pub struct Entered<'a> {
     id: NonZeroU32,
     start: u64,
-    fields: FieldSet<'a>
+    fields: FieldSet<'a>,
 }
 
 impl<'a> Drop for Entered<'a> {
@@ -69,7 +69,7 @@ pub struct Section {
     location: Location,
     level: Level,
     parent: Option<&'static Section>,
-    id: OnceLock<Option<NonZeroU32>>
+    id: OnceLock<Option<NonZeroU32>>,
 }
 
 impl Section {
@@ -79,7 +79,7 @@ impl Section {
             location,
             level,
             parent: None,
-            id: OnceLock::new()
+            id: OnceLock::new(),
         }
     }
 
@@ -105,7 +105,8 @@ impl Section {
     }
 
     pub fn get_id(&'static self) -> &Option<NonZeroU32> {
-        self.id.get_or_init(|| crate::core::ENGINE.get().map(|v| v.section_register(self)))
+        self.id
+            .get_or_init(|| crate::core::ENGINE.get().map(|v| v.section_register(self)))
     }
 
     pub fn enter<'a>(&'static self, fields: FieldSet<'a>) -> Option<Entered<'a>> {
@@ -113,20 +114,20 @@ impl Section {
         id.map(|id| Entered {
             id,
             start: CUR_TIME.with(|v| v.elapsed().as_nanos() as _),
-            fields
+            fields,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{field, fields, location};
     use crate::profiler::profiler_section_register;
     use crate::profiler::section::{Level, Section};
+    use crate::{field, fields, location};
 
     mod whatever {
-        use std::num::NonZeroU32;
         use crate::profiler::section::Section;
+        use std::num::NonZeroU32;
 
         /*#[no_mangle]
         pub extern "Rust" fn profiler_section_register(section: &'static Section) -> NonZeroU32 {
@@ -143,8 +144,8 @@ mod tests {
     #[test]
     fn api_test() {
         static SECTION: Section = Section::new("api_test", location!(), Level::Event);
-        static SECTION2: Section = Section::new("api_test2", location!(), Level::Event)
-            .set_parent(&SECTION);
+        static SECTION2: Section =
+            Section::new("api_test2", location!(), Level::Event).set_parent(&SECTION);
         /*assert!(SECTION.enter([]).is_none());
         assert!(SECTION.enter(("test", 42)).is_none());
         assert!(SECTION.enter(("test", "test 123")).is_none());
@@ -154,6 +155,8 @@ mod tests {
         let value = 32;
         let str = "this is a test";
         let lvl = Level::Event;
-        assert!(SECTION.enter(fields!({value} {str} {?lvl} {test = value})).is_none());
+        assert!(SECTION
+            .enter(fields!({value} {str} {?lvl} {test = value}))
+            .is_none());
     }
 }

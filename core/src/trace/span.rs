@@ -26,16 +26,16 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::NonZeroU32;
-use std::sync::OnceLock;
-use bp3d_logger::Location;
 use crate::field::FieldSet;
 use crate::trace::Tracer;
+use bp3d_logger::Location;
+use std::num::NonZeroU32;
+use std::sync::OnceLock;
 
 pub struct Callsite {
     name: &'static str,
     location: Location,
-    id: OnceLock<Option<NonZeroU32>>
+    id: OnceLock<Option<NonZeroU32>>,
 }
 
 impl Callsite {
@@ -43,32 +43,41 @@ impl Callsite {
         Self {
             name,
             location,
-            id: OnceLock::new()
+            id: OnceLock::new(),
         }
     }
 
     pub fn get_id(&'static self) -> &Option<NonZeroU32> {
-        self.id.get_or_init(|| crate::core::ENGINE.get().map(|v| v.register_callsite(self)))
+        self.id
+            .get_or_init(|| crate::core::ENGINE.get().map(|v| v.register_callsite(self)))
     }
 }
 
 pub struct Span {
-    id: Option<NonZeroU32>
+    id: Option<NonZeroU32>,
 }
 
 impl Span {
     pub fn new(callsite: &'static Callsite, fields: &FieldSet) -> Self {
-        let id = callsite.get_id()
-            .map(|cid| crate::core::ENGINE.get().map(|v| v.span_create(cid, fields)))
+        let id = callsite
+            .get_id()
+            .map(|cid| {
+                crate::core::ENGINE
+                    .get()
+                    .map(|v| v.span_create(cid, fields))
+            })
             .flatten();
-        Self {
-            id
-        }
+        Self { id }
     }
 
     pub fn record(&self, fields: &FieldSet) {
         if let Some(id) = self.id {
-            unsafe { crate::core::ENGINE.get().unwrap_unchecked().span_record(id, fields) };
+            unsafe {
+                crate::core::ENGINE
+                    .get()
+                    .unwrap_unchecked()
+                    .span_record(id, fields)
+            };
         }
     }
 
@@ -79,7 +88,7 @@ impl Span {
     }
 }
 
-impl Drop for Span  {
+impl Drop for Span {
     fn drop(&mut self) {
         if let Some(id) = self.id {
             unsafe { crate::core::ENGINE.get().unwrap_unchecked().span_exit(id) };

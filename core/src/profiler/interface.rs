@@ -26,9 +26,9 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::NonZeroU32;
 use crate::field::FieldSet;
 use crate::profiler::section::Section;
+use std::num::NonZeroU32;
 
 pub trait Profiler {
     fn section_register(&self, section: &'static Section) -> NonZeroU32;

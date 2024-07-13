@@ -26,14 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Arguments;
-use std::num::NonZeroU32;
 use crate::field::FieldSet;
 use crate::trace::span::Callsite;
+use std::fmt::Arguments;
+use std::num::NonZeroU32;
 
 pub enum Engine {
     None,
-
 }
 
 impl crate::profiler::Profiler for Engine {

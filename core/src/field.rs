@@ -28,114 +28,101 @@
 
 use std::fmt::Debug;
 
-pub trait Visitor {
-    fn visit_int(&mut self, name: &str, value: i64) {
-        self.visit_debug(name, &value);
-    }
-
-    fn visit_uint(&mut self, name: &str, value: u64) {
-        self.visit_debug(name, &value);
-    }
-
-    fn visit_float(&mut self, name: &str, value: f32) {
-        self.visit_debug(name, &value);
-    }
-
-    fn visit_double(&mut self, name: &str, value: f64) {
-        self.visit_debug(name, &value);
-    }
-
-    fn visit_string(&mut self, name: &str, value: &str) {
-        self.visit_debug(name, &value);
-    }
-
-    fn visit_debug<T: Debug>(&mut self, name: &str, debug: &T);
+pub enum FieldValue<'a> {
+    Int(i64),
+    UInt(u64),
+    Float(f32),
+    Double(f64),
+    String(&'a str),
+    Debug(&'a dyn Debug)
 }
 
-pub trait FieldSet {
-    fn record<V: Visitor>(&self, visitor: &mut V);
+pub struct Field<'a> {
+    name: &'a str,
+    value: FieldValue<'a>
 }
 
-impl FieldSet for () {
-    fn record<V: Visitor>(&self, _: &mut V) {
+impl<'a> Field<'a> {
+    pub fn new(name: &'a str, value: impl Into<FieldValue<'a>>) -> Self {
+        Self {
+            name,
+            value: value.into()
+        }
+    }
+
+    pub fn new_debug(name: &'a str, value: &'a dyn Debug) -> Self {
+        Self {
+            name,
+            value: FieldValue::Debug(value)
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name
+    }
+
+    pub fn value(&self) -> &FieldValue<'a> {
+        &self.value
     }
 }
 
-macro_rules! impl_tuple_fieldset {
-    ($(($($id: tt: $name: ident),*)),*) => {
-        $(
-            impl<$($name: FieldSet),*> FieldSet for ($($name),*) {
-                fn record<V: Visitor>(&self, visitor: &mut V) {
-                    $(
-                        self.$id.record(visitor);
-                    )*
-                }
-            }
-        )*
-    };
-}
-
-impl_tuple_fieldset!{
-    (0: T, 1: T1),
-    (0: T, 1: T1, 2: T2),
-    (0: T, 1: T1, 2: T2, 3: T3),
-    (0: T, 1: T1, 2: T2, 3: T3, 4: T4),
-    (0: T, 1: T1, 2: T2, 3: T3, 4: T4, 5: T5),
-    (0: T, 1: T1, 2: T2, 3: T3, 4: T4, 5: T5, 6: T6),
-    (0: T, 1: T1, 2: T2, 3: T3, 4: T4, 5: T5, 6: T6, 7: T7),
-    (0: T, 1: T1, 2: T2, 3: T3, 4: T4, 5: T5, 6: T6, 7: T7, 8: T8),
-    (0: T, 1: T1, 2: T2, 3: T3, 4: T4, 5: T5, 6: T6, 7: T7, 8: T8, 9: T9)
-}
-
-macro_rules! impl_fieldset {
+macro_rules! impl_into_field_value {
     // Would've preferred expr, but turns out expr is useless in macros, so let's not use it.
     ($($t: ty => $func: ident),*) => {
         $(
-            impl FieldSet for (&str, $t) {
-                fn record<V: Visitor>(&self, visitor: &mut V) {
-                    let (name, value) = self;
-                    visitor.$func(name, *value as _);
+            impl<'a> From<$t> for FieldValue<'a> {
+                fn from(value: $t) -> Self {
+                    FieldValue::$func(value as _)
                 }
             }
         )*
     };
 }
 
-impl_fieldset! {
-    u8 => visit_uint,
-    u16 => visit_uint,
-    u32 => visit_uint,
-    u64 => visit_uint,
-    i8 => visit_int,
-    i16 => visit_int,
-    i32 => visit_int,
-    i64 => visit_int,
-    f32 => visit_float,
-    f64 => visit_double,
-    &str => visit_string
+impl_into_field_value! {
+    u8 => UInt,
+    u16 => UInt,
+    u32 => UInt,
+    u64 => UInt,
+    i8 => Int,
+    i16 => Int,
+    i32 => Int,
+    i64 => Int,
+    f32 => Float,
+    f64 => Double
 }
 
-pub struct D<T>(pub T);
+impl<'a> From<&'a str> for FieldValue<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::String(value)
+    }
+}
 
-impl<T: Debug> FieldSet for (&str, D<T>) {
-    fn record<V: Visitor>(&self, visitor: &mut V) {
-        visitor.visit_debug(self.0, &self.1.0);
+pub struct FieldSet<'a>(&'a [Field<'a>]);
+
+impl<'a> FieldSet<'a> {
+    pub fn new(fields: &'a [Field<'a>]) -> Self {
+        Self(fields)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=&'a Field<'a>> {
+        self.0.iter()
     }
 }
 
 #[macro_export]
 macro_rules! field {
-    ($name: ident) => {(stringify!($name), $name)};
-    (?$name: ident) => {(stringify!($name), $crate::field::D($name))};
-    ($name: ident = $value: expr) => {(stringify!($name), $value)};
-    ($name: ident = ?$value: expr) => {(stringify!($name), $crate::field::D($value))};
+    ($name: ident) => {$crate::field::Field::new(stringify!($name), $name)};
+    (?$name: ident) => {$crate::field::Field::new_debug(stringify!($name), &$name)};
+    ($name: ident = $value: expr) => {$crate::field::Field::new(stringify!($name), $value)};
+    ($name: ident = ?$value: expr) => {$crate::field::Field::new_debug(stringify!($name), &$value)};
 }
 
 #[macro_export]
 macro_rules! fields {
     ($({$($field: tt)*})*) => {
-        ($(
+        $crate::field::FieldSet::new(&[$(
             field!($($field)*),
-        )*)
+        )*])
     };
 }

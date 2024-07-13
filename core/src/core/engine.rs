@@ -41,7 +41,7 @@ impl crate::profiler::Profiler for Engine {
         todo!()
     }
 
-    fn section_record<F: FieldSet>(&self, id: NonZeroU32, start: u64, end: u64, fields: &F) {
+    fn section_record(&self, id: NonZeroU32, start: u64, end: u64, fields: &FieldSet) {
         todo!()
     }
 }
@@ -51,7 +51,7 @@ impl crate::trace::Tracer for Engine {
         todo!()
     }
 
-    fn span_create<F: FieldSet>(&self, callsite: NonZeroU32, fields: &F) -> NonZeroU32 {
+    fn span_create(&self, callsite: NonZeroU32, fields: &FieldSet) -> NonZeroU32 {
         todo!()
     }
 
@@ -59,7 +59,7 @@ impl crate::trace::Tracer for Engine {
         todo!()
     }
 
-    fn span_record<F: FieldSet>(&self, id: NonZeroU32, fields: &F) {
+    fn span_record(&self, id: NonZeroU32, fields: &FieldSet) {
         todo!()
     }
 
@@ -69,7 +69,7 @@ impl crate::trace::Tracer for Engine {
 }
 
 impl crate::logger::Logger for Engine {
-    fn log<F: FieldSet>(&self, callsite: &'static crate::logger::Callsite, msg: Arguments, fields: &F) {
+    fn log(&self, callsite: &'static crate::logger::Callsite, msg: Arguments, fields: &FieldSet) {
         todo!()
     }
 }

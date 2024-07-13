@@ -45,7 +45,7 @@ impl Callsite {
 }
 
 pub trait Logger {
-    fn log<F: FieldSet>(&self, callsite: &'static Callsite, msg: Arguments, fields: &F);
+    fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &FieldSet);
 }
 
 #[cfg(test)]

@@ -33,7 +33,7 @@ macro_rules! log {
             static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
             use $crate::logger::Logger;
             $crate::core::ENGINE.get().map(|v|
-                v.log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$($crate::field!($($field)*),)*)
+                v.log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[$($crate::field!($($field)*),)*]))
             );
         }
     };
@@ -42,7 +42,7 @@ macro_rules! log {
             static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
             use $crate::logger::Logger;
             $crate::core::ENGINE.get().map(|v|
-                v.log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &())
+                v.log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[]))
             );
         }
     };

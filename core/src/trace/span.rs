@@ -57,7 +57,7 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new<F: FieldSet>(callsite: &'static Callsite, fields: &F) -> Self {
+    pub fn new(callsite: &'static Callsite, fields: &FieldSet) -> Self {
         let id = callsite.get_id()
             .map(|cid| crate::core::ENGINE.get().map(|v| v.span_create(cid, fields)))
             .flatten();
@@ -66,7 +66,7 @@ impl Span {
         }
     }
 
-    pub fn record<F: FieldSet>(&self, fields: &F) {
+    pub fn record(&self, fields: &FieldSet) {
         if let Some(id) = self.id {
             unsafe { crate::core::ENGINE.get().unwrap_unchecked().span_record(id, fields) };
         }

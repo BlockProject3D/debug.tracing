@@ -28,7 +28,7 @@
 
 use std::num::NonZeroU32;
 use crate::field::FieldSet;
-use crate::trace::span::Callsite;
+use crate::trace::span::{Callsite, Span};
 
 pub trait Tracer {
     fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32;
@@ -36,4 +36,9 @@ pub trait Tracer {
     fn span_enter(&self, id: NonZeroU32);
     fn span_record(&self, id: NonZeroU32, fields: &FieldSet);
     fn span_exit(&self, id: NonZeroU32);
+}
+
+pub trait Trace {
+    type Output;
+    fn trace(self, span: Span) -> Self::Output;
 }

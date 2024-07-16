@@ -28,5 +28,6 @@
 
 mod interface;
 pub mod span;
+mod future;
 
 pub use interface::*;

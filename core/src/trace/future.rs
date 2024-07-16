@@ -26,66 +26,41 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::NonZeroU32;
-use std::sync::OnceLock;
-use bp3d_logger::Location;
-use crate::field::FieldSet;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use crate::trace::span::{Entered, Span};
+use crate::trace::Trace;
 
-pub struct Callsite {
-    name: &'static str,
-    location: Location,
-    id: OnceLock<NonZeroU32>
+pub struct TracedFuture<F> {
+    future: F,
+    span: Option<Entered>,
 }
 
-impl Callsite {
-    pub const fn new(name: &'static str, location: Location) -> Self {
-        Self {
-            name,
-            location,
-            id: OnceLock::new()
+impl<F: Future> Future for TracedFuture<F> {
+    type Output = F::Output;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        unsafe {
+            let pin = Pin::new_unchecked(&mut self.future);
+            let value = pin.poll(cx);
+            if value.is_ready() {
+                drop(self.span.take());
+            }
+            value
         }
     }
-
-    pub fn location(&self) -> &Location {
-        &self.location
-    }
-
-    pub fn name(&self) -> &'static str {
-        self.name
-    }
-
-    pub fn get_id(&'static self) -> &NonZeroU32 {
-        self.id.get_or_init(|| crate::engine::get().register_callsite(self))
-    }
 }
 
-pub struct Entered {
-    id: NonZeroU32
-}
+impl<F> Unpin for TracedFuture<F> {}
 
-impl Drop for Entered {
-    fn drop(&mut self) {
-        crate::engine::get().span_exit(self.id);
-    }
-}
+impl<F: Future> Trace for F {
+    type Output = TracedFuture<F>;
 
-pub struct Span {
-    id: NonZeroU32
-}
-
-impl Span {
-    pub fn new(callsite: &'static Callsite, fields: &FieldSet) -> Self {
-        let id = crate::engine::get().span_create(*callsite.get_id(), fields);
-        Self {
-            id
+    fn trace(self, span: Span) -> Self::Output {
+        TracedFuture {
+            future: self,
+            span: Some(span.enter())
         }
-    }
-
-    pub fn record(&self, fields: &FieldSet) {
-        crate::engine::get().span_record(self.id, fields);
-    }
-
-    pub fn enter(&self) -> Entered {
-        Entered { id: self.id }
     }
 }

@@ -26,50 +26,44 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Arguments;
-use std::num::NonZeroU32;
-use crate::field::FieldSet;
-use crate::trace::span::Callsite;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-pub enum Engine {
-    None,
+mod void;
 
+pub trait Engine : crate::logger::Logger + crate::profiler::Profiler + crate::trace::Tracer + Sync {}
+impl<T: crate::logger::Logger + crate::profiler::Profiler + crate::trace::Tracer + Sync> Engine for T {}
+
+static ENGINE_INIT_FLAG: AtomicBool = AtomicBool::new(false);
+
+static mut ENGINE: &dyn Engine = &void::VoidDebugger {};
+
+pub fn get() -> &'static dyn Engine {
+    unsafe { ENGINE }
 }
 
-impl crate::profiler::Profiler for Engine {
-    fn section_register(&self, section: &'static crate::profiler::section::Section) -> NonZeroU32 {
-        todo!()
+pub fn set(engine: &'static dyn Engine) -> bool {
+    let flag = ENGINE_INIT_FLAG.load(Ordering::Relaxed);
+    if flag {
+        return false;
     }
-
-    fn section_record(&self, id: NonZeroU32, start: u64, end: u64, fields: &FieldSet) {
-        todo!()
-    }
+    unsafe { ENGINE = engine };
+    ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+    true
 }
 
-impl crate::trace::Tracer for Engine {
-    fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32 {
-        todo!()
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroU32;
+
+    #[test]
+    fn basic() {
+        assert!(crate::engine::set(&crate::engine::void::VoidDebugger {}));
+        assert!(!crate::engine::set(&crate::engine::void::VoidDebugger {}));
     }
 
-    fn span_create(&self, callsite: NonZeroU32, fields: &FieldSet) -> NonZeroU32 {
-        todo!()
-    }
-
-    fn span_enter(&self, id: NonZeroU32) {
-        todo!()
-    }
-
-    fn span_record(&self, id: NonZeroU32, fields: &FieldSet) {
-        todo!()
-    }
-
-    fn span_exit(&self, id: NonZeroU32) {
-        todo!()
-    }
-}
-
-impl crate::logger::Logger for Engine {
-    fn log(&self, callsite: &'static crate::logger::Callsite, msg: Arguments, fields: &FieldSet) {
-        todo!()
+    #[test]
+    fn after_use() {
+        crate::engine::get().span_exit(unsafe { NonZeroU32::new_unchecked(1) });
+        assert!(!crate::engine::set(&crate::engine::void::VoidDebugger {}));
     }
 }

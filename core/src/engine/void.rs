@@ -26,8 +26,53 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::OnceLock;
+use std::fmt::Arguments;
+use std::num::NonZeroU32;
+use std::sync::atomic::Ordering;
+use crate::engine::ENGINE_INIT_FLAG;
+use crate::field::FieldSet;
+use crate::trace::span::Callsite;
 
-mod engine;
+pub struct VoidDebugger {
+}
 
-pub static ENGINE: OnceLock<engine::Engine> = OnceLock::new();
+impl crate::profiler::Profiler for VoidDebugger {
+    fn section_register(&self, _: &'static crate::profiler::section::Section) -> NonZeroU32 {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+        unsafe { NonZeroU32::new_unchecked(1) }
+    }
+
+    fn section_record(&self, _: NonZeroU32, _: u64, _: u64, _: &FieldSet) {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+    }
+}
+
+impl crate::trace::Tracer for VoidDebugger {
+    fn register_callsite(&self, _: &'static Callsite) -> NonZeroU32 {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+        unsafe { NonZeroU32::new_unchecked(1) }
+    }
+
+    fn span_create(&self, _: NonZeroU32, _: &FieldSet) -> NonZeroU32 {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+        unsafe { NonZeroU32::new_unchecked(1) }
+    }
+
+    fn span_enter(&self, _: NonZeroU32) {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+    }
+
+    fn span_record(&self, _: NonZeroU32, _: &FieldSet) {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+    }
+
+    fn span_exit(&self, _: NonZeroU32) {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+    }
+}
+
+impl crate::logger::Logger for VoidDebugger {
+    fn log(&self, _: &'static crate::logger::Callsite, _: Arguments, _: &FieldSet) {
+        ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
+    }
+}

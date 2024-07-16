@@ -30,3 +30,14 @@
 macro_rules! location {
     () => {bp3d_logger::Location::new(module_path!(), file!(), line!())};
 }
+
+#[cfg(test)]
+mod whatever {
+    use std::num::NonZeroU32;
+    use crate::profiler::section::Section;
+
+    #[no_mangle]
+    pub extern "Rust" fn profiler_section_register(section: &'static Section) -> NonZeroU32 {
+        unsafe { NonZeroU32::new_unchecked(1) }
+    }
+}

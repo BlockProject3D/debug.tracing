@@ -30,7 +30,6 @@ use std::num::NonZeroU32;
 use std::sync::OnceLock;
 use bp3d_logger::Location;
 use crate::field::FieldSet;
-use crate::trace::{Tracer, tracer_register_callsite, tracer_span_create, tracer_span_enter, tracer_span_exit, tracer_span_record};
 
 pub struct Callsite {
     name: &'static str,
@@ -47,8 +46,16 @@ impl Callsite {
         }
     }
 
+    pub fn location(&self) -> &Location {
+        &self.location
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
     pub fn get_id(&'static self) -> &NonZeroU32 {
-        self.id.get_or_init(|| unsafe { tracer_register_callsite(self) })
+        self.id.get_or_init(|| crate::engine::get().register_callsite(self))
     }
 }
 
@@ -58,23 +65,23 @@ pub struct Span {
 
 impl Span {
     pub fn new(callsite: &'static Callsite, fields: &FieldSet) -> Self {
-        let id = unsafe { tracer_span_create(*callsite.get_id(), fields) };
+        let id = crate::engine::get().span_create(*callsite.get_id(), fields);
         Self {
             id
         }
     }
 
     pub fn record(&self, fields: &FieldSet) {
-        unsafe { tracer_span_record(self.id, fields) };
+        crate::engine::get().span_record(self.id, fields);
     }
 
     pub fn enter(&self) {
-        unsafe { tracer_span_enter(self.id) };
+        crate::engine::get().span_enter(self.id);
     }
 }
 
 impl Drop for Span  {
     fn drop(&mut self) {
-        unsafe { tracer_span_exit(self.id) };
+        crate::engine::get().span_exit(self.id);
     }
 }

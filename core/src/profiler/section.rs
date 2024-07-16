@@ -31,7 +31,6 @@ use std::sync::{OnceLock};
 use std::time::Instant;
 use bp3d_logger::Location;
 use crate::field::FieldSet;
-use crate::profiler::{Profiler, profiler_section_record, profiler_section_register};
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -59,7 +58,7 @@ pub struct Entered<'a> {
 impl<'a> Drop for Entered<'a> {
     fn drop(&mut self) {
         let end = CUR_TIME.with(|v| v.elapsed().as_nanos() as _);
-        unsafe { profiler_section_record(self.id, self.start, end, &self.fields) };
+        crate::engine::get().section_record(self.id, self.start, end, &self.fields);
     }
 }
 
@@ -104,7 +103,7 @@ impl Section {
     }
 
     pub fn get_id(&'static self) -> &NonZeroU32 {
-        self.id.get_or_init(|| unsafe { profiler_section_register(self) })
+        self.id.get_or_init(|| crate::engine::get().section_register(self))
     }
 
     pub fn enter<'a>(&'static self, fields: FieldSet<'a>) -> Entered<'a> {
@@ -120,13 +119,11 @@ impl Section {
 #[cfg(test)]
 mod tests {
     use crate::{field, fields, location};
-    use crate::profiler::profiler_section_register;
     use crate::profiler::section::{Level, Section};
 
     #[test]
     fn basic() {
         static SECTION: Section = Section::new("api_test", location!(), Level::Event);
-        //unsafe { profiler_section_register(&SECTION) };
     }
 
     #[test]

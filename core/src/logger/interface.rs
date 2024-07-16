@@ -51,12 +51,13 @@ pub trait Logger {
 #[cfg(test)]
 mod tests {
     use bp3d_logger::Level;
-    use crate::log;
+    use crate::{log, trace};
 
     #[test]
     fn api_test() {
         let i = 42;
         log!(Level::Info, {i}, "test: {i}: {}", i);
         log!(Level::Error, "test: {}", i);
+        trace!({i} {?i} {id=i}, "test: {}", i);
     }
 }

@@ -31,13 +31,49 @@ macro_rules! log {
     ($level: expr, $({$($field: tt)*})*, $msg: literal $(,$($args: tt)*)?) => {
         {
             static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
-            unsafe { $crate::engine::get().log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[$($crate::field!($($field)*),)*])) };
+            $crate::engine::get().log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[$($crate::field!($($field)*),)*]));
         }
     };
     ($level: expr, $msg: literal $(,$($args: tt)*)?) => {
         {
             static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
-            unsafe { $crate::engine::get().log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[])) };
+            $crate::engine::get().log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &$crate::field::FieldSet::new(&[]));
         }
+    };
+}
+
+#[macro_export]
+macro_rules! trace {
+    ($($args: tt)*) => {
+        #[cfg(debug_assertions)]
+        $crate::log!(bp3d_logger::Level::Trace, $($args)*);
+    };
+}
+
+#[macro_export]
+macro_rules! debug {
+    ($($args: tt)*) => {
+        $crate::log!(bp3d_logger::Level::Debug, $($args)*);
+    };
+}
+
+#[macro_export]
+macro_rules! info {
+    ($($args: tt)*) => {
+        $crate::log!(bp3d_logger::Level::Info, $($args)*);
+    };
+}
+
+#[macro_export]
+macro_rules! warning {
+    ($($args: tt)*) => {
+        $crate::log!(bp3d_logger::Level::Warn, $($args)*);
+    };
+}
+
+#[macro_export]
+macro_rules! error {
+    ($($args: tt)*) => {
+        $crate::log!(bp3d_logger::Level::Error, $($args)*);
     };
 }

@@ -48,10 +48,6 @@ pub trait Logger {
     fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &FieldSet);
 }
 
-extern "Rust" {
-    pub fn logger_log(callsite: &'static Callsite, msg: Arguments, fields: &FieldSet);
-}
-
 #[cfg(test)]
 mod tests {
     use bp3d_logger::Level;

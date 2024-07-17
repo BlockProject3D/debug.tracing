@@ -74,8 +74,15 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(callsite: &'static Callsite, fields: &[Field]) -> Self {
+    pub fn with_fields(callsite: &'static Callsite, fields: &[Field]) -> Self {
         let id = crate::engine::get().span_create(*callsite.get_id(), fields);
+        Self {
+            id
+        }
+    }
+
+    pub fn new(callsite: &'static Callsite) -> Self {
+        let id = crate::engine::get().span_create(*callsite.get_id(), &[]);
         Self {
             id
         }
@@ -85,7 +92,7 @@ impl Span {
         crate::engine::get().span_record(self.id, fields);
     }
 
-    pub fn enter(&self) -> Entered {
+    pub fn enter(self) -> Entered {
         Entered { id: self.id }
     }
 }
@@ -94,14 +101,17 @@ impl Span {
 mod tests {
     use crate::profiler::section::Level;
     use crate::{fields, span};
+    use crate::trace::span::Span;
 
     #[test]
     fn api_test() {
         let value = 32;
         let str = "this is a test";
         let lvl = Level::Event;
-        let _span = span!(API_TEST);
-        let span = span!(API_TEST2, {value} {str} {?lvl} {test=value});
+        span!(API_TEST);
+        span!(API_TEST2);
+        let _span = Span::new(&API_TEST);
+        let span = Span::with_fields(&API_TEST2, fields!({value} {str} {?lvl} {test=value}).as_ref());
         span.record(fields!({test2=str}).as_ref());
         let _entered = span.enter();
     }

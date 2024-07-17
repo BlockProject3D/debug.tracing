@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::NonZeroU32;
-use crate::field::{Field, FieldSet};
+use crate::field::Field;
 use crate::profiler::section::Section;
 
 pub trait Profiler {

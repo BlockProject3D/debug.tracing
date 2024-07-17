@@ -123,13 +123,13 @@ mod tests {
 
     #[test]
     fn basic() {
-        static SECTION: Section = Section::new("api_test", location!(), Level::Event);
+        static _SECTION: Section = Section::new("api_test", location!(), Level::Event);
     }
 
     #[test]
     fn api_test() {
         static SECTION: Section = Section::new("api_test", location!(), Level::Event);
-        static SECTION2: Section = Section::new("api_test2", location!(), Level::Event)
+        static _SECTION2: Section = Section::new("api_test2", location!(), Level::Event)
             .set_parent(&SECTION);
         SECTION.enter(fields!());
         SECTION.enter(fields!({test=42}));
@@ -150,6 +150,6 @@ mod tests {
         let lvl = Level::Event;
         profiler_section_start!(API_TEST, Level::Event);
         profiler_section_start!(API2_TEST, Level::Event);
-        profiler_section_start!(API3_TEST_WITH_PARAMS, Level::Event, {value} {str} {?lvl});
+        profiler_section_start!(API3_TEST_WITH_PARAMS, Level::Event, {value} {str} {?lvl} {test=value});
     }
 }

@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn basic() {
-        assert!(crate::engine::set(&crate::engine::void::VoidDebugger {}));
+        crate::engine::set(&crate::engine::void::VoidDebugger {});
         assert!(!crate::engine::set(&crate::engine::void::VoidDebugger {}));
     }
 

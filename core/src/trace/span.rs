@@ -29,7 +29,7 @@
 use std::num::NonZeroU32;
 use std::sync::OnceLock;
 use bp3d_logger::Location;
-use crate::field::{Field, FieldSet};
+use crate::field::Field;
 
 pub struct Callsite {
     name: &'static str,

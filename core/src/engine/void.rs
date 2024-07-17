@@ -30,7 +30,7 @@ use std::fmt::Arguments;
 use std::num::NonZeroU32;
 use std::sync::atomic::Ordering;
 use crate::engine::ENGINE_INIT_FLAG;
-use crate::field::{Field, FieldSet};
+use crate::field::Field;
 use crate::trace::span::Callsite;
 
 pub struct VoidDebugger {

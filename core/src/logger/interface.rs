@@ -28,7 +28,7 @@
 
 use std::fmt::Arguments;
 use bp3d_logger::{Level, Location};
-use crate::field::{Field, FieldSet};
+use crate::field::Field;
 
 pub struct Callsite {
     location: Location,

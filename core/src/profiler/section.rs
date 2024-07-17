@@ -118,7 +118,7 @@ impl Section {
 
 #[cfg(test)]
 mod tests {
-    use crate::{field, fields, location, profiler_section_start};
+    use crate::{fields, location, profiler_section_start};
     use crate::profiler::section::{Level, Section};
 
     #[test]

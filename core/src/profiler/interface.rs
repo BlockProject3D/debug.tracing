@@ -27,10 +27,10 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::NonZeroU32;
-use crate::field::FieldSet;
+use crate::field::{Field, FieldSet};
 use crate::profiler::section::Section;
 
 pub trait Profiler {
     fn section_register(&self, section: &'static Section) -> NonZeroU32;
-    fn section_record(&self, id: NonZeroU32, start: u64, end: u64, fields: &FieldSet);
+    fn section_record(&self, id: NonZeroU32, start: u64, end: u64, fields: &[Field]);
 }

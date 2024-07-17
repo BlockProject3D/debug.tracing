@@ -26,46 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Arguments;
-use bp3d_logger::{Level, Location};
-use crate::field::{Field, FieldSet};
-
-pub struct Callsite {
-    location: Location,
-    level: Level
-}
-
-impl Callsite {
-    pub const fn new(location: Location, level: Level) -> Self {
-        Self {
-            location,
-            level
-        }
-    }
-
-    pub fn location(&self) -> &Location {
-        &self.location
-    }
-
-    pub fn level(&self) -> Level {
-        self.level
-    }
-}
-
-pub trait Logger {
-    fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &[Field]);
-}
-
-#[cfg(test)]
-mod tests {
-    use bp3d_logger::Level;
-    use crate::{log, trace};
-
-    #[test]
-    fn api_test() {
-        let i = 42;
-        log!(Level::Info, {i}, "test: {i}: {}", i);
-        log!(Level::Error, "test: {}", i);
-        trace!({i} {?i} {id=i}, "test: {}", i);
-    }
+#[macro_export]
+macro_rules! profiler_section_start {
+    ($name: ident, $level: expr, $({$($field: tt)*})*) => {
+        static $name: Section = Section::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
+        let _section = $name.enter($crate::field::FieldSet::new([$($crate::field!($($field)*),)*]));
+    };
+    ($name: ident, $level: expr) => {
+        static $name: Section = Section::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
+        let _section = $name.enter($crate::field::FieldSet::new([]));
+    };
 }

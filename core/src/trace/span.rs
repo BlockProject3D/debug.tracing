@@ -29,7 +29,7 @@
 use std::num::NonZeroU32;
 use std::sync::OnceLock;
 use bp3d_logger::Location;
-use crate::field::FieldSet;
+use crate::field::{Field, FieldSet};
 
 pub struct Callsite {
     name: &'static str,
@@ -74,14 +74,14 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(callsite: &'static Callsite, fields: &FieldSet) -> Self {
+    pub fn new(callsite: &'static Callsite, fields: &[Field]) -> Self {
         let id = crate::engine::get().span_create(*callsite.get_id(), fields);
         Self {
             id
         }
     }
 
-    pub fn record(&self, fields: &FieldSet) {
+    pub fn record(&self, fields: &[Field]) {
         crate::engine::get().span_record(self.id, fields);
     }
 

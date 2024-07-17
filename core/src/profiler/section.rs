@@ -49,16 +49,16 @@ thread_local! {
     static CUR_TIME: Instant = Instant::now();
 }
 
-pub struct Entered<'a> {
+pub struct Entered<'a, const N: usize> {
     id: NonZeroU32,
     start: u64,
-    fields: FieldSet<'a>
+    fields: FieldSet<'a, N>
 }
 
-impl<'a> Drop for Entered<'a> {
+impl<'a, const N: usize> Drop for Entered<'a, N> {
     fn drop(&mut self) {
         let end = CUR_TIME.with(|v| v.elapsed().as_nanos() as _);
-        crate::engine::get().section_record(self.id, self.start, end, &self.fields);
+        crate::engine::get().section_record(self.id, self.start, end, self.fields.as_ref());
     }
 }
 
@@ -106,7 +106,7 @@ impl Section {
         self.id.get_or_init(|| crate::engine::get().section_register(self))
     }
 
-    pub fn enter<'a>(&'static self, fields: FieldSet<'a>) -> Entered<'a> {
+    pub fn enter<'a, const N: usize>(&'static self, fields: FieldSet<'a, N>) -> Entered<'a, N> {
         let id = self.get_id();
         Entered {
             id: *id,
@@ -118,7 +118,7 @@ impl Section {
 
 #[cfg(test)]
 mod tests {
-    use crate::{field, fields, location};
+    use crate::{field, fields, location, profiler_section_start};
     use crate::profiler::section::{Level, Section};
 
     #[test]
@@ -131,15 +131,25 @@ mod tests {
         static SECTION: Section = Section::new("api_test", location!(), Level::Event);
         static SECTION2: Section = Section::new("api_test2", location!(), Level::Event)
             .set_parent(&SECTION);
-        /*assert!(SECTION.enter([]).is_none());
-        assert!(SECTION.enter(("test", 42)).is_none());
-        assert!(SECTION.enter(("test", "test 123")).is_none());
-        assert!(SECTION.enter(("test", 42.42)).is_none());
-        assert!(SECTION.enter(("test", Level::Event)).is_none());
-        assert!(SECTION.enter((("test", Level::Event), ("test2", 42))).is_none());*/
+        SECTION.enter(fields!());
+        SECTION.enter(fields!({test=42}));
+        SECTION.enter(fields!({test="test 123"}));
+        SECTION.enter(fields!({test=42.42}));
+        SECTION.enter(fields!({test=?Level::Event}));
+        SECTION.enter(fields!({test=?Level::Event} {test2=42}));
         let value = 32;
         let str = "this is a test";
         let lvl = Level::Event;
         SECTION.enter(fields!({value} {str} {?lvl} {test = value}));
+    }
+
+    #[test]
+    fn api_test2() {
+        let value = 32;
+        let str = "this is a test";
+        let lvl = Level::Event;
+        profiler_section_start!(API_TEST, Level::Event);
+        profiler_section_start!(API2_TEST, Level::Event);
+        profiler_section_start!(API3_TEST_WITH_PARAMS, Level::Event, {value} {str} {?lvl});
     }
 }

@@ -28,5 +28,6 @@
 
 pub mod section;
 mod interface;
+mod macros;
 
 pub use interface::*;

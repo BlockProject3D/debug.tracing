@@ -30,7 +30,7 @@ use std::fmt::Arguments;
 use std::num::NonZeroU32;
 use std::sync::atomic::Ordering;
 use crate::engine::ENGINE_INIT_FLAG;
-use crate::field::FieldSet;
+use crate::field::{Field, FieldSet};
 use crate::trace::span::Callsite;
 
 pub struct VoidDebugger {
@@ -42,7 +42,7 @@ impl crate::profiler::Profiler for VoidDebugger {
         unsafe { NonZeroU32::new_unchecked(1) }
     }
 
-    fn section_record(&self, _: NonZeroU32, _: u64, _: u64, _: &FieldSet) {
+    fn section_record(&self, _: NonZeroU32, _: u64, _: u64, _: &[Field]) {
         ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
     }
 }
@@ -53,7 +53,7 @@ impl crate::trace::Tracer for VoidDebugger {
         unsafe { NonZeroU32::new_unchecked(1) }
     }
 
-    fn span_create(&self, _: NonZeroU32, _: &FieldSet) -> NonZeroU32 {
+    fn span_create(&self, _: NonZeroU32, _: &[Field]) -> NonZeroU32 {
         ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
         unsafe { NonZeroU32::new_unchecked(1) }
     }
@@ -62,7 +62,7 @@ impl crate::trace::Tracer for VoidDebugger {
         ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
     }
 
-    fn span_record(&self, _: NonZeroU32, _: &FieldSet) {
+    fn span_record(&self, _: NonZeroU32, _: &[Field]) {
         ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
     }
 
@@ -72,7 +72,7 @@ impl crate::trace::Tracer for VoidDebugger {
 }
 
 impl crate::logger::Logger for VoidDebugger {
-    fn log(&self, callsite: &'static crate::logger::Callsite, args: Arguments, _: &FieldSet) {
+    fn log(&self, callsite: &'static crate::logger::Callsite, args: Arguments, _: &[Field]) {
         println!("[{}] {}: {}", callsite.level(), callsite.location().module_path(), args);
         ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
     }

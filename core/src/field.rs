@@ -98,15 +98,17 @@ impl<'a> From<&'a str> for FieldValue<'a> {
     }
 }
 
-pub struct FieldSet<'a>(&'a [Field<'a>]);
+pub struct FieldSet<'a, const N: usize>([Field<'a>; N]);
 
-impl<'a> FieldSet<'a> {
-    pub fn new(fields: &'a [Field<'a>]) -> Self {
+impl<'a, const N: usize> FieldSet<'a, N> {
+    pub fn new(fields: [Field<'a>; N]) -> Self {
         Self(fields)
     }
+}
 
-    pub fn iter(&self) -> impl Iterator<Item=&'a Field<'a>> {
-        self.0.iter()
+impl<'a, const N: usize> AsRef<[Field<'a>]> for FieldSet<'a, N> {
+    fn as_ref(&self) -> &[Field<'a>] {
+        &self.0
     }
 }
 
@@ -121,7 +123,7 @@ macro_rules! field {
 #[macro_export]
 macro_rules! fields {
     ($({$($field: tt)*})*) => {
-        $crate::field::FieldSet::new(&[$(
+        $crate::field::FieldSet::new([$(
             field!($($field)*),
         )*])
     };

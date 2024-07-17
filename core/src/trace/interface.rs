@@ -27,14 +27,14 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::NonZeroU32;
-use crate::field::FieldSet;
+use crate::field::Field;
 use crate::trace::span::{Callsite, Span};
 
 pub trait Tracer {
     fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32;
-    fn span_create(&self, callsite: NonZeroU32, fields: &FieldSet) -> NonZeroU32;
+    fn span_create(&self, callsite: NonZeroU32, fields: &[Field]) -> NonZeroU32;
     fn span_enter(&self, id: NonZeroU32);
-    fn span_record(&self, id: NonZeroU32, fields: &FieldSet);
+    fn span_record(&self, id: NonZeroU32, fields: &[Field]);
     fn span_exit(&self, id: NonZeroU32);
 }
 

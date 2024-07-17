@@ -119,6 +119,7 @@ impl Section {
 #[cfg(test)]
 mod tests {
     use crate::{fields, location, profiler_section_start};
+    use crate::field::FieldSet;
     use crate::profiler::section::{Level, Section};
 
     #[test]
@@ -131,16 +132,16 @@ mod tests {
         static SECTION: Section = Section::new("api_test", location!(), Level::Event);
         static _SECTION2: Section = Section::new("api_test2", location!(), Level::Event)
             .set_parent(&SECTION);
-        SECTION.enter(fields!());
-        SECTION.enter(fields!({test=42}));
-        SECTION.enter(fields!({test="test 123"}));
-        SECTION.enter(fields!({test=42.42}));
-        SECTION.enter(fields!({test=?Level::Event}));
-        SECTION.enter(fields!({test=?Level::Event} {test2=42}));
+        SECTION.enter(FieldSet::new(fields!()));
+        SECTION.enter(FieldSet::new(fields!({test=42})));
+        SECTION.enter(FieldSet::new(fields!({test="test 123"})));
+        SECTION.enter(FieldSet::new(fields!({test=42.42})));
+        SECTION.enter(FieldSet::new(fields!({test=?Level::Event})));
+        SECTION.enter(FieldSet::new(fields!({test=?Level::Event} {test2=42})));
         let value = 32;
         let str = "this is a test";
         let lvl = Level::Event;
-        SECTION.enter(fields!({value} {str} {?lvl} {test = value}));
+        SECTION.enter(FieldSet::new(fields!({value} {str} {?lvl} {test = value})));
     }
 
     #[test]

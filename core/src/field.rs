@@ -123,8 +123,8 @@ macro_rules! field {
 #[macro_export]
 macro_rules! fields {
     ($({$($field: tt)*})*) => {
-        $crate::field::FieldSet::new([$(
+        [$(
             $crate::field!($($field)*),
-        )*])
+        )*]
     };
 }

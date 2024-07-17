@@ -6,7 +6,7 @@ edition = "2021"
 description = "Tracing subscriber implementations for use with BP3D software. Supports traditional logging through bp3d-logger and supports remote profiling through TCP."
 license = "BSD-3-Clause"
 repository = "https://gitlab.com/bp3d/tracing/tracing"
-readme = "./README.MD"
+readme = "../README.MD"
 keywords = ["bp3d", "tracing"]
 categories = ["development-tools", "development-tools::debugging", "development-tools::profiling"]
 

@@ -149,7 +149,7 @@ mod tests {
         let str = "this is a test";
         let lvl = Level::Event;
         profiler_section_start!(API_TEST, Level::Event);
-        profiler_section_start!(API2_TEST, Level::Event);
-        profiler_section_start!(API3_TEST_WITH_PARAMS, Level::Event, {value} {str} {?lvl} {test=value});
+        profiler_section_start!(API2_TEST: API_TEST, Level::Event);
+        profiler_section_start!(API3_TEST_WITH_PARAMS: API2_TEST, Level::Event, {value} {str} {?lvl} {test=value});
     }
 }

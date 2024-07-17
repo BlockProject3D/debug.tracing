@@ -28,12 +28,14 @@
 
 #[macro_export]
 macro_rules! profiler_section_start {
-    ($name: ident, $level: expr, $({$($field: tt)*})*) => {
-        static $name: Section = Section::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
+    ($name: ident $(: $parent: ident)?, $level: expr, $({$($field: tt)*})*) => {
+        static $name: Section = Section::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()), $level)
+            $(.set_parent(&$parent))?;
         let _section = $name.enter($crate::field::FieldSet::new([$($crate::field!($($field)*),)*]));
     };
-    ($name: ident, $level: expr) => {
-        static $name: Section = Section::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
+    ($name: ident $(: $parent: ident)?, $level: expr) => {
+        static $name: Section = Section::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()), $level)
+            $(.set_parent(&$parent))?;
         let _section = $name.enter($crate::field::FieldSet::new([]));
     };
 }

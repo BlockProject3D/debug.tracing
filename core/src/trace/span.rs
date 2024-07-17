@@ -89,3 +89,20 @@ impl Span {
         Entered { id: self.id }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::profiler::section::Level;
+    use crate::{fields, span};
+
+    #[test]
+    fn api_test() {
+        let value = 32;
+        let str = "this is a test";
+        let lvl = Level::Event;
+        let _span = span!(API_TEST);
+        let span = span!(API_TEST2, {value} {str} {?lvl} {test=value});
+        span.record(fields!({test2=str}).as_ref());
+        let _entered = span.enter();
+    }
+}

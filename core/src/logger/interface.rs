@@ -42,6 +42,14 @@ impl Callsite {
             level
         }
     }
+
+    pub fn location(&self) -> &Location {
+        &self.location
+    }
+
+    pub fn level(&self) -> Level {
+        self.level
+    }
 }
 
 pub trait Logger {

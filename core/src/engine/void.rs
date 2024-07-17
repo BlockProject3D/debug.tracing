@@ -72,7 +72,8 @@ impl crate::trace::Tracer for VoidDebugger {
 }
 
 impl crate::logger::Logger for VoidDebugger {
-    fn log(&self, _: &'static crate::logger::Callsite, _: Arguments, _: &FieldSet) {
+    fn log(&self, callsite: &'static crate::logger::Callsite, args: Arguments, _: &FieldSet) {
+        println!("[{}] {}: {}", callsite.level(), callsite.location().module_path(), args);
         ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
     }
 }

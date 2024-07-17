@@ -124,7 +124,7 @@ macro_rules! field {
 macro_rules! fields {
     ($({$($field: tt)*})*) => {
         $crate::field::FieldSet::new([$(
-            field!($($field)*),
+            $crate::field!($($field)*),
         )*])
     };
 }

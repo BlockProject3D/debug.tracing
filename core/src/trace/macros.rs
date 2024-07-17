@@ -28,16 +28,7 @@
 
 #[macro_export]
 macro_rules! span {
-    ($name: ident, $({$($field: tt)*})*) => {
-        {
-            static $name: $crate::trace::span::Callsite = $crate::trace::span::Callsite::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()));
-            $crate::trace::span::Span::new(&$name, &[$($crate::field!($($field)*),)*])
-        }
-    };
     ($name: ident) => {
-        {
-            static $name: $crate::trace::span::Callsite = $crate::trace::span::Callsite::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()));
-            $crate::trace::span::Span::new(&$name, &[])
-        }
+        static $name: $crate::trace::span::Callsite = $crate::trace::span::Callsite::new(stringify!($name), bp3d_logger::Location::new(module_path!(), file!(), line!()));
     };
 }

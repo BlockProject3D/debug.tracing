@@ -30,13 +30,13 @@
 macro_rules! log {
     ($level: expr, $({$($field: tt)*})*, $msg: literal $(,$($args: tt)*)?) => {
         {
-            static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
+            static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::location!(), $level);
             $crate::engine::get().log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &[$($crate::field!($($field)*),)*]);
         }
     };
     ($level: expr, $msg: literal $(,$($args: tt)*)?) => {
         {
-            static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::Location::new(module_path!(), file!(), line!()), $level);
+            static _CALLSITE: $crate::logger::Callsite = $crate::logger::Callsite::new(bp3d_logger::location!(), $level);
             $crate::engine::get().log(&_CALLSITE, format_args!($msg $(, $($args),*)?), &[]);
         }
     };

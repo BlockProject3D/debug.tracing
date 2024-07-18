@@ -118,7 +118,8 @@ impl Section {
 
 #[cfg(test)]
 mod tests {
-    use crate::{fields, location, profiler_section_start};
+    use bp3d_logger::location;
+    use crate::{fields, profiler_section_start};
     use crate::field::FieldSet;
     use crate::profiler::section::{Level, Section};
 

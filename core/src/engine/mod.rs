@@ -30,8 +30,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 mod void;
 
-pub trait Engine : crate::logger::Logger + crate::profiler::Profiler + crate::trace::Tracer + Sync {}
-impl<T: crate::logger::Logger + crate::profiler::Profiler + crate::trace::Tracer + Sync> Engine for T {}
+pub trait Engine:
+    crate::logger::Logger + crate::profiler::Profiler + crate::trace::Tracer + Sync
+{
+}
+impl<T: crate::logger::Logger + crate::profiler::Profiler + crate::trace::Tracer + Sync> Engine
+    for T
+{
+}
 
 static ENGINE_INIT_FLAG: AtomicBool = AtomicBool::new(false);
 

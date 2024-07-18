@@ -26,15 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Arguments;
-use std::num::NonZeroU32;
-use std::sync::atomic::Ordering;
 use crate::engine::ENGINE_INIT_FLAG;
 use crate::field::Field;
 use crate::trace::span::Callsite;
+use std::fmt::Arguments;
+use std::num::NonZeroU32;
+use std::sync::atomic::Ordering;
 
-pub struct VoidDebugger {
-}
+pub struct VoidDebugger {}
 
 impl crate::profiler::Profiler for VoidDebugger {
     fn section_register(&self, _: &'static crate::profiler::section::Section) -> NonZeroU32 {
@@ -73,7 +72,12 @@ impl crate::trace::Tracer for VoidDebugger {
 
 impl crate::logger::Logger for VoidDebugger {
     fn log(&self, callsite: &'static crate::logger::Callsite, args: Arguments, _: &[Field]) {
-        println!("[{}] {}: {}", callsite.level(), callsite.location().module_path(), args);
+        println!(
+            "[{}] {}: {}",
+            callsite.level(),
+            callsite.location().module_path(),
+            args
+        );
         ENGINE_INIT_FLAG.store(true, Ordering::Relaxed);
     }
 }

@@ -26,21 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Arguments;
-use bp3d_logger::{Level, Location};
 use crate::field::Field;
+use bp3d_logger::{Level, Location};
+use std::fmt::Arguments;
 
 pub struct Callsite {
     location: Location,
-    level: Level
+    level: Level,
 }
 
 impl Callsite {
     pub const fn new(location: Location, level: Level) -> Self {
-        Self {
-            location,
-            level
-        }
+        Self { location, level }
     }
 
     pub fn location(&self) -> &Location {
@@ -58,13 +55,13 @@ pub trait Logger {
 
 #[cfg(test)]
 mod tests {
-    use bp3d_logger::Level;
     use crate::{log, trace};
+    use bp3d_logger::Level;
 
     #[test]
     fn api_test() {
         let i = 42;
-        log!(Level::Info, {i}, "test: {i}: {}", i);
+        log!(Level::Info, { i }, "test: {i}: {}", i);
         log!(Level::Error, "test: {}", i);
         trace!({i} {?i} {id=i}, "test: {}", i);
     }

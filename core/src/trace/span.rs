@@ -26,15 +26,15 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::field::Field;
+use bp3d_logger::Location;
 use std::num::NonZeroU32;
 use std::sync::OnceLock;
-use bp3d_logger::Location;
-use crate::field::Field;
 
 pub struct Callsite {
     name: &'static str,
     location: Location,
-    id: OnceLock<NonZeroU32>
+    id: OnceLock<NonZeroU32>,
 }
 
 impl Callsite {
@@ -42,7 +42,7 @@ impl Callsite {
         Self {
             name,
             location,
-            id: OnceLock::new()
+            id: OnceLock::new(),
         }
     }
 
@@ -55,12 +55,13 @@ impl Callsite {
     }
 
     pub fn get_id(&'static self) -> &NonZeroU32 {
-        self.id.get_or_init(|| crate::engine::get().register_callsite(self))
+        self.id
+            .get_or_init(|| crate::engine::get().register_callsite(self))
     }
 }
 
 pub struct Entered {
-    id: NonZeroU32
+    id: NonZeroU32,
 }
 
 impl Drop for Entered {
@@ -70,22 +71,18 @@ impl Drop for Entered {
 }
 
 pub struct Span {
-    id: NonZeroU32
+    id: NonZeroU32,
 }
 
 impl Span {
     pub fn with_fields(callsite: &'static Callsite, fields: &[Field]) -> Self {
         let id = crate::engine::get().span_create(*callsite.get_id(), fields);
-        Self {
-            id
-        }
+        Self { id }
     }
 
     pub fn new(callsite: &'static Callsite) -> Self {
         let id = crate::engine::get().span_create(*callsite.get_id(), &[]);
-        Self {
-            id
-        }
+        Self { id }
     }
 
     pub fn record(&self, fields: &[Field]) {
@@ -100,8 +97,8 @@ impl Span {
 #[cfg(test)]
 mod tests {
     use crate::profiler::section::Level;
-    use crate::{fields, span};
     use crate::trace::span::Span;
+    use crate::{fields, span};
 
     #[test]
     fn api_test() {
@@ -111,8 +108,11 @@ mod tests {
         span!(API_TEST);
         span!(API_TEST2);
         let _span = Span::new(&API_TEST);
-        let span = Span::with_fields(&API_TEST2, fields!({value} {str} {?lvl} {test=value}).as_ref());
-        span.record(fields!({test2=str}).as_ref());
+        let span = Span::with_fields(
+            &API_TEST2,
+            fields!({value} {str} {?lvl} {test=value}).as_ref(),
+        );
+        span.record(fields!({ test2 = str }).as_ref());
         let _entered = span.enter();
     }
 }

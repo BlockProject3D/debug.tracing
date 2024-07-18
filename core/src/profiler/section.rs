@@ -26,11 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::NonZeroU32;
-use std::sync::{OnceLock};
-use std::time::Instant;
-use bp3d_logger::Location;
 use crate::field::FieldSet;
+use bp3d_logger::Location;
+use std::num::NonZeroU32;
+use std::sync::OnceLock;
+use std::time::Instant;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -42,7 +42,7 @@ pub enum Level {
     Periodic = 1,
 
     // An event based section.
-    Event = 2
+    Event = 2,
 }
 
 thread_local! {
@@ -52,7 +52,7 @@ thread_local! {
 pub struct Entered<'a, const N: usize> {
     id: NonZeroU32,
     start: u64,
-    fields: FieldSet<'a, N>
+    fields: FieldSet<'a, N>,
 }
 
 impl<'a, const N: usize> Drop for Entered<'a, N> {
@@ -67,7 +67,7 @@ pub struct Section {
     location: Location,
     level: Level,
     parent: Option<&'static Section>,
-    id: OnceLock<NonZeroU32>
+    id: OnceLock<NonZeroU32>,
 }
 
 impl Section {
@@ -77,7 +77,7 @@ impl Section {
             location,
             level,
             parent: None,
-            id: OnceLock::new()
+            id: OnceLock::new(),
         }
     }
 
@@ -103,7 +103,8 @@ impl Section {
     }
 
     pub fn get_id(&'static self) -> &NonZeroU32 {
-        self.id.get_or_init(|| crate::engine::get().section_register(self))
+        self.id
+            .get_or_init(|| crate::engine::get().section_register(self))
     }
 
     pub fn enter<'a, const N: usize>(&'static self, fields: FieldSet<'a, N>) -> Entered<'a, N> {
@@ -111,17 +112,17 @@ impl Section {
         Entered {
             id: *id,
             start: CUR_TIME.with(|v| v.elapsed().as_nanos() as _),
-            fields
+            fields,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bp3d_logger::location;
-    use crate::{fields, profiler_section_start};
     use crate::field::FieldSet;
     use crate::profiler::section::{Level, Section};
+    use crate::{fields, profiler_section_start};
+    use bp3d_logger::location;
 
     #[test]
     fn basic() {
@@ -131,12 +132,12 @@ mod tests {
     #[test]
     fn api_test() {
         static SECTION: Section = Section::new("api_test", location!(), Level::Event);
-        static _SECTION2: Section = Section::new("api_test2", location!(), Level::Event)
-            .set_parent(&SECTION);
+        static _SECTION2: Section =
+            Section::new("api_test2", location!(), Level::Event).set_parent(&SECTION);
         SECTION.enter(FieldSet::new(fields!()));
-        SECTION.enter(FieldSet::new(fields!({test=42})));
-        SECTION.enter(FieldSet::new(fields!({test="test 123"})));
-        SECTION.enter(FieldSet::new(fields!({test=42.42})));
+        SECTION.enter(FieldSet::new(fields!({ test = 42 })));
+        SECTION.enter(FieldSet::new(fields!({ test = "test 123" })));
+        SECTION.enter(FieldSet::new(fields!({ test = 42.42 })));
         SECTION.enter(FieldSet::new(fields!({test=?Level::Event})));
         SECTION.enter(FieldSet::new(fields!({test=?Level::Event} {test2=42})));
         let value = 32;

@@ -26,11 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::trace::span::{Entered, Span};
+use crate::trace::Trace;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use crate::trace::span::{Entered, Span};
-use crate::trace::Trace;
 
 pub struct TracedFuture<F> {
     future: F,
@@ -60,7 +60,7 @@ impl<F: Future> Trace for F {
     fn trace(self, span: Span) -> Self::Output {
         TracedFuture {
             future: self,
-            span: Some(span.enter())
+            span: Some(span.enter()),
         }
     }
 }

@@ -26,9 +26,9 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::NonZeroU32;
 use crate::field::Field;
 use crate::trace::span::{Callsite, Span};
+use std::num::NonZeroU32;
 
 pub trait Tracer {
     fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32;

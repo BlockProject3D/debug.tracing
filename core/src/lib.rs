@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 pub mod engine;
-pub mod profiler;
 pub mod field;
-pub mod trace;
 pub mod logger;
+pub mod profiler;
+pub mod trace;

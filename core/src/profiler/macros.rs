@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2024, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,40 +26,16 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! This module contains a log pump to be combined with Profiler in order to redirect the log
-//! crate to the Profiler.
-
-use log::{Log, Metadata, Record};
-use time::OffsetDateTime;
-use tracing_core::dispatcher::get_default;
-use crate::profiler::state::ProfilerState;
-use crate::profiler::thread::{Command, Event};
-
-pub struct LogPump;
-
-pub static LOG_PUMP: LogPump = LogPump;
-
-impl Log for LogPump {
-    fn enabled(&self, _: &Metadata) -> bool {
-        !ProfilerState::get().is_exited()
-    }
-
-    fn log(&self, record: &Record) {
-        if ProfilerState::get().is_exited() {
-            return;
-        }
-        let current = get_default(|v| v.current_span());
-        let metadata = crate::profiler::network_types::Metadata::from_log(record);
-        let time = OffsetDateTime::now_utc().unix_timestamp();
-        let message = format!("{}", record.args());
-        ProfilerState::get().send(Command::Event(Event::Owned {
-            span: current.id().map(|v| v.into_u64()),
-            metadata,
-            time,
-            value_set: Vec::new(),
-            message: Some(message)
-        }));
-    }
-
-    fn flush(&self) {}
+#[macro_export]
+macro_rules! profiler_section_start {
+    ($name: ident $(: $parent: ident)?, $level: expr, $({$($field: tt)*})*) => {
+        static $name: $crate::profiler::section::Section = $crate::profiler::section::Section::new(stringify!($name), bp3d_logger::location!(), $level)
+            $(.set_parent(&$parent))?;
+        let _section = $name.enter($crate::field::FieldSet::new([$($crate::field!($($field)*),)*]));
+    };
+    ($name: ident $(: $parent: ident)?, $level: expr) => {
+        static $name: $crate::profiler::section::Section = $crate::profiler::section::Section::new(stringify!($name), bp3d_logger::location!(), $level)
+            $(.set_parent(&$parent))?;
+        let _section = $name.enter($crate::field::FieldSet::new([]));
+    };
 }

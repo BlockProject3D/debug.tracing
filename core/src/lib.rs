@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2024, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,68 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use serde::{Serialize, Deserialize};
-use tracing_core::span::Id;
-use crate::profiler::network_types::{Metadata, Value};
-use crate::util::span_to_id_instance;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SpanId {
-    id: u32,
-    instance: u32
-}
-
-impl SpanId {
-    pub fn from_u64(span: u64) -> SpanId {
-        let (id, instance) = span_to_id_instance(&Id::from_u64(span));
-        SpanId {
-            id,
-            instance
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum Command {
-    SpanAlloc {
-        id: SpanId,
-        metadata: Metadata
-    },
-
-    SpanInit {
-        span: SpanId,
-        parent: Option<SpanId>, //None must mean that span is at root
-        message: Option<String>,
-        value_set: Vec<(String, Value)>
-    },
-
-    SpanFollows {
-        span: SpanId,
-        follows: SpanId
-    },
-
-    SpanValues {
-        span: SpanId,
-        message: Option<String>,
-        value_set: Vec<(String, Value)>
-    },
-
-    Event {
-        span: Option<SpanId>,
-        metadata: Metadata,
-        time: i64,
-        message: Option<String>,
-        value_set: Vec<(String, Value)>
-    },
-
-    SpanEnter(SpanId),
-
-    SpanExit {
-        span: SpanId,
-        duration: f64
-    },
-
-    SpanFree(SpanId),
-
-    Terminate
-}
+pub mod engine;
+pub mod field;
+pub mod logger;
+pub mod profiler;
+pub mod trace;

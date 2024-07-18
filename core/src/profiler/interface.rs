@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2024, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,41 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tracing_core::{Level, Metadata};
-use tracing_core::span::Id;
+use crate::field::Field;
+use crate::profiler::section::Section;
+use std::num::NonZeroU32;
 
-pub type Meta = &'static Metadata<'static>;
-
-pub fn hash_static_ref<T: ?Sized>(meta: &'static T) -> usize {
-    let ptr = meta as *const T;
-    ptr as *const () as usize
-}
-
-pub fn extract_target_module<'a>(record: Meta) -> (&'a str, Option<&'a str>) {
-    let base_string = record.module_path().unwrap_or_else(|| record.target());
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
-}
-
-pub fn tracing_level_to_log(level: &Level) -> log::Level {
-    match *level {
-        Level::TRACE => log::Level::Trace,
-        Level::DEBUG => log::Level::Debug,
-        Level::INFO => log::Level::Info,
-        Level::WARN => log::Level::Warn,
-        Level::ERROR => log::Level::Error
-    }
-}
-
-pub fn span_from_id_instance(span_id: u32, instance: u32) -> Id {
-    Id::from_u64((span_id as u64) << 32 | instance as u64)
-}
-
-pub fn span_to_id_instance(span: &Id) -> (u32, u32) {
-    let combined = span.into_u64();
-    ((combined >> 32) as u32, combined as u32)
+pub trait Profiler {
+    fn section_register(&self, section: &'static Section) -> NonZeroU32;
+    fn section_record(&self, id: NonZeroU32, start: u64, end: u64, fields: &[Field]);
 }

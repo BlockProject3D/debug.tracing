@@ -1,0 +1,17 @@
+mode = "logger" # "profiler", "logger" or "none"
+
+[logger]
+level = "debug" # "trace", "debug", "info", "warning" or "error"
+time-format = "%a %b %d %Y %I:%M:%S %P"
+
+[logger.console]
+#level = "debug" # "trace", "debug", "info", "warning" or "error"
+color = "auto" # "auto" (if isatty), "always" or "never"
+stderr = true # use stderr for errors
+
+[logger.file]
+#level = "debug" # "trace", "debug", "info", "warning" or "error"
+
+[profiler]
+port = 4026 # Profiler port
+max-rows = 1000000 # maximum number of rows to be stored in memory

@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2024, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,59 +26,43 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Debug;
-use tracing_core::Field;
-use tracing_core::field::Visit;
-use crate::profiler::network_types::Value;
+use crate::field::Field;
+use bp3d_logger::{Level, Location};
+use std::fmt::Arguments;
 
-pub struct Visitor {
-    message: Option<String>,
-    value_set: Vec<(&'static str, Value)>
+pub struct Callsite {
+    location: Location,
+    level: Level,
 }
 
-impl Visitor {
-    pub fn into_inner(self) -> (Option<String>, Vec<(&'static str, Value)>) {
-        (self.message, self.value_set)
+impl Callsite {
+    pub const fn new(location: Location, level: Level) -> Self {
+        Self { location, level }
     }
 
-    pub fn new() -> Visitor {
-        Visitor {
-            message: None,
-            value_set: Vec::new()
-        }
+    pub fn location(&self) -> &Location {
+        &self.location
+    }
+
+    pub fn level(&self) -> Level {
+        self.level
     }
 }
 
-impl Visit for Visitor {
-    fn record_f64(&mut self, field: &Field, value: f64) {
-        self.value_set.push((field.name(), Value::Float(value)));
-    }
+pub trait Logger {
+    fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &[Field]);
+}
 
-    fn record_i64(&mut self, field: &Field, value: i64) {
-        self.value_set.push((field.name(), Value::Signed(value)));
-    }
+#[cfg(test)]
+mod tests {
+    use crate::{log, trace};
+    use bp3d_logger::Level;
 
-    fn record_u64(&mut self, field: &Field, value: u64) {
-        self.value_set.push((field.name(), Value::Unsigned(value)));
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        self.value_set.push((field.name(), Value::Bool(value)));
-    }
-
-    fn record_str(&mut self, field: &Field, value: &str) {
-        if field.name() == "message" {
-            self.message = Some(value.into())
-        } else {
-            self.value_set.push((field.name(), Value::String(value.into())))
-        }
-    }
-
-    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
-        if field.name() == "message" {
-            self.message = Some(format!("{:?}", value));
-        } else {
-            self.value_set.push((field.name(), Value::String(format!("{:?}", value))));
-        }
+    #[test]
+    fn api_test() {
+        let i = 42;
+        log!(Level::Info, { i }, "test: {i}: {}", i);
+        log!(Level::Error, "test: {}", i);
+        trace!({i} {?i} {id=i}, "test: {}", i);
     }
 }

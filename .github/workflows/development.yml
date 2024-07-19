@@ -16,4 +16,4 @@ jobs:
     uses: BlockProject3D/workflows/.github/workflows/Release.yml@main
     needs: Test
     secrets:
-      RELEASE_TOKEN: "this is not a secret"
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}

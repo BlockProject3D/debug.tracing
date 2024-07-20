@@ -29,11 +29,13 @@
 use crate::easy_termcolor::{color, EasyTermColor};
 use crate::handler::{Flag, Handler};
 use crate::util::write_time;
-use crate::{Colors, Level, Location, LogMsg};
+use crate::{Colors, LogMsg};
 use bp3d_os::time::LocalUtcOffset;
 use bp3d_util::format::FixedBufStr;
 use std::io::IsTerminal;
 use std::mem::MaybeUninit;
+use bp3d_debug::logger::Level;
+use bp3d_debug::util::Location;
 use termcolor::{ColorChoice, ColorSpec, StandardStream};
 use time::{OffsetDateTime, UtcOffset};
 

@@ -159,7 +159,7 @@ impl Logger {
     /// This function calls the [raw_log](Self::raw_log) function only when this logger is enabled.
     #[inline]
     pub fn log(&self, msg: &LogMsg) {
-        if self.filter() >= msg.level().as_level_filter() {
+        if self.filter() >= msg.level().into() {
             self.raw_log(msg);
         }
     }

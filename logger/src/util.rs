@@ -33,22 +33,6 @@ use std::fmt::Write;
 use time::macros::format_description;
 use time::OffsetDateTime;
 
-/// Extracts the target name and the module path (without the target name) from a full module path string.
-///
-/// # Arguments
-///
-/// * `base_string`: a full module path string (ex: bp3d_logger::util::extract_target_module).
-///
-/// returns: (&str, &str)
-pub fn extract_target_module(base_string: &str) -> (&str, &str) {
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module.unwrap_or("main"))
-}
-
 /// Write time information into the given [Write](Write).
 ///
 /// # Arguments
@@ -66,18 +50,12 @@ pub fn write_time(msg: &mut impl Write, time: OffsetDateTime) {
     let _ = msg.write_str(")");
 }
 
-/// Generate a [Location](crate::Location) structure.
-#[macro_export]
-macro_rules! location {
-    () => {
-        $crate::Location::new(module_path!(), file!(), line!())
-    };
-}
-
 #[cfg(test)]
 mod tests {
+    use bp3d_debug::logger::Level;
+    use bp3d_debug::util::Location;
     use crate::util::write_time;
-    use crate::{Level, Location, LogMsg};
+    use crate::LogMsg;
     use bp3d_os::time::LocalOffsetDateTime;
     use time::OffsetDateTime;
 

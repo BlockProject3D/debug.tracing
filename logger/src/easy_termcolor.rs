@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::Level;
+use bp3d_debug::logger::Level;
 use std::fmt::Display;
 use termcolor::{Color, ColorSpec};
 

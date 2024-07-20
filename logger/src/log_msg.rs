@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::util::extract_target_module;
-use crate::Level;
 use std::fmt::{Error, Write};
 use std::mem::MaybeUninit;
+use bp3d_debug::logger::Level;
+use bp3d_debug::util::Location;
 use time::OffsetDateTime;
 
 // Size of the control fields of the log message structure:
@@ -38,55 +38,6 @@ const LOG_CONTROL_SIZE: usize = 40 + 16 + 4 + 1 + 3;
 // Limit the size of the log message string so that the size of the log structure is LOG_BUFFER_SIZE
 const LOG_MSG_SIZE: usize = LOG_BUFFER_SIZE - LOG_CONTROL_SIZE;
 const LOG_BUFFER_SIZE: usize = 1024;
-
-/// The context of a log message.
-#[derive(Clone, Copy)]
-pub struct Location {
-    module_path: &'static str,
-    file: &'static str,
-    line: u32,
-}
-
-impl Location {
-    /// Creates a new instance of a log message location.
-    ///
-    /// This function is const to let the caller store location structures in statics.
-    ///
-    /// # Arguments
-    ///
-    /// * `module_path`: the module path obtained from the [module_path](module_path) macro.
-    /// * `file`: the source file obtained from the [file](file) macro.
-    /// * `line`: the line number in the source file obtained from the [line](line) macro.
-    ///
-    /// returns: Metadata
-    pub const fn new(module_path: &'static str, file: &'static str, line: u32) -> Self {
-        Self {
-            module_path,
-            file,
-            line,
-        }
-    }
-
-    /// The module path which issued this log message.
-    pub fn module_path(&self) -> &'static str {
-        self.module_path
-    }
-
-    /// The source file which issued this log message.
-    pub fn file(&self) -> &'static str {
-        self.file
-    }
-
-    /// The line in the source file which issued this log message.
-    pub fn line(&self) -> u32 {
-        self.line
-    }
-
-    /// Extracts the target name and the module name from the module path.
-    pub fn get_target_module(&self) -> (&'static str, &'static str) {
-        extract_target_module(self.module_path)
-    }
-}
 
 /// A log message.
 ///
@@ -99,8 +50,10 @@ impl Location {
 /// # Examples
 ///
 /// ```
-/// use bp3d_logger::{Level, Location, LogMsg};
+/// use bp3d_logger::LogMsg;
 /// use std::fmt::Write;
+/// use bp3d_debug::logger::Level;
+/// use bp3d_debug::util::Location;
 /// let mut msg = LogMsg::new(Location::new("test", "file.c", 1), Level::Info);
 /// let _ = write!(msg, "This is a formatted message {}", 42);
 /// assert_eq!(msg.msg(), "This is a formatted message 42");
@@ -128,7 +81,9 @@ impl LogMsg {
     /// # Examples
     ///
     /// ```
-    /// use bp3d_logger::{Level, Location, LogMsg};
+    /// use bp3d_debug::logger::Level;
+    /// use bp3d_debug::util::Location;
+    /// use bp3d_logger::LogMsg;
     /// let msg = LogMsg::new(Location::new("test", "file.c", 1), Level::Info);
     /// assert_eq!(msg.location().module_path(), "test");
     /// assert_eq!(msg.level(), Level::Info);
@@ -149,8 +104,10 @@ impl LogMsg {
     /// # Examples
     ///
     /// ```
+    /// use bp3d_debug::logger::Level;
+    /// use bp3d_debug::util::Location;
     /// use time::macros::datetime;
-    /// use bp3d_logger::{Level, Location, LogMsg};
+    /// use bp3d_logger::LogMsg;
     /// let msg = LogMsg::with_time(Location::new("test", "file.c", 1), datetime!(1999-1-1 0:0 UTC), Level::Info);
     /// assert_eq!(msg.location().module_path(), "test");
     /// assert_eq!(msg.level(), Level::Info);
@@ -170,7 +127,9 @@ impl LogMsg {
     /// # Examples
     ///
     /// ```
-    /// use bp3d_logger::{Level, Location, LogMsg};
+    /// use bp3d_debug::logger::Level;
+    /// use bp3d_debug::util::Location;
+    /// use bp3d_logger::LogMsg;
     /// let mut msg = LogMsg::from_msg(Location::new("test", "file.c", 1), Level::Info, "this is a test");
     /// msg.clear();
     /// assert_eq!(msg.msg(), "");
@@ -208,7 +167,9 @@ impl LogMsg {
     /// # Examples
     ///
     /// ```
-    /// use bp3d_logger::{LogMsg, Level, Location};
+    /// use bp3d_debug::logger::Level;
+    /// use bp3d_debug::util::Location;
+    /// use bp3d_logger::LogMsg;
     /// let mut msg = LogMsg::from_msg(Location::new("test", "file.c", 1), Level::Info, "this is a test");
     /// assert_eq!(msg.location().module_path(), "test");
     /// assert_eq!(msg.level(), Level::Info);

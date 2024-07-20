@@ -52,10 +52,10 @@ pub fn write_time(msg: &mut impl Write, time: OffsetDateTime) {
 
 #[cfg(test)]
 mod tests {
-    use bp3d_debug::logger::Level;
-    use bp3d_debug::util::Location;
     use crate::util::write_time;
     use crate::LogMsg;
+    use bp3d_debug::logger::Level;
+    use bp3d_debug::util::Location;
     use bp3d_os::time::LocalOffsetDateTime;
     use time::OffsetDateTime;
 

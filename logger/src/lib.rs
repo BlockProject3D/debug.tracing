@@ -45,12 +45,12 @@ use bp3d_os::dirs::App;
 use crossbeam_channel::Receiver;
 use std::path::PathBuf;
 
+pub use bp3d_debug::logger::Level;
+pub use bp3d_debug::util::Location;
 pub use builder::*;
 pub use internal::Logger;
 pub use level::LevelFilter;
 pub use log_msg::LogMsg;
-pub use bp3d_debug::logger::Level;
-pub use bp3d_debug::util::Location;
 
 /// The log buffer type.
 pub type LogBuffer = Receiver<LogMsg>;

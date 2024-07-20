@@ -1,2 +1,2 @@
 [workspace]
-members = ["logger"]
+members = ["logger", "core"]

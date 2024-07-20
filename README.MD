@@ -1,20 +1,49 @@
 ![logo](https://assets.gitlab-static.net/uploads/-/system/group/avatar/10553166/logo_white.ico?width=64)
 
-# Tracing
+# Debugger implementation
 
-Implementations of `tracing` [Subscriber](https://docs.rs/tracing/latest/tracing/trait.Subscriber.html) for use with
-BP3D software. Supports traditional logging through bp3d-logger and supports remote profiling through TCP.
+This repository contains the main implementation of bp3d-debug as well as all needed support tools.
+This is the official implementation of bp3d-debug for use within all BP3D software.
 
-## Status
+## BP3D logger
+
+A flexible log system intended to be used with BP3D software.
+
+### Main features
+- Asynchronous to avoid blocking any of the application threads.
+- Multithreaded compatible.
+- Local time based logging (configurable).
+- Support for file logging.
+- Support for stdout/stderr logging.
+- Support for in memory logger.
+- Easily switch on/off logging backends.
+- Default logging backends should not panic/abort/crash the software in any way.
+
+#### stdout/stderr
+- Error messages are written to stderr instead of stdout (configurable).
+- If write fails, message is ignored; no panic produced.
+
+#### file logging
+- If write fails, message is ignored.
+
+#### in memory
+- Log is limited to a fixed number of messages (configurable).
+
+## BP3D Tracing
+
+This crate contains the actual implementation for bp3d-debug.
+Supports traditional logging through bp3d-logger and supports remote profiling through TCP.
+
+### Status
 
 This crate is currently **highly experimental** and may not work on all systems. Currently, this is fully tested on
 `macOS 12.3.1` only. It may work on other `unix` systems.
 
 Additionally, this is currently broken on `Windows` systems.
 
-## Usage
+### Usage
 
-### In code
+#### In code
 
 ```rust
 fn main() {
@@ -27,7 +56,7 @@ fn main() {
 without first dropping the `_guard` guard variable. Failing to do so will result in truncated logs with the logger
 backend and data loss with the profiler backend.
 
-### Running
+#### Running
 
 To configure the behavior of `bp3d-tracing` some environment variables are used:
 

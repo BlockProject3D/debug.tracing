@@ -52,13 +52,13 @@ pub enum Level {
 }
 
 impl Level {
-    pub fn to_tracing(&self) -> tracing_core::Level {
+    pub fn to_bp3d_debug(&self) -> bp3d_debug::logger::Level {
         match self {
-            Level::Trace => tracing_core::Level::TRACE,
-            Level::Debug => tracing_core::Level::DEBUG,
-            Level::Info => tracing_core::Level::INFO,
-            Level::Warning => tracing_core::Level::WARN,
-            Level::Error => tracing_core::Level::ERROR,
+            Level::Trace => bp3d_debug::logger::Level::Trace,
+            Level::Debug => bp3d_debug::logger::Level::Debug,
+            Level::Info => bp3d_debug::logger::Level::Info,
+            Level::Warning => bp3d_debug::logger::Level::Warn,
+            Level::Error => bp3d_debug::logger::Level::Error,
         }
     }
 }

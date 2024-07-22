@@ -13,7 +13,13 @@ categories = ["development-tools", "development-tools::debugging", "development-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bp3d-logger = "2.0.0-rc.2.0.0"
+bp3d-logger = "2.0.0-rc.3.0.0"
+bp3d-os = { version = "1.0.0-rc.3.0.3", features = ["dirs", "env"] }
+time = "0.3.36"
+serde = { version = "1.0.204", features = ["derive"] }
+bp3d-debug = "1.0.0-rc.2.1.0"
+toml = "0.8.14"
+parking_lot = "0.12.3"
 
 [build-dependencies]
 semver = "1.0.7"

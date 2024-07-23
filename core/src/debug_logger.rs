@@ -39,7 +39,7 @@ use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::RwLock;
 use time::OffsetDateTime;
-use crate::debug::tracer_base::BaseTracer;
+use crate::tracer_base::BaseTracer;
 
 struct Profiler1 {
     map: RwLock<HashMap<NonZeroU32, &'static Section>>,

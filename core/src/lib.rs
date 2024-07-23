@@ -34,7 +34,8 @@ use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 mod config;
-mod debug;
+mod tracer_base;
+mod debug_logger;
 //mod core;
 //mod logger;
 //mod profiler;

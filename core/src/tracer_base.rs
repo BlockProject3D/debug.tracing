@@ -31,7 +31,7 @@ use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
-use bp3d_debug::trace::span::Callsite;
+use bp3d_debug::trace::span::{Callsite, Id};
 use parking_lot::{Mutex, RawMutex, RwLock};
 use parking_lot::lock_api::{MappedMutexGuard, MutexGuard};
 
@@ -124,18 +124,18 @@ impl<T> BaseTracer<T> {
         (id1, MutexGuard::map(guard, |v| unsafe { v.spans.get_unchecked_mut(id) }))
     }
 
-    pub fn get_data(&self, id: NonZeroU32) -> Guard<T> {
+    pub fn get_data(&self, id: Id) -> Guard<T> {
         let guard = self.spans.lock();
-        MutexGuard::map(guard, |v| unsafe { v.spans.get_unchecked_mut(id.get() as usize) })
+        MutexGuard::map(guard, |v| unsafe { v.spans.get_unchecked_mut(id.get_instance().get() as usize) })
     }
 
-    pub fn span_enter(&self, id: NonZeroU32) -> Guard<T> {
+    pub fn span_enter(&self, id: Id) -> Guard<T> {
         let mut data = self.get_data(id);
         data.start = self.time.elapsed().as_nanos() as _;
         data
     }
 
-    pub fn span_exit(&self, id: NonZeroU32) -> Guard<T> {
+    pub fn span_exit(&self, id: Id) -> Guard<T> {
         let mut data = self.get_data(id);
         data.end = self.time.elapsed().as_nanos() as _;
         data

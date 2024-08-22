@@ -38,6 +38,7 @@ use bp3d_logger::LogMsg;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::RwLock;
+use bp3d_debug::trace::span::Id;
 use time::OffsetDateTime;
 use crate::tracer_base::BaseTracer;
 
@@ -104,19 +105,19 @@ impl Tracer for Debugger {
         id
     }
 
-    fn span_enter(&self, id: NonZeroU32) {
+    fn span_enter(&self, id: Id) {
         let mut data = self.tracer.span_enter(id);
         data.set_time(OffsetDateTime::now_utc()); // Set the current time for the LogMsg.
     }
 
-    fn span_record(&self, id: NonZeroU32, fields: &[Field]) {
+    fn span_record(&self, id: Id, fields: &[Field]) {
         let mut data = self.tracer.get_data(id);
         for field in fields {
             let _ = write!(data, ", {} = {}", field.name(), field.value());
         }
     }
 
-    fn span_exit(&self, id: NonZeroU32) {
+    fn span_exit(&self, id: Id) {
         let mut data = self.tracer.span_exit(id);
         let motherfuckingrust = data.end();
         let motherfuckingrust2 = data.start();

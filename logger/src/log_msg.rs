@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::{Error, Write};
-use std::mem::MaybeUninit;
 use bp3d_debug::logger::Level;
 use bp3d_debug::util::Location;
+use std::fmt::{Error, Write};
+use std::mem::MaybeUninit;
 use time::OffsetDateTime;
 
 // Size of the control fields of the log message structure:

@@ -185,7 +185,11 @@ impl<'a> Thread<'a> {
             Control::RegisterSection { section, id, parent } => {
                 let mut header = net::profiler::SectionHeader::new_on_stack();
                 header.set_id(id.get()).set_parent(parent.map(|v| v.get()).unwrap_or(0));
-                //TODO: Implement level setting
+                match section.level() {
+                    Level::Critical => header.set_level(net::profiler::Level::Critical),
+                    Level::Periodic => header.set_level(net::profiler::Level::Periodic),
+                    Level::Event => header.set_level(net::profiler::Level::Event)
+                };
                 let msg = net::profiler::Section {
                     header: header.to_ref(),
                     location: net::common::Location {

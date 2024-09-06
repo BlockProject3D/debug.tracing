@@ -20,13 +20,10 @@ serde = { version = "1.0.204", features = ["derive"] }
 bp3d-debug = "1.0.0-rc.6.0.0"
 toml = "0.8.14"
 parking_lot = "0.12.3"
-bytesutil = "0.7.0"
 tokio = { version = "1.39.3", features = ["full"] }
-bp3d-proto = { version = "1.0.0-rc.3.0.0", path = "../../bp3d-protoc/runtime", features = ["tokio"] }
+bp3d-proto = { version = "1.0.0-rc.3.0.0", features = ["tokio"] }
 bp3d-util = { version = "1.1.0", features = ["format"] }
-
-#TODO: Check if we need bytesutil
 
 [build-dependencies]
 semver = "1.0.7"
-bp3d-protoc = { version = "1.0.0-rc.3.0.0", path = "../../bp3d-protoc/compiler" }
+bp3d-protoc = "1.0.0-rc.3.0.0"

@@ -26,25 +26,25 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::profiler::log_msg::{FieldsetRecord, ProfilerRecord};
+use crate::profiler::thread::command::{Control, Execution};
+use crate::profiler::thread::ChannelsIn;
+use crate::profiler::util::write_fields;
+use crate::tracer_base::BaseTracer;
+use bp3d_debug::field::Field;
+use bp3d_debug::logger::{Callsite, Logger};
+use bp3d_debug::profiler::section::Section;
+use bp3d_debug::profiler::Profiler;
+use bp3d_debug::trace::span::Id;
+use bp3d_debug::trace::Tracer;
 use std::fmt::Arguments;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU32, Ordering};
-use bp3d_debug::field::Field;
-use bp3d_debug::logger::{Callsite, Logger};
-use bp3d_debug::profiler::Profiler;
-use bp3d_debug::profiler::section::Section;
-use bp3d_debug::trace::span::Id;
-use bp3d_debug::trace::Tracer;
-use crate::profiler::log_msg::{FieldsetRecord, ProfilerRecord};
-use crate::profiler::thread::ChannelsIn;
-use crate::profiler::thread::command::{Control, Execution};
-use crate::profiler::util::write_fields;
-use crate::tracer_base::BaseTracer;
 
 pub struct RemoteDebugger {
     channels: ChannelsIn,
     cur_section: AtomicU32,
-    tracer: BaseTracer<FieldsetRecord>
+    tracer: BaseTracer<FieldsetRecord>,
 }
 
 impl Logger for RemoteDebugger {
@@ -56,11 +56,12 @@ impl Logger for RemoteDebugger {
 
 impl Profiler for RemoteDebugger {
     fn section_register(&self, section: &'static Section) -> NonZeroU32 {
-        let id = unsafe { NonZeroU32::new_unchecked(self.cur_section.fetch_add(1, Ordering::Relaxed)) };
+        let id =
+            unsafe { NonZeroU32::new_unchecked(self.cur_section.fetch_add(1, Ordering::Relaxed)) };
         let _ = self.channels.control.send(Control::RegisterSection {
             section,
             id,
-            parent: section.parent().map(|v| *v.get_id())
+            parent: section.parent().map(|v| *v.get_id()),
         });
         id
     }
@@ -69,17 +70,23 @@ impl Profiler for RemoteDebugger {
         let mut record = ProfilerRecord::new(id, start, end);
         write_fields(fields, &mut record);
         record.add_vars(fields.len() as _);
-        let _ = self.channels.execution.send(Execution::ProfilerRecord(record));
+        let _ = self
+            .channels
+            .execution
+            .send(Execution::ProfilerRecord(record));
     }
 }
 
 impl Tracer for RemoteDebugger {
-    fn register_callsite(&self, callsite: &'static bp3d_debug::trace::span::Callsite) -> NonZeroU32 {
+    fn register_callsite(
+        &self,
+        callsite: &'static bp3d_debug::trace::span::Callsite,
+    ) -> NonZeroU32 {
         let id = self.tracer.register_callsite(callsite);
-        let _ = self.channels.control.send(Control::RegisterSpan {
-            callsite,
-            id
-        });
+        let _ = self
+            .channels
+            .control
+            .send(Control::RegisterSpan { callsite, id });
         id
     }
 
@@ -96,7 +103,7 @@ impl Tracer for RemoteDebugger {
         let fieldset = self.tracer.span_enter(id);
         let _ = self.channels.execution.send(Execution::SpanEnter {
             fields: fieldset.clone(),
-            start: fieldset.start()
+            start: fieldset.start(),
         });
     }
 
@@ -107,7 +114,10 @@ impl Tracer for RemoteDebugger {
             fieldset.set_id(id);
             write_fields(fields, &mut fieldset);
             fieldset.add_vars(fields.len() as _);
-            let _ = self.channels.execution.send(Execution::SpanRecord(fieldset));
+            let _ = self
+                .channels
+                .execution
+                .send(Execution::SpanRecord(fieldset));
         } else {
             write_fields(fields, &mut **data);
             data.add_vars(fields.len() as _);
@@ -118,7 +128,7 @@ impl Tracer for RemoteDebugger {
         let data = self.tracer.span_exit(id);
         let _ = self.channels.execution.send(Execution::SpanExit {
             id,
-            end: data.end()
+            end: data.end(),
         });
     }
 

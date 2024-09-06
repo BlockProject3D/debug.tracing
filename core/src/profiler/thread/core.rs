@@ -28,18 +28,18 @@
 
 use crate::profiler::log_msg::{EventLog, ProfilerRecord};
 use crate::profiler::network as net;
+use crate::profiler::thread::channels::ChannelsOut;
+use crate::profiler::thread::command::{Control, Execution};
 use crate::profiler::thread::util::read_command_line;
 use crate::profiler::thread::util::wrap_io_debug_error;
-use bp3d_os::cpu_info::read_cpu_info;
-use std::net::{Ipv4Addr, SocketAddrV4};
 use bp3d_debug::profiler::section::Level;
+use bp3d_os::cpu_info::read_cpu_info;
 use bp3d_proto::message::payload::List;
 use bp3d_util::format::FixedBufStr;
+use std::net::{Ipv4Addr, SocketAddrV4};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use tokio::sync::oneshot;
-use crate::profiler::thread::channels::ChannelsOut;
-use crate::profiler::thread::command::{Control, Execution};
 
 use super::net::Net;
 use super::store::SpanStore;
@@ -69,7 +69,11 @@ impl<'a> Thread<'a> {
 
     async fn handle_span_data(&mut self, log: ProfilerRecord) {
         if let Some(msg) = self.core.record(log) {
-            wrap_io_debug_error!(self.net.network_write_fixed(net::message::Type::ProfilerSectionUpdate, msg).await);
+            wrap_io_debug_error!(
+                self.net
+                    .network_write_fixed(net::message::Type::ProfilerSectionUpdate, msg)
+                    .await
+            );
             wrap_io_debug_error!(self.net.flush().await);
         }
     }
@@ -82,53 +86,67 @@ impl<'a> Thread<'a> {
                 let msg = net::span::Enter {
                     id: fields.id(),
                     start,
-                    fields: List::from_raw_parts(fields.as_bytes(), fields.var_count() as _)
+                    fields: List::from_raw_parts(fields.as_bytes(), fields.var_count() as _),
                 };
-                wrap_io_debug_error!(self.net.network_write_dyn_payload(net::message::Type::SpanEnter, msg).await);
+                wrap_io_debug_error!(
+                    self.net
+                        .network_write_dyn_payload(net::message::Type::SpanEnter, msg)
+                        .await
+                );
             }
             Execution::SpanRecord(fields) => {
                 let msg = net::span::Record {
                     id: fields.id(),
-                    fields: List::from_raw_parts(fields.as_bytes(), fields.var_count() as _)
+                    fields: List::from_raw_parts(fields.as_bytes(), fields.var_count() as _),
                 };
-                wrap_io_debug_error!(self.net.network_write_dyn_payload(net::message::Type::SpanRecord, msg).await);
+                wrap_io_debug_error!(
+                    self.net
+                        .network_write_dyn_payload(net::message::Type::SpanRecord, msg)
+                        .await
+                );
             }
             Execution::SpanExit { id, end } => {
                 let mut msg = net::span::Exit::new_on_stack();
-                msg.set_end(end).get_id_mut().set_instance(id.get_instance().get()).set_callsite(id.get_callsite().get());
-                wrap_io_debug_error!(self.net.network_write_fixed(net::message::Type::SpanExit, msg).await);
-            }
-            /*command::Span::Alloc { id, metadata } => {
-                self.core.reserve_span(id);
-                let msg = nt::message::SpanAlloc {
-                    id: id.get(),
-                    metadata: nt::message::Metadata {
-                        level: nt::message::Level::from_tracing(*metadata.level()),
-                        file: metadata.file(),
-                        line: metadata.line(),
-                        module_path: metadata.module_path(),
-                        name: metadata.name(),
-                        target: metadata.target(),
-                    },
-                };
-                wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
-            }
-            command::Span::UpdateParent { id, parent } => {
-                let msg = nt::message::SpanParent {
-                    id: id.get(),
-                    parent_node: parent.map(|v| v.get()).unwrap_or(0),
-                };
-                wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
-            }
-            command::Span::Follows { id, follows } => {
-                let id = id.get_id();
-                let follows = follows.get_id();
-                let msg = nt::message::SpanFollows {
-                    id: id.get(),
-                    follows: follows.get(),
-                };
-                wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
-            }*/
+                msg.set_end(end)
+                    .get_id_mut()
+                    .set_instance(id.get_instance().get())
+                    .set_callsite(id.get_callsite().get());
+                wrap_io_debug_error!(
+                    self.net
+                        .network_write_fixed(net::message::Type::SpanExit, msg)
+                        .await
+                );
+            } /*command::Span::Alloc { id, metadata } => {
+                  self.core.reserve_span(id);
+                  let msg = nt::message::SpanAlloc {
+                      id: id.get(),
+                      metadata: nt::message::Metadata {
+                          level: nt::message::Level::from_tracing(*metadata.level()),
+                          file: metadata.file(),
+                          line: metadata.line(),
+                          module_path: metadata.module_path(),
+                          name: metadata.name(),
+                          target: metadata.target(),
+                      },
+                  };
+                  wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
+              }
+              command::Span::UpdateParent { id, parent } => {
+                  let msg = nt::message::SpanParent {
+                      id: id.get(),
+                      parent_node: parent.map(|v| v.get()).unwrap_or(0),
+                  };
+                  wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
+              }
+              command::Span::Follows { id, follows } => {
+                  let id = id.get_id();
+                  let follows = follows.get_id();
+                  let msg = nt::message::SpanFollows {
+                      id: id.get(),
+                      follows: follows.get(),
+                  };
+                  wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
+              }*/
         }
     }
 
@@ -138,11 +156,15 @@ impl<'a> Thread<'a> {
             location: net::common::Location {
                 module_path: event.location().module_path(),
                 file: event.location().file(),
-                line: event.location().line()
+                line: event.location().line(),
             },
-            fields: List::from_raw_parts(event.as_bytes(), event.var_count() as _)
+            fields: List::from_raw_parts(event.as_bytes(), event.var_count() as _),
         };
-        wrap_io_debug_error!(self.net.network_write_dyn_payload(net::message::Type::Event, msg).await);
+        wrap_io_debug_error!(
+            self.net
+                .network_write_dyn_payload(net::message::Type::Event, msg)
+                .await
+        );
     }
 
     async fn handle_control(&mut self, command: Control) -> bool {
@@ -173,7 +195,11 @@ impl<'a> Thread<'a> {
                     }),
                     cmd_line: cmd_line.str(),
                 };
-                wrap_io_debug_error!(self.net.network_write_dyn_payload(net::message::Type::Project, msg).await);
+                wrap_io_debug_error!(
+                    self.net
+                        .network_write_dyn_payload(net::message::Type::Project, msg)
+                        .await
+                );
                 true
             }
             Control::Terminate => {
@@ -182,37 +208,51 @@ impl<'a> Thread<'a> {
                 wrap_io_debug_error!(self.net.flush().await);
                 false
             }
-            Control::RegisterSection { section, id, parent } => {
+            Control::RegisterSection {
+                section,
+                id,
+                parent,
+            } => {
                 let mut header = net::profiler::SectionHeader::new_on_stack();
-                header.set_id(id.get()).set_parent(parent.map(|v| v.get()).unwrap_or(0));
+                header
+                    .set_id(id.get())
+                    .set_parent(parent.map(|v| v.get()).unwrap_or(0));
                 match section.level() {
                     Level::Critical => header.set_level(net::profiler::Level::Critical),
                     Level::Periodic => header.set_level(net::profiler::Level::Periodic),
-                    Level::Event => header.set_level(net::profiler::Level::Event)
+                    Level::Event => header.set_level(net::profiler::Level::Event),
                 };
                 let msg = net::profiler::Section {
                     header: header.to_ref(),
                     location: net::common::Location {
                         module_path: section.location().module_path(),
                         file: section.location().file(),
-                        line: section.location().line()
+                        line: section.location().line(),
                     },
-                    name: section.name()
+                    name: section.name(),
                 };
-                wrap_io_debug_error!(self.net.network_write_dyn_payload(net::message::Type::ProfilerSectionRegister, msg).await);
+                wrap_io_debug_error!(
+                    self.net
+                        .network_write_dyn_payload(net::message::Type::ProfilerSectionRegister, msg)
+                        .await
+                );
                 true
-            },
+            }
             Control::RegisterSpan { callsite, id } => {
                 let msg = net::span::Callsite {
                     id: id.get(),
                     location: net::common::Location {
                         module_path: callsite.location().module_path(),
                         file: callsite.location().file(),
-                        line: callsite.location().line()
+                        line: callsite.location().line(),
                     },
-                    name: callsite.name()
+                    name: callsite.name(),
                 };
-                wrap_io_debug_error!(self.net.network_write_dyn_payload(net::message::Type::SpanCallsiteRegister, msg).await);
+                wrap_io_debug_error!(
+                    self.net
+                        .network_write_dyn_payload(net::message::Type::SpanCallsiteRegister, msg)
+                        .await
+                );
                 true
             }
         }
@@ -263,7 +303,10 @@ async fn init(
     port: u16,
     max_rows: u32,
     min_period: u16,
-) -> std::io::Result<(TcpStream, net::client::Config<[u8; net::client::SIZE_CONFIG]>)> {
+) -> std::io::Result<(
+    TcpStream,
+    net::client::Config<[u8; net::client::SIZE_CONFIG]>,
+)> {
     let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
@@ -272,7 +315,8 @@ async fn init(
     let mut net = Net::new(&mut socket);
     let mut msg = net::server::Config::new_on_stack();
     msg.set_max_rows(max_rows).set_min_period(min_period);
-    net.network_write_fixed(net::message::Type::ServerConfig, msg).await?;
+    net.network_write_fixed(net::message::Type::ServerConfig, msg)
+        .await?;
     net.flush().await?;
     let config: net::client::Config<&[u8]> = net.network_read_fixed().await?;
     let motherfuckingrust = config.copy_on_stack();
@@ -282,7 +326,7 @@ async fn init(
 #[derive(Copy, Clone, Debug)]
 pub struct Levels {
     pub section: Option<net::profiler::Level>,
-    pub event: Option<net::event::Level>
+    pub event: Option<net::event::Level>,
 }
 
 pub fn run(

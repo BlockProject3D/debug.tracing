@@ -26,12 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Write;
 use bp3d_debug::trace::span::Id;
+use std::fmt::Write;
 
 impl<T: AsMut<[u8]>> crate::profiler::network::common::Duration<T> {
     pub fn from_std(&mut self, value: &std::time::Duration) -> &mut Self {
-        self.set_seconds(value.as_secs() as _).set_nano_seconds(value.subsec_nanos());
+        self.set_seconds(value.as_secs() as _)
+            .set_nano_seconds(value.subsec_nanos());
         self
     }
 }
@@ -39,7 +40,8 @@ impl<T: AsMut<[u8]>> crate::profiler::network::common::Duration<T> {
 impl SpanId<[u8; SIZE_SPAN_ID]> {
     pub fn from_debug(value: Id) -> Self {
         let mut val = SpanId::new_on_stack();
-        val.set_callsite(value.get_callsite().get()).set_instance(value.get_instance().get());
+        val.set_callsite(value.get_callsite().get())
+            .set_instance(value.get_instance().get());
         val
     }
 }
@@ -58,5 +60,5 @@ macro_rules! wrap_io_debug_error {
     };
 }
 
-pub(crate) use wrap_io_debug_error;
 use crate::profiler::network::common::{SpanId, SIZE_SPAN_ID};
+pub(crate) use wrap_io_debug_error;

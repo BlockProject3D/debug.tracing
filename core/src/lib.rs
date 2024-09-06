@@ -34,8 +34,8 @@ use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 mod config;
-mod tracer_base;
 mod debug_logger;
+mod tracer_base;
 //mod core;
 //mod logger;
 mod profiler;
@@ -59,8 +59,8 @@ impl Drop for Guard {
 }
 
 //fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> Guard {
-    //set_global_default(system.system).expect("bp3d-tracing can only be initialized once!");
-    //Guard(system.destructor)
+//set_global_default(system.system).expect("bp3d-tracing can only be initialized once!");
+//Guard(system.destructor)
 //}
 
 /// Initialize the logging and tracing systems for the given application.

@@ -26,13 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+mod channels;
 pub mod command;
 mod core;
 mod net;
 mod state;
 mod store;
 mod util;
-mod channels;
 
 pub use channels::{ChannelsIn, ChannelsOut};
 

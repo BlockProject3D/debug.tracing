@@ -27,9 +27,9 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::profiler::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
-use std::num::NonZeroU32;
 use bp3d_debug::trace::span::Id;
 use bp3d_util::format::FixedBufStr;
+use std::num::NonZeroU32;
 
 pub enum Control {
     Project {
@@ -41,12 +41,12 @@ pub enum Control {
     RegisterSection {
         section: &'static bp3d_debug::profiler::section::Section,
         id: NonZeroU32,
-        parent: Option<NonZeroU32>
+        parent: Option<NonZeroU32>,
     },
 
     RegisterSpan {
         callsite: &'static bp3d_debug::trace::span::Callsite,
-        id: NonZeroU32
+        id: NonZeroU32,
     },
 
     Terminate,
@@ -54,19 +54,13 @@ pub enum Control {
 
 #[derive(Debug)]
 pub enum Execution {
-    SpanEnter {
-        fields: FieldsetRecord,
-        start: u64
-    },
+    SpanEnter { fields: FieldsetRecord, start: u64 },
 
     SpanRecord(FieldsetRecord),
 
-    SpanExit {
-        id: Id,
-        end: u64
-    },
+    SpanExit { id: Id, end: u64 },
 
     ProfilerRecord(ProfilerRecord),
 
-    Event(EventLog)
+    Event(EventLog),
 }

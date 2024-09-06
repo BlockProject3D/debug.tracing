@@ -26,14 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use bp3d_debug::trace::span::{Callsite, Id};
+use parking_lot::lock_api::{MappedMutexGuard, MutexGuard};
+use parking_lot::{Mutex, RawMutex, RwLock};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
-use bp3d_debug::trace::span::{Callsite, Id};
-use parking_lot::{Mutex, RawMutex, RwLock};
-use parking_lot::lock_api::{MappedMutexGuard, MutexGuard};
 
 type Guard<'a, T> = MappedMutexGuard<'a, RawMutex, SpanData<T>>;
 
@@ -43,7 +43,7 @@ pub struct SpanData<T> {
     uses: u32,
     start: u64,
     end: u64,
-    content: T
+    content: T,
 }
 
 impl<T> Deref for SpanData<T> {
@@ -84,14 +84,14 @@ impl<T> SpanData<T> {
 
 struct SpanMap<T> {
     spans: Vec<SpanData<T>>,
-    cur_order: u32
+    cur_order: u32,
 }
 
 pub struct BaseTracer<T> {
     callsites: RwLock<HashMap<NonZeroU32, &'static Callsite>>,
     cur_callsite: AtomicU32,
     spans: Mutex<SpanMap<T>>,
-    time: Instant
+    time: Instant,
 }
 
 impl<T> BaseTracer<T> {
@@ -101,14 +101,15 @@ impl<T> BaseTracer<T> {
             cur_callsite: AtomicU32::new(1),
             spans: Mutex::new(SpanMap {
                 spans: Vec::new(),
-                cur_order: 1
+                cur_order: 1,
             }),
-            time: Instant::now()
+            time: Instant::now(),
         }
     }
 
     pub fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32 {
-        let id = unsafe { NonZeroU32::new_unchecked(self.cur_callsite.fetch_add(1, Ordering::Relaxed)) };
+        let id =
+            unsafe { NonZeroU32::new_unchecked(self.cur_callsite.fetch_add(1, Ordering::Relaxed)) };
         let mut guard = self.callsites.write();
         guard.insert(id, callsite);
         id
@@ -121,32 +122,42 @@ impl<T> BaseTracer<T> {
 
     pub fn create_span(&self, callsite: NonZeroU32, content: T) -> (NonZeroU32, Guard<T>) {
         let mut guard = self.spans.lock();
-        let id = guard.spans.iter().enumerate().find_map(|(i, v)| match v.order {
-            0 => Some(i),
-            _ => None
-        }).unwrap_or_else(|| {
-            guard.spans.push(SpanData {
-                callsite,
-                order: 0,
-                uses: 0,
-                start: 0,
-                end: 0,
-                content
+        let id = guard
+            .spans
+            .iter()
+            .enumerate()
+            .find_map(|(i, v)| match v.order {
+                0 => Some(i),
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                guard.spans.push(SpanData {
+                    callsite,
+                    order: 0,
+                    uses: 0,
+                    start: 0,
+                    end: 0,
+                    content,
+                });
+                guard.spans.len() - 1
             });
-            guard.spans.len() - 1
-        });
         unsafe {
             guard.spans.get_unchecked_mut(id).order = guard.cur_order;
             guard.cur_order += 1;
             guard.spans.get_unchecked_mut(id).uses += 1;
         }
         let id1 = unsafe { NonZeroU32::new_unchecked((id + 1) as _) };
-        (id1, MutexGuard::map(guard, |v| unsafe { v.spans.get_unchecked_mut(id) }))
+        (
+            id1,
+            MutexGuard::map(guard, |v| unsafe { v.spans.get_unchecked_mut(id) }),
+        )
     }
 
     pub fn get_data(&self, id: Id) -> Guard<T> {
         let guard = self.spans.lock();
-        MutexGuard::map(guard, |v| unsafe { v.spans.get_unchecked_mut(id.get_instance().get() as usize) })
+        MutexGuard::map(guard, |v| unsafe {
+            v.spans.get_unchecked_mut(id.get_instance().get() as usize)
+        })
     }
 
     pub fn span_enter(&self, id: Id) -> Guard<T> {

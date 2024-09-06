@@ -26,16 +26,16 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::profiler::network::common::{SpanId, SIZE_SPAN_ID};
+use crate::profiler::network::event::{Header, SIZE_HEADER};
+use crate::profiler::network::profiler::{RecordHeader, SIZE_RECORD_HEADER};
+use bp3d_debug::logger::Level;
+use bp3d_debug::trace::span::Id;
+use bp3d_debug::util::Location;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::time::Duration;
-use bp3d_debug::logger::Level;
-use bp3d_debug::trace::span::Id;
-use bp3d_debug::util::Location;
-use crate::profiler::network::common::{SpanId, SIZE_SPAN_ID};
-use crate::profiler::network::event::{Header, SIZE_HEADER};
-use crate::profiler::network::profiler::{RecordHeader, SIZE_RECORD_HEADER};
 
 const BUFFER_LEN: usize = 512;
 const CTRL_PROFILER_RECORD: usize = SIZE_RECORD_HEADER + size_of::<u16>() + 1;
@@ -174,7 +174,9 @@ impl FieldsetRecord {
     }
 
     pub fn set_id(&mut self, id: Id) {
-        self.id.set_callsite(id.get_callsite().get()).set_instance(id.get_instance().get());
+        self.id
+            .set_callsite(id.get_callsite().get())
+            .set_instance(id.get_instance().get());
     }
 
     pub fn var_count(&self) -> u8 {
@@ -208,15 +210,13 @@ pub struct EventLog {
 impl_log_msg!(EventLog);
 
 impl EventLog {
-    pub fn new(
-        id: Option<Id>,
-        timestamp: i64,
-        level: Level,
-        location: Location,
-    ) -> EventLog {
+    pub fn new(id: Option<Id>, timestamp: i64, level: Level, location: Location) -> EventLog {
         let mut header = Header::new_on_stack();
         if let Some(id) = id {
-            header.get_id_mut().set_callsite(id.get_callsite().get()).set_instance(id.get_instance().get());
+            header
+                .get_id_mut()
+                .set_callsite(id.get_callsite().get())
+                .set_instance(id.get_instance().get());
         }
         header.set_timestamp(timestamp).set_raw_level(level as u8);
         EventLog {

@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::Cursor;
+use crate::profiler::network as net;
 use bp3d_proto::message::{WriteSelf, WriteSelfAsync};
 use bp3d_proto::util::FixedSize;
-use crate::profiler::network as net;
+use std::io::Cursor;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::{
@@ -91,11 +91,18 @@ impl<'a> Net<'a> {
         msg.set_type(ty).set_size(cursor.position() as _);
         self.write.write_all(msg.as_ref()).await?;
         let motherfuckingrust = cursor.position() as _;
-        self.write.write_all(&buffer.as_mut()[..motherfuckingrust]).await.map_err(bp3d_proto::message::Error::Io)?;
+        self.write
+            .write_all(&buffer.as_mut()[..motherfuckingrust])
+            .await
+            .map_err(bp3d_proto::message::Error::Io)?;
         Ok(())
     }
 
-    pub async fn network_write_dyn_payload<'b, M: WriteSelf + WriteSelfAsync>(&mut self, ty: net::message::Type, message: M) -> bp3d_proto::message::Result<()> {
+    pub async fn network_write_dyn_payload<'b, M: WriteSelf + WriteSelfAsync>(
+        &mut self,
+        ty: net::message::Type,
+        message: M,
+    ) -> bp3d_proto::message::Result<()> {
         let mut msg = net::message::Header::new_on_stack();
         msg.set_type(ty).set_size(message.size()? as _);
         self.write.write_all(msg.as_ref()).await?;

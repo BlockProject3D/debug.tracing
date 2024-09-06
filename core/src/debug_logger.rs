@@ -26,31 +26,31 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::collections::HashMap;
-use std::fmt::Arguments;
-use std::num::NonZeroU32;
+use crate::tracer_base::BaseTracer;
 use bp3d_debug::field::Field;
 use bp3d_debug::logger::{Callsite, Level, Logger};
-use bp3d_debug::profiler::Profiler;
 use bp3d_debug::profiler::section::Section;
+use bp3d_debug::profiler::Profiler;
+use bp3d_debug::trace::span::Id;
 use bp3d_debug::trace::Tracer;
 use bp3d_logger::LogMsg;
+use std::collections::HashMap;
+use std::fmt::Arguments;
 use std::fmt::Write;
+use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::RwLock;
-use bp3d_debug::trace::span::Id;
 use time::OffsetDateTime;
-use crate::tracer_base::BaseTracer;
 
 struct Profiler1 {
     map: RwLock<HashMap<NonZeroU32, &'static Section>>,
-    cur_section: AtomicU32
+    cur_section: AtomicU32,
 }
 
 pub struct Debugger {
     log: bp3d_logger::Logger,
     profiler: Profiler1,
-    tracer: BaseTracer<LogMsg>
+    tracer: BaseTracer<LogMsg>,
 }
 
 impl Logger for Debugger {
@@ -66,7 +66,9 @@ impl Logger for Debugger {
 
 impl Profiler for Debugger {
     fn section_register(&self, section: &'static Section) -> NonZeroU32 {
-        let id = unsafe { NonZeroU32::new_unchecked(self.profiler.cur_section.fetch_add(1, Ordering::Relaxed)) };
+        let id = unsafe {
+            NonZeroU32::new_unchecked(self.profiler.cur_section.fetch_add(1, Ordering::Relaxed))
+        };
         let mut guard = self.profiler.map.write().unwrap();
         guard.insert(id, section);
         id
@@ -78,10 +80,15 @@ impl Profiler for Debugger {
         let level = match section.level() {
             bp3d_debug::profiler::section::Level::Critical => Level::Trace,
             bp3d_debug::profiler::section::Level::Periodic => Level::Debug,
-            bp3d_debug::profiler::section::Level::Event => Level::Info
+            bp3d_debug::profiler::section::Level::Event => Level::Info,
         };
         let mut msg = LogMsg::new(*section.location(), level);
-        let _ = write!(msg, "[Profiler] Section {} took {}µs", section.name(), (end - start) / 1000);
+        let _ = write!(
+            msg,
+            "[Profiler] Section {} took {}µs",
+            section.name(),
+            (end - start) / 1000
+        );
         for field in fields {
             let _ = write!(msg, ", {} = {}", field.name(), field.value());
         }
@@ -90,7 +97,10 @@ impl Profiler for Debugger {
 }
 
 impl Tracer for Debugger {
-    fn register_callsite(&self, callsite: &'static bp3d_debug::trace::span::Callsite) -> NonZeroU32 {
+    fn register_callsite(
+        &self,
+        callsite: &'static bp3d_debug::trace::span::Callsite,
+    ) -> NonZeroU32 {
         self.tracer.register_callsite(callsite)
     }
 
@@ -122,7 +132,12 @@ impl Tracer for Debugger {
         let motherfuckingrust = data.end();
         let motherfuckingrust2 = data.start();
         let motherfuckingrust3 = data.order();
-        let _ = write!(data, " (instance #{}) took {}ms", motherfuckingrust3, (motherfuckingrust - motherfuckingrust2) / 1000000);
+        let _ = write!(
+            data,
+            " (instance #{}) took {}ms",
+            motherfuckingrust3,
+            (motherfuckingrust - motherfuckingrust2) / 1000000
+        );
         data.clear();
     }
 

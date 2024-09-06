@@ -26,8 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tokio::sync::mpsc;
 use crate::profiler::thread::command;
+use tokio::sync::mpsc;
 
 pub struct ChannelsIn {
     pub execution: mpsc::Sender<command::Execution>,

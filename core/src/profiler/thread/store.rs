@@ -26,12 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{collections::HashMap, num::NonZeroU32};
-use bp3d_proto::message::payload::List;
-use bp3d_proto::message::WriteSelf;
 use super::{net::Net, state::SpanData};
 use crate::profiler::thread::util::wrap_io_debug_error;
 use crate::profiler::{log_msg::ProfilerRecord, network as net};
+use bp3d_proto::message::payload::List;
+use bp3d_proto::message::WriteSelf;
+use std::{collections::HashMap, num::NonZeroU32};
 
 pub struct SpanStore {
     span_data: HashMap<NonZeroU32, SpanData>,
@@ -83,15 +83,21 @@ impl SpanStore {
         for (k, v) in &mut self.span_data {
             let msg = net::profiler::Dataset {
                 section_id: k.get(),
-                records: List::from_raw_parts(&v.runs_file, v.row_count as _)
+                records: List::from_raw_parts(&v.runs_file, v.row_count as _),
             };
-            wrap_io_debug_error!(net.network_write_dyn_payload(net::message::Type::ProfilerDataset, msg).await);
+            wrap_io_debug_error!(
+                net.network_write_dyn_payload(net::message::Type::ProfilerDataset, msg)
+                    .await
+            );
             v.row_count = 0;
             v.runs_file.clear();
         }
     }
 
-    pub fn record(&mut self, log: ProfilerRecord) -> Option<net::profiler::SectionUpdate<[u8; net::profiler::SIZE_SECTION_UPDATE]>> {
+    pub fn record(
+        &mut self,
+        log: ProfilerRecord,
+    ) -> Option<net::profiler::SectionUpdate<[u8; net::profiler::SIZE_SECTION_UPDATE]>> {
         if let Some(data) = self.span_data.get_mut(&log.id()) {
             data.update(&log.get_duration(), self.max_average_points);
             if self.enable_recording && data.row_count < self.max_rows {
@@ -99,7 +105,7 @@ impl SpanStore {
                 let buffer = &mut data.runs_file;
                 let msg = net::profiler::Record {
                     header: log.header(),
-                    fields: List::from_raw_parts(log.as_bytes(), log.var_count() as _)
+                    fields: List::from_raw_parts(log.as_bytes(), log.var_count() as _),
                 };
                 let _ = msg.write_self(buffer);
             }

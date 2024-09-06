@@ -125,4 +125,8 @@ impl Tracer for Debugger {
         let _ = write!(data, " (instance #{}) took {}ms", motherfuckingrust3, (motherfuckingrust - motherfuckingrust2) / 1000000);
         data.clear();
     }
+
+    fn span_destroy(&self, id: Id) {
+        self.tracer.destroy_span(id);
+    }
 }

@@ -40,6 +40,7 @@ type Guard<'a, T> = MappedMutexGuard<'a, RawMutex, SpanData<T>>;
 pub struct SpanData<T> {
     callsite: NonZeroU32,
     order: u32,
+    uses: u32,
     start: u64,
     end: u64,
     content: T
@@ -63,6 +64,11 @@ impl<T> SpanData<T> {
     pub fn order(&self) -> u32 {
         self.order
     }
+
+    pub fn uses(&self) -> u32 {
+        self.uses
+    }
+
     pub fn start(&self) -> u64 {
         self.start
     }
@@ -89,6 +95,18 @@ pub struct BaseTracer<T> {
 }
 
 impl<T> BaseTracer<T> {
+    pub fn new() -> Self {
+        Self {
+            callsites: RwLock::new(HashMap::new()),
+            cur_callsite: AtomicU32::new(1),
+            spans: Mutex::new(SpanMap {
+                spans: Vec::new(),
+                cur_order: 1
+            }),
+            time: Instant::now()
+        }
+    }
+
     pub fn register_callsite(&self, callsite: &'static Callsite) -> NonZeroU32 {
         let id = unsafe { NonZeroU32::new_unchecked(self.cur_callsite.fetch_add(1, Ordering::Relaxed)) };
         let mut guard = self.callsites.write();
@@ -110,6 +128,7 @@ impl<T> BaseTracer<T> {
             guard.spans.push(SpanData {
                 callsite,
                 order: 0,
+                uses: 0,
                 start: 0,
                 end: 0,
                 content
@@ -119,6 +138,7 @@ impl<T> BaseTracer<T> {
         unsafe {
             guard.spans.get_unchecked_mut(id).order = guard.cur_order;
             guard.cur_order += 1;
+            guard.spans.get_unchecked_mut(id).uses += 1;
         }
         let id1 = unsafe { NonZeroU32::new_unchecked((id + 1) as _) };
         (id1, MutexGuard::map(guard, |v| unsafe { v.spans.get_unchecked_mut(id) }))
@@ -131,13 +151,26 @@ impl<T> BaseTracer<T> {
 
     pub fn span_enter(&self, id: Id) -> Guard<T> {
         let mut data = self.get_data(id);
+        data.uses += 1;
         data.start = self.time.elapsed().as_nanos() as _;
         data
     }
 
     pub fn span_exit(&self, id: Id) -> Guard<T> {
         let mut data = self.get_data(id);
+        data.uses -= 1;
         data.end = self.time.elapsed().as_nanos() as _;
+        if data.uses == 0 {
+            data.order = 0;
+        }
         data
+    }
+
+    pub fn destroy_span(&self, id: Id) {
+        let mut data = self.get_data(id);
+        data.uses -= 1;
+        if data.uses == 0 {
+            data.order = 0;
+        }
     }
 }

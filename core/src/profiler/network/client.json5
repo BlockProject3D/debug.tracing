@@ -1,0 +1,76 @@
+{
+    name: "client",
+    imports: [
+        { protocol: "event", type: "Level" },
+        { protocol: "profiler", type: "Level" }
+    ],
+    structs: [
+        {
+            name: "Record",
+            fields: [
+                {
+                    name: "max_rows",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "enable",
+                    info: {
+                        type: "boolean",
+                        bits: 8
+                    }
+                }
+            ]
+        },
+        {
+            name: "Config",
+            fields: [
+                {
+                    name: "max_average_points",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "record",
+                    info: {
+                        type: "struct",
+                        item_type: "Record"
+                    }
+                },
+                {
+                    name: "period",
+                    info: {
+                        type: "unsigned",
+                        bits: 16
+                    }
+                },
+                {
+                    name: "max_event_level",
+                    info: {
+                        type: "unsigned",
+                        bits: 4
+                    },
+                    view: {
+                        type: "enum",
+                        name: "event::Level"
+                    }
+                },
+                {
+                    name: "max_profiler_level",
+                    info: {
+                        type: "unsigned",
+                        bits: 4
+                    },
+                    view: {
+                        type: "enum",
+                        name: "profiler::Level"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,49 @@
+{
+    name: "value",
+    enums: [
+        {
+            name: "Type",
+            variants: {
+                "Null":  0,
+                "String": 1,
+                "Int8":  2,
+                "Int16": 3,
+                "Int32":  4,
+                "Int64": 5,
+                "UInt8":  6,
+                "UInt16": 7,
+                "UInt32":  8,
+                "UInt64": 9,
+                "Float":  10,
+                "Double": 11,
+                "Bool": 12
+            }
+        }
+    ],
+    messages: [
+        { name: "String", fields: [ { name: "data", info: { type: "string" } } ] }
+    ],
+    structs: [
+        { name: "Int8", fields: [ { name: "data", info: { type: "signed", bits: 8 } } ] },
+        { name: "Int16", fields: [ { name: "data", info: { type: "signed", bits: 16 } } ] },
+        { name: "Int32", fields: [ { name: "data", info: { type: "signed", bits: 32 } } ] },
+        { name: "Int64", fields: [ { name: "data", info: { type: "signed", bits: 64 } } ] },
+        { name: "UInt8", fields: [ { name: "data", info: { type: "unsigned", bits: 8 } } ] },
+        { name: "UInt16", fields: [ { name: "data", info: { type: "unsigned", bits: 16 } } ] },
+        { name: "UInt32", fields: [ { name: "data", info: { type: "unsigned", bits: 32 } } ] },
+        { name: "UInt64", fields: [ { name: "data", info: { type: "unsigned", bits: 64 } } ] },
+        { name: "Float", fields: [ { name: "data", info: { type: "float", bits: 32 } } ] },
+        { name: "Double", fields: [ { name: "data", info: { type: "float", bits: 64 } } ] },
+        { name: "Bool", fields: [ { name: "data", info: { type: "boolean", bits: 8 } } ] },
+        {
+            name: "Header",
+            fields: [
+                {
+                    name: "type",
+                    info: { type: "unsigned", bits: 8 },
+                    view: { type: "enum", name: "Type" }
+                }
+            ]
+        }
+    ]
+}

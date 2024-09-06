@@ -26,16 +26,36 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use semver::Version;
-use std::fs::File;
-use std::io::BufWriter;
-use std::io::Write;
-use std::path::PathBuf;
+//const WRITE_FAIL: &str = "Failed to write verision_inject file";
 
-const WRITE_FAIL: &str = "Failed to write verision_inject file";
+use bp3d_protoc::gen::RustParams;
+use bp3d_protoc::generate_rust;
 
 fn main() {
-    let path = std::env::var_os("OUT_DIR")
+    generate_rust(|loader| {
+        loader.load("./src/profiler/network/message.json5")?;
+        loader.load("./src/profiler/network/value.json5")
+    }, |protoc| protoc, RustParams::default().enable_write_async(true));
+    generate_rust(|loader| {
+        loader.import("./src/profiler/network/value.json5", "crate::profiler::network::value")?;
+        loader.load("./src/profiler/network/common.json5")
+    }, |protoc| protoc.set_reads_messages(false), RustParams::default().enable_write_async(true));
+    generate_rust(|loader| {
+        loader.import("./src/profiler/network/value.json5", "crate::profiler::network::value")?;
+        loader.import("./src/profiler/network/common.json5", "crate::profiler::network::common")?;
+        loader.load("./src/profiler/network/profiler.json5")?;
+        loader.load("./src/profiler/network/event.json5")?;
+        loader.load("./src/profiler/network/span.json5")
+    }, |protoc| protoc.set_reads_messages(false), RustParams::default().enable_write_async(true));
+    generate_rust(|loader| {
+        loader.import("./src/profiler/network/value.json5", "crate::profiler::network::value")?;
+        loader.import("./src/profiler/network/common.json5", "crate::profiler::network::common")?;
+        loader.import("./src/profiler/network/event.json5", "crate::profiler::network::event")?;
+        loader.import("./src/profiler/network/profiler.json5", "crate::profiler::network::profiler")?;
+        loader.load("./src/profiler/network/client.json5")?;
+        loader.load("./src/profiler/network/server.json5")
+    }, |protoc| protoc.set_writes_messages(false), RustParams::default());
+    /*let path = std::env::var_os("OUT_DIR")
         .map(PathBuf::from)
         .expect("Couldn't obtain cargo OUT_DIR")
         .join("version_inject.rs");
@@ -66,5 +86,5 @@ fn main() {
             version.major
         )
         .expect(WRITE_FAIL);
-    }
+    }*/
 }

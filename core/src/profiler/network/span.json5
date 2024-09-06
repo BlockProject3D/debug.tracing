@@ -1,0 +1,103 @@
+{
+    name: "span",
+    imports: [
+        { protocol: "common", type: "Location" },
+        { protocol: "common", type: "Field" },
+        { protocol: "common", type: "SpanId" }
+    ],
+    structs: [
+        {
+            name: "Exit",
+            fields: [
+                {
+                    name: "id",
+                    info: {
+                        type: "struct",
+                        item_type: "SpanId"
+                    }
+                },
+                {
+                    name: "end",
+                    info: {
+                        type: "unsigned",
+                        bits: 64
+                    }
+                }
+            ]
+        }
+    ],
+    messages: [
+        {
+            name: "Callsite",
+            fields: [
+                {
+                    name: "id",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "name",
+                    info: {
+                        type: "string"
+                    }
+                },
+                {
+                    name: "location",
+                    info: {
+                        type: "item",
+                        item_type: "Location"
+                    }
+                }
+            ]
+        },
+        {
+            name: "Enter",
+            fields: [
+                {
+                    name: "id",
+                    info: {
+                        type: "item",
+                        item_type: "SpanId"
+                    }
+                },
+                {
+                    name: "start",
+                    info: {
+                        type: "unsigned",
+                        bits: 64
+                    }
+                },
+                {
+                    name: "fields",
+                    info: {
+                        type: "list",
+                        item_type: "Field",
+                        max_len: 255
+                    }
+                }
+            ]
+        },
+        {
+            name: "Record",
+            fields: [
+                {
+                    name: "id",
+                    info: {
+                        type: "item",
+                        item_type: "SpanId"
+                    }
+                },
+                {
+                    name: "fields",
+                    info: {
+                        type: "list",
+                        item_type: "Field",
+                        max_len: 255
+                    }
+                }
+            ]
+        }
+    ]
+}

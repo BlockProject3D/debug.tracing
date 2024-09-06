@@ -14,12 +14,17 @@ categories = ["development-tools", "development-tools::debugging", "development-
 
 [dependencies]
 bp3d-logger = "2.0.0-rc.3.0.0"
-bp3d-os = { version = "1.0.0-rc.3.0.3", features = ["dirs", "env"] }
+bp3d-os = { version = "1.0.0-rc.3.0.3", features = ["dirs", "env", "cpu-info"] }
 time = "0.3.36"
 serde = { version = "1.0.204", features = ["derive"] }
-bp3d-debug = "1.0.0-rc.2.1.0"
+bp3d-debug = "1.0.0-rc.6.0.0"
 toml = "0.8.14"
 parking_lot = "0.12.3"
+bytesutil = "0.7.0"
+tokio = { version = "1.39.3", features = ["full"] }
+bp3d-proto = { version = "1.0.0-rc.3.0.0", path = "../../bp3d-protoc/runtime", features = ["tokio"] }
+bp3d-util = { version = "1.1.0", features = ["format"] }
 
 [build-dependencies]
 semver = "1.0.7"
+bp3d-protoc = { version = "1.0.0-rc.3.0.0", path = "../../bp3d-protoc/compiler" }

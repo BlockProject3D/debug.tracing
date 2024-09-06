@@ -1,0 +1,185 @@
+{
+    name: "profiler",
+    imports: [
+        { protocol: "common", type: "Location" },
+        { protocol: "common", type: "Field" },
+        { protocol: "common", type: "Duration" }
+    ],
+    enums: [
+        {
+            name: "Level",
+            variants: {
+                "None": 0,
+                "Critical": 1,
+                "Periodic": 2,
+                "Event": 3
+            }
+        }
+    ],
+    structs: [
+        {
+            name: "SectionHeader",
+            fields: [
+                {
+                    name: "level",
+                    info: {
+                        type: "unsigned",
+                        bits: 8
+                    },
+                    view: {
+                        type: "enum",
+                        name: "Level"
+                    }
+                },
+                {
+                    name: "parent",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "id",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                }
+            ]
+        },
+        {
+            name: "RecordHeader",
+            fields: [
+                {
+                    name: "id",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "start",
+                    info: {
+                        type: "unsigned",
+                        bits: 64
+                    }
+                },
+                {
+                    name: "end",
+                    info: {
+                        type: "unsigned",
+                        bits: 64
+                    }
+                }
+            ]
+        },
+        {
+            name: "SectionUpdate",
+            fields: [
+                {
+                    name: "id",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "record_count",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "average_time",
+                    info: {
+                        type: "struct",
+                        item_type: "Duration"
+                    }
+                },
+                {
+                    name: "min_time",
+                    info: {
+                        type: "struct",
+                        item_type: "Duration"
+                    }
+                },
+                {
+                    name: "max_time",
+                    info: {
+                        type: "struct",
+                        item_type: "Duration"
+                    }
+                }
+            ]
+        }
+    ],
+    messages: [
+        {
+            name: "Record",
+            fields: [
+                {
+                    name: "header",
+                    info: {
+                        type: "item",
+                        item_type: "RecordHeader"
+                    }
+                },
+                {
+                    name: "fields",
+                    info: {
+                        type: "list",
+                        item_type: "Field",
+                        max_len: 255,
+                        max_size: 512
+                    }
+                }
+            ]
+        },
+        {
+            name: "Dataset",
+            fields: [
+                {
+                    name: "section_id",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "records",
+                    info: {
+                        type: "list",
+                        max_len: 999999,
+                        item_type: "Record"
+                    }
+                }
+            ]
+        },
+        {
+            name: "Section",
+            fields: [
+                {
+                    name: "name",
+                    info: {
+                        type: "string"
+                    }
+                },
+                {
+                    name: "location",
+                    info: {
+                        type: "item",
+                        item_type: "Location"
+                    }
+                },
+                {
+                    name: "header",
+                    info: {
+                        type: "item",
+                        item_type: "SectionHeader"
+                    }
+                }
+            ]
+        }
+    ]
+}

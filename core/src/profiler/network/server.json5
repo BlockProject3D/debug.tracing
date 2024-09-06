@@ -1,0 +1,24 @@
+{
+    name: "server",
+    structs: [
+        {
+            name: "Config",
+            fields: [
+                {
+                    name: "max_rows",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "min_period",
+                    info: {
+                        type: "unsigned",
+                        bits: 16
+                    }
+                }
+            ]
+        }
+    ]
+}

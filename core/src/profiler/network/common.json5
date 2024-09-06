@@ -1,0 +1,131 @@
+{
+    name: "common",
+    imports: [
+        { protocol: "value", type: "Int8" },
+        { protocol: "value", type: "Int16" },
+        { protocol: "value", type: "Int32" },
+        { protocol: "value", type: "Int64" },
+        { protocol: "value", type: "UInt8" },
+        { protocol: "value", type: "UInt16" },
+        { protocol: "value", type: "UInt32" },
+        { protocol: "value", type: "UInt64" },
+        { protocol: "value", type: "Float" },
+        { protocol: "value", type: "Double" },
+        { protocol: "value", type: "Bool" },
+        { protocol: "value", type: "String" },
+        { protocol: "value", type: "Header" }
+    ],
+    structs: [
+        {
+            name: "SpanId",
+            fields: [
+                {
+                    name: "callsite",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "instance",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                }
+            ]
+        },
+        {
+            name: "Duration",
+            fields: [
+                {
+                    name: "seconds",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "nano_seconds",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                }
+            ]
+        }
+    ],
+    unions: [
+        {
+            name: "Value",
+            discriminant: "Header.type",
+            cases: [
+                { name: "Null", case: "Null" },
+                { name: "String", case: "String", item_type: "String" },
+                { name: "Int8", case: "Int8", item_type: "Int8" },
+                { name: "Int16", case: "Int16", item_type: "Int16" },
+                { name: "Int32", case: "Int32", item_type: "Int32" },
+                { name: "Int64", case: "Int64", item_type: "Int64" },
+                { name: "UInt8", case: "UInt8", item_type: "UInt8" },
+                { name: "UInt16", case: "UInt16", item_type: "UInt16" },
+                { name: "UInt32", case: "UInt32", item_type: "UInt32" },
+                { name: "UInt64", case: "UInt64", item_type: "UInt64" },
+                { name: "Float", case: "Float", item_type: "Float" },
+                { name: "Double", case: "Double", item_type: "Double" },
+                { name: "Bool", case: "Bool", item_type: "Bool" }
+            ]
+        }
+    ],
+    messages: [
+        {
+            name: "Location",
+            fields: [
+                {
+                    name: "module_path",
+                    info: {
+                        type: "string"
+                    }
+                },
+                {
+                    name: "file",
+                    info: {
+                        type: "string"
+                    }
+                },
+                {
+                    name: "line",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                }
+            ]
+        },
+        {
+            name: "Field",
+            fields: [
+                {
+                    name: "name",
+                    info: {
+                        type: "string"
+                    }
+                },
+                {
+                    name: "header",
+                    info: {
+                        type: "item",
+                        item_type: "Header"
+                    }
+                },
+                {
+                    name: "value",
+                    info: {
+                        type: "union",
+                        on: "header",
+                        item_type: "Value"
+                    }
+                }
+            ]
+        }
+    ]
+}

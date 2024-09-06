@@ -1,0 +1,140 @@
+{
+    name: "message",
+    enums: [
+        {
+            name: "Type",
+            variants: {
+                "Project": 0,
+                "ProfilerSectionRegister": 1,
+                "Event": 4,
+                "ProfilerSectionUpdate": 5,
+                "ProfilerDataset": 6,
+                "ServerConfig": 7,
+                "SpanCallsiteRegister": 8,
+                "SpanEnter": 9,
+                "SpanExit": 10,
+                "SpanRecord": 11
+            }
+        }
+    ],
+    structs: [
+        {
+            name: "Header",
+            fields: [
+                {
+                    name: "size",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                },
+                {
+                    name: "type",
+                    info: {
+                        type: "unsigned",
+                        bits: 8
+                    },
+                    view: {
+                        type: "enum",
+                        name: "Type"
+                    }
+                }
+            ]
+        }
+    ],
+    messages: [
+        {
+            name: "Target",
+            fields: [
+                {
+                    name: "arch",
+                    info: {
+                        type: "string",
+                        max_len: 63
+                    }
+                },
+                {
+                    name: "family",
+                    info: {
+                        type: "string",
+                        max_len: 63
+                    }
+                },
+                {
+                    name: "os",
+                    info: {
+                        type: "string",
+                        max_len: 63
+                    }
+                }
+            ]
+        },
+        {
+            name: "Cpu",
+            fields: [
+                {
+                    name: "name",
+                    info: {
+                        type: "string",
+                        max_len: 63
+                    }
+                },
+                {
+                    name: "core_count",
+                    info: {
+                        type: "unsigned",
+                        bits: 32
+                    }
+                }
+            ]
+        },
+        {
+            name: "Project",
+            fields: [
+                {
+                    name: "app_name",
+                    info: {
+                        type: "string",
+                        max_len: 63
+                    }
+                },
+                {
+                    name: "name",
+                    info: {
+                        type: "string",
+                        max_len: 63
+                    }
+                },
+                {
+                    name: "version",
+                    info: {
+                        type: "string",
+                        max_len: 63
+                    }
+                },
+                {
+                    name: "target",
+                    info: {
+                        type: "item",
+                        item_type: "Target"
+                    }
+                },
+                {
+                    name: "cpu",
+                    info: {
+                        type: "item",
+                        item_type: "Cpu"
+                    },
+                    optional: true
+                },
+                {
+                    name: "cmd_line",
+                    info: {
+                        type: "string",
+                        max_len: 255
+                    }
+                }
+            ]
+        }
+    ]
+}

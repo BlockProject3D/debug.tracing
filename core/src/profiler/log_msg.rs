@@ -26,18 +26,21 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::network_types as nt;
-use bytesutil::WriteExt;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::time::Duration;
+use bp3d_debug::logger::Level;
+use bp3d_debug::trace::span::Id;
+use bp3d_debug::util::Location;
+use crate::profiler::network::common::{SpanId, SIZE_SPAN_ID};
+use crate::profiler::network::event::{Header, SIZE_HEADER};
+use crate::profiler::network::profiler::{RecordHeader, SIZE_RECORD_HEADER};
 
-pub const CTRL_LOG_SPAN: usize = std::mem::size_of::<NonZeroU32>() + std::mem::size_of::<u16>() + 1;
-pub const CTRL_LOG_EVENT: usize = std::mem::size_of::<i64>()
-    + std::mem::size_of::<Option<NonZeroU32>>()
-    + std::mem::size_of::<u16>()
-    + 2;
+const BUFFER_LEN: usize = 512;
+const CTRL_PROFILER_RECORD: usize = SIZE_RECORD_HEADER + size_of::<u16>() + 1;
+const CTRL_FIELD_SET: usize = CTRL_PROFILER_RECORD;
+const CTRL_EVENT: usize = size_of::<Location>() + SIZE_HEADER + size_of::<u16>() + 1;
 
 pub trait Log: std::io::Write {
     fn increment_var_count(&mut self);
@@ -99,62 +102,106 @@ macro_rules! impl_log_msg {
 
 #[derive(Clone, Debug)]
 #[repr(C)]
-pub struct SpanLog {
-    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_SPAN],
-    id: NonZeroU32,
-    duration_secs: u32,
-    duration_nanos: u32,
+pub struct ProfilerRecord {
+    buffer: [MaybeUninit<u8>; BUFFER_LEN - CTRL_PROFILER_RECORD],
+    header: RecordHeader<[u8; SIZE_RECORD_HEADER]>,
     msg_len: u16,
     var_count: u8,
 }
 
-impl_log_msg!(SpanLog);
+impl_log_msg!(ProfilerRecord);
 
-impl SpanLog {
-    pub fn new(id: NonZeroU32) -> SpanLog {
-        SpanLog {
+impl ProfilerRecord {
+    pub fn new(id: NonZeroU32, start: u64, end: u64) -> ProfilerRecord {
+        let mut header = RecordHeader::new_on_stack();
+        header.set_id(id.get()).set_start(start).set_end(end);
+        ProfilerRecord {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
-            id,
-            msg_len: 1,
-            duration_secs: 0,
-            duration_nanos: 0,
+            header,
+            msg_len: 0,
             var_count: 0,
         }
     }
 
-    pub fn set_duration(&mut self, duration: &Duration) {
-        self.duration_secs = duration.as_secs() as _;
-        self.duration_nanos = duration.subsec_nanos()
+    pub fn header(&self) -> RecordHeader<&[u8]> {
+        self.header.to_ref()
+    }
+
+    pub fn var_count(&self) -> u8 {
+        self.var_count
+    }
+
+    pub fn add_vars(&mut self, count: u8) {
+        self.var_count += count;
     }
 
     pub fn get_duration(&self) -> Duration {
-        Duration::new(self.duration_secs as _, self.duration_nanos)
-    }
-
-    pub fn write_finish(&mut self) {
-        self.buffer[0].write(self.var_count);
-        let _ = self.write_le(self.duration_secs);
-        let _ = self.write_le(self.duration_nanos);
+        let start = self.header.get_start();
+        let end = self.header.get_end();
+        let diff = end - start;
+        Duration::from_nanos(diff)
     }
 
     pub fn clear(&mut self) {
-        self.msg_len = 1;
+        self.msg_len = 0;
         self.var_count = 0;
     }
 
     pub fn id(&self) -> NonZeroU32 {
-        self.id
+        unsafe { NonZeroU32::new_unchecked(self.header.get_id()) }
+    }
+}
+
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct FieldsetRecord {
+    buffer: [MaybeUninit<u8>; BUFFER_LEN - CTRL_FIELD_SET],
+    id: SpanId<[u8; SIZE_SPAN_ID]>,
+    msg_len: u16,
+    var_count: u8,
+}
+
+impl_log_msg!(FieldsetRecord);
+
+impl FieldsetRecord {
+    pub fn new() -> FieldsetRecord {
+        FieldsetRecord {
+            buffer: unsafe { MaybeUninit::uninit().assume_init() },
+            id: SpanId::new_on_stack(),
+            msg_len: 0,
+            var_count: 0,
+        }
+    }
+
+    pub fn set_id(&mut self, id: Id) {
+        self.id.set_callsite(id.get_callsite().get()).set_instance(id.get_instance().get());
+    }
+
+    pub fn var_count(&self) -> u8 {
+        self.var_count
+    }
+
+    pub fn add_vars(&mut self, count: u8) {
+        self.var_count += count;
+    }
+
+    pub fn clear(&mut self) {
+        self.msg_len = 0;
+        self.var_count = 0;
+    }
+
+    pub fn id(&self) -> SpanId<&[u8]> {
+        self.id.to_ref()
     }
 }
 
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct EventLog {
-    buffer: [MaybeUninit<u8>; 512 - CTRL_LOG_EVENT],
-    id: Option<NonZeroU32>,
-    timestamp: i64,
+    buffer: [MaybeUninit<u8>; BUFFER_LEN - CTRL_EVENT],
+    location: Location,
+    header: Header<[u8; SIZE_HEADER]>,
     msg_len: u16,
-    level: nt::message::Level,
     var_count: u8,
 }
 
@@ -162,42 +209,34 @@ impl_log_msg!(EventLog);
 
 impl EventLog {
     pub fn new(
-        id: Option<NonZeroU32>,
+        id: Option<Id>,
         timestamp: i64,
-        level: nt::message::Level,
-        module: &str,
-        target: &str,
+        level: Level,
+        location: Location,
     ) -> EventLog {
-        let mut log = EventLog {
+        let mut header = Header::new_on_stack();
+        if let Some(id) = id {
+            header.get_id_mut().set_callsite(id.get_callsite().get()).set_instance(id.get_instance().get());
+        }
+        header.set_timestamp(timestamp).set_raw_level(level as u8);
+        EventLog {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
-            id,
-            timestamp,
-            level,
+            location,
+            header,
             msg_len: 1,
             var_count: 0,
-        };
-        unsafe {
-            log.write_multiple(target.as_bytes());
-            log.write_single(0);
-            log.write_multiple(module.as_bytes());
-            log.write_single(0)
         }
-        log
     }
 
-    pub fn id(&self) -> Option<NonZeroU32> {
-        self.id
+    pub fn location(&self) -> &Location {
+        &self.location
     }
 
-    pub fn level(&self) -> nt::message::Level {
-        self.level
+    pub fn var_count(&self) -> u8 {
+        self.var_count
     }
 
-    pub fn timestamp(&self) -> i64 {
-        self.timestamp
-    }
-
-    pub fn write_finish(&mut self) {
-        self.buffer[0].write(self.var_count);
+    pub fn header(&self) -> Header<&[u8]> {
+        self.header.to_ref()
     }
 }

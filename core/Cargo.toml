@@ -25,6 +25,8 @@ tokio = { version = "1.39.3", features = ["full"] }
 bp3d-proto = { version = "1.0.0-rc.3.0.0", path = "../../bp3d-protoc/runtime", features = ["tokio"] }
 bp3d-util = { version = "1.1.0", features = ["format"] }
 
+#TODO: Check if we need bytesutil
+
 [build-dependencies]
 semver = "1.0.7"
 bp3d-protoc = { version = "1.0.0-rc.3.0.0", path = "../../bp3d-protoc/compiler" }

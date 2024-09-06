@@ -26,12 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use bytesutil::WriteExt;
-use std::{collections::HashMap, io::Write, num::NonZeroU32};
-
+use std::{collections::HashMap, num::NonZeroU32};
+use bp3d_proto::message::payload::List;
+use bp3d_proto::message::WriteSelf;
 use super::{net::Net, state::SpanData};
 use crate::profiler::thread::util::wrap_io_debug_error;
-use crate::profiler::{log_msg::SpanLog, network_types as nt};
+use crate::profiler::{log_msg::ProfilerRecord, network as net};
 
 pub struct SpanStore {
     span_data: HashMap<NonZeroU32, SpanData>,
@@ -46,13 +46,13 @@ impl SpanStore {
     pub fn new(
         global_max_rows: u32,
         min_period: u16,
-        config: &nt::message::ClientConfig,
+        config: &net::client::Config<&[u8]>,
     ) -> SpanStore {
-        let mut max_rows = config.record.max_rows;
+        let mut max_rows = config.get_record().get_max_rows();
         if max_rows > global_max_rows {
             max_rows = global_max_rows;
         }
-        let mut period = config.period;
+        let mut period = config.get_period();
         if period < min_period {
             period = min_period;
         }
@@ -60,8 +60,8 @@ impl SpanStore {
             span_data: HashMap::new(),
             max_rows,
             global_max_rows,
-            max_average_points: config.max_average_points,
-            enable_recording: config.record.enable,
+            max_average_points: config.get_max_average_points(),
+            enable_recording: config.get_record().get_enable(),
             period,
         }
     }
@@ -81,36 +81,38 @@ impl SpanStore {
     pub async fn stop_recording(&mut self, net: &mut Net<'_>) {
         self.enable_recording = false;
         for (k, v) in &mut self.span_data {
-            let msg = nt::message::SpanDataset {
-                id: k.get(),
-                run_count: v.row_count,
+            let msg = net::profiler::Dataset {
+                section_id: k.get(),
+                records: List::from_raw_parts(&v.runs_file, v.row_count as _)
             };
-            wrap_io_debug_error!(net.network_write_fixed_payload(msg, &v.runs_file).await);
+            wrap_io_debug_error!(net.network_write_dyn_payload(net::message::Type::ProfilerDataset, msg).await);
             v.row_count = 0;
             v.runs_file.clear();
         }
     }
 
-    pub fn record(&mut self, mut log: SpanLog) -> Option<nt::message::SpanUpdate> {
+    pub fn record(&mut self, log: ProfilerRecord) -> Option<net::profiler::SectionUpdate<[u8; net::profiler::SIZE_SECTION_UPDATE]>> {
         if let Some(data) = self.span_data.get_mut(&log.id()) {
             data.update(&log.get_duration(), self.max_average_points);
             if self.enable_recording && data.row_count < self.max_rows {
                 data.row_count += 1;
                 let buffer = &mut data.runs_file;
-                log.write_finish();
-                let _ = buffer.write_all(log.as_bytes());
+                let msg = net::profiler::Record {
+                    header: log.header(),
+                    fields: List::from_raw_parts(log.as_bytes(), log.var_count() as _)
+                };
+                let _ = msg.write_self(buffer);
             }
             let now = std::time::Instant::now();
             let duration = std::time::Instant::now() - data.last_display_time;
             if duration.as_millis() as u16 > self.period {
                 data.last_display_time = now;
-                Some(nt::message::SpanUpdate {
-                    id: log.id().get(),
-                    run_count: data.row_count,
-                    average_time: nt::message::Duration::from(&data.get_average()),
-                    min_time: nt::message::Duration::from(&data.min_time),
-                    max_time: nt::message::Duration::from(&data.max_time),
-                })
+                let mut msg = net::profiler::SectionUpdate::new_on_stack();
+                msg.set_id(log.id().get()).set_record_count(data.row_count);
+                msg.get_average_time_mut().from_std(&data.get_average());
+                msg.get_min_time_mut().from_std(&data.min_time);
+                msg.get_max_time_mut().from_std(&data.max_time);
+                Some(msg)
             } else {
                 None
             }

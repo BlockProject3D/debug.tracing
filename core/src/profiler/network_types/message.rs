@@ -32,13 +32,14 @@ use serde::{Deserialize, Serialize};
 #[repr(u8)]
 pub enum MsgType {
     Project = 0,
-    SpanAlloc = 1,
-    SpanParent = 2,
-    SpanFollows = 3,
-    SpanEvent = 4,
-    SpanUpdate = 5,
-    SpanDataset = 6,
+    ProfilerSectionRegister = 1,
+    Event = 4,
+    ProfilerSectionUpdate = 5,
+    ProfilerDataset = 6,
     ServerConfig = 7,
+    SpanAlloc = 8,
+    SpanEnter = 9,
+    SpanExit = 10
 }
 
 pub trait MsgSize {
@@ -47,7 +48,6 @@ pub trait MsgSize {
 
 pub trait Msg {
     const TYPE: MsgType;
-    const HAS_PAYLOAD: bool;
 }
 
 impl<T: MsgSize> MsgSize for Option<T> {
@@ -99,36 +99,37 @@ impl MsgSize for Level {
     const SIZE: usize = 1;
 }
 
-impl Level {
-    pub fn from_tracing(level: tracing::Level) -> Level {
-        match level {
-            tracing::Level::TRACE => Level::Trace,
-            tracing::Level::DEBUG => Level::Debug,
-            tracing::Level::WARN => Level::Warning,
-            tracing::Level::ERROR => Level::Error,
-            _ => Level::Info,
-        }
+impl From<bp3d_debug::logger::Level> for Level {
+    fn from(value: bp3d_debug::logger::Level) -> Self {
+        unsafe { std::mem::transmute(value as u8 - 1) }
     }
+}
 
-    pub fn from_log(level: log::Level) -> Level {
-        match level {
-            log::Level::Trace => Level::Trace,
-            log::Level::Debug => Level::Debug,
-            log::Level::Warn => Level::Warning,
-            log::Level::Error => Level::Error,
-            _ => Level::Info,
-        }
+#[derive(Serialize, Deserialize, Copy, Clone, Debug)]
+#[repr(u8)]
+pub enum ProfilerSectionLevel {
+    Critical = 0,
+    Periodic = 1,
+    Event = 2
+}
+
+impl MsgSize for ProfilerSectionLevel {
+    const SIZE: usize = 1;
+}
+
+impl From<bp3d_debug::profiler::section::Level> for ProfilerSectionLevel {
+    fn from(value: bp3d_debug::profiler::section::Level) -> Self {
+        unsafe { std::mem::transmute(value as u8) }
     }
 }
 
 #[derive(Serialize)]
-pub struct Metadata<'a> {
-    pub level: Level,
-    pub line: Option<u32>,
+pub struct ProfilerSectionCallsite<'a> {
+    pub level: ProfilerSectionLevel,
+    pub line: u32,
     pub name: &'a str,
-    pub target: &'a str,
-    pub module_path: Option<&'a str>,
-    pub file: Option<&'a str>,
+    pub module_path: &'a str,
+    pub file: &'a str,
 }
 
 #[derive(Serialize)]
@@ -156,68 +157,35 @@ pub struct Project<'a> {
 
 impl<'a> Msg for Project<'a> {
     const TYPE: MsgType = MsgType::Project;
-    const HAS_PAYLOAD: bool = true;
 }
 
 #[derive(Serialize)]
-pub struct SpanAlloc<'a> {
+pub struct ProfilerSectionRegister<'a> {
     pub id: u32,
-    pub metadata: Metadata<'a>,
+    pub metadata: ProfilerSectionCallsite<'a>,
 }
 
-impl<'a> Msg for SpanAlloc<'a> {
-    const TYPE: MsgType = MsgType::SpanAlloc;
-    const HAS_PAYLOAD: bool = true;
-}
-
-#[derive(Serialize)]
-pub struct SpanParent {
-    pub id: u32,
-    pub parent_node: u32, //0 = No parent
-}
-
-impl MsgSize for SpanParent {
-    const SIZE: usize = 8;
-}
-
-impl Msg for SpanParent {
-    const TYPE: MsgType = MsgType::SpanParent;
-    const HAS_PAYLOAD: bool = false;
+impl<'a> Msg for ProfilerSectionRegister<'a> {
+    const TYPE: MsgType = MsgType::ProfilerSectionRegister;
 }
 
 #[derive(Serialize)]
-pub struct SpanFollows {
-    pub id: u32,
-    pub follows: u32,
-}
-
-impl MsgSize for SpanFollows {
-    const SIZE: usize = 8;
-}
-
-impl Msg for SpanFollows {
-    const TYPE: MsgType = MsgType::SpanFollows;
-    const HAS_PAYLOAD: bool = false;
-}
-
-#[derive(Serialize)]
-pub struct SpanEvent {
+pub struct Event {
     pub id: u32,
     pub timestamp: i64,
     pub level: Level,
 }
 
-impl Msg for SpanEvent {
-    const TYPE: MsgType = MsgType::SpanEvent;
-    const HAS_PAYLOAD: bool = true;
+impl Msg for Event {
+    const TYPE: MsgType = MsgType::Event;
 }
 
-impl MsgSize for SpanEvent {
+impl MsgSize for Event {
     const SIZE: usize = u32::SIZE + i64::SIZE + Level::SIZE;
 }
 
 #[derive(Serialize)]
-pub struct SpanUpdate {
+pub struct ProfilerSectionUpdate {
     pub id: u32,
     pub run_count: u32,
     pub average_time: Duration,
@@ -225,29 +193,26 @@ pub struct SpanUpdate {
     pub max_time: Duration,
 }
 
-impl MsgSize for SpanUpdate {
+impl MsgSize for ProfilerSectionUpdate {
     const SIZE: usize = 8 + Duration::SIZE * 3;
 }
 
-impl Msg for SpanUpdate {
-    const TYPE: MsgType = MsgType::SpanUpdate;
-    const HAS_PAYLOAD: bool = false;
+impl Msg for ProfilerSectionUpdate {
+    const TYPE: MsgType = MsgType::ProfilerSectionUpdate;
 }
 
 #[derive(Serialize)]
-pub struct SpanDataset {
+pub struct ProfilerDataset {
     pub id: u32,
     pub run_count: u32,
 }
 
-impl MsgSize for SpanDataset {
+impl MsgSize for ProfilerDataset {
     const SIZE: usize = u32::SIZE * 2;
 }
 
-impl<'a> Msg for SpanDataset {
-    const TYPE: MsgType = MsgType::SpanDataset;
-
-    const HAS_PAYLOAD: bool = true;
+impl<'a> Msg for ProfilerDataset {
+    const TYPE: MsgType = MsgType::ProfilerDataset;
 }
 
 #[derive(Deserialize, Default)]
@@ -284,6 +249,4 @@ impl MsgSize for ServerConfig {
 
 impl Msg for ServerConfig {
     const TYPE: MsgType = MsgType::ServerConfig;
-
-    const HAS_PAYLOAD: bool = false;
 }

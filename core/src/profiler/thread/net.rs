@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::{Cursor, Error, ErrorKind};
-
-use crate::profiler::network_types as nt;
-use serde::{Deserialize, Serialize};
+use std::io::Cursor;
+use bp3d_proto::message::{WriteSelf, WriteSelfAsync};
+use bp3d_proto::util::FixedSize;
+use crate::profiler::network as net;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::{
@@ -58,79 +58,49 @@ impl<'a> Net<'a> {
         self.write.flush().await
     }
 
-    pub async fn network_read_fixed<'b, M: nt::message::MsgSize + Deserialize<'b>>(
+    pub async fn network_read_fixed<'b, M: FixedSize + From<&'b [u8]>>(
         &'b mut self,
     ) -> std::io::Result<M> {
         self.read
             .read_exact(&mut self.fixed_buffer[0..M::SIZE])
             .await?;
-        let mut de = nt::deserializer::Deserializer::new(&self.fixed_buffer[0..M::SIZE]);
-        M::deserialize(&mut de).map_err(|e| Error::new(ErrorKind::Other, e))
+        Ok(M::from(&self.fixed_buffer[0..M::SIZE]))
     }
 
-    pub async fn network_write_fixed<M: Serialize + nt::message::MsgSize + nt::message::Msg>(
+    pub async fn network_write_fixed<M: FixedSize + AsRef<[u8]>>(
         &mut self,
+        ty: net::message::Type,
         message: M,
     ) -> std::io::Result<()> {
-        let mut cursor = Cursor::new(&mut self.fixed_buffer as &mut [u8]);
-        let mut serializer = nt::serializer::Serializer::new(&mut cursor);
-        if let Err(e) = M::TYPE.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        if let Err(e) = message.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        self.write.write_u32_le((M::SIZE + 1) as _).await?;
-        self.write
-            .write_all(&self.fixed_buffer[..M::SIZE + 1])
-            .await?;
+        let mut msg = net::message::Header::new_on_stack();
+        msg.set_type(ty).set_size(M::SIZE as _);
+        self.write.write_all(msg.as_ref()).await?;
+        self.write.write_all(message.as_ref()).await?;
         Ok(())
     }
 
-    pub async fn network_write_dyn<M: Serialize + nt::message::Msg, B: AsMut<[u8]>>(
+    pub async fn network_write_dyn<'b, M: WriteSelf, B: AsMut<[u8]>>(
         &mut self,
+        ty: net::message::Type,
         message: M,
         mut buffer: B,
-    ) -> std::io::Result<()> {
+    ) -> bp3d_proto::message::Result<()> {
         let mut cursor = Cursor::new(buffer.as_mut());
-        let mut serializer = nt::serializer::Serializer::new(&mut cursor);
-        if let Err(e) = M::TYPE.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        if let Err(e) = message.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        self.write.write_u32_le(cursor.position() as _).await?;
-        let motherfuckingrust = cursor.position() as usize;
-        self.write
-            .write_all(&buffer.as_mut()[..motherfuckingrust])
-            .await?;
+        message.write_self(&mut cursor)?;
+        let mut msg = net::message::Header::new_on_stack();
+        msg.set_type(ty).set_size(cursor.position() as _);
+        self.write.write_all(msg.as_ref()).await?;
+        let motherfuckingrust = cursor.position() as _;
+        self.write.write_all(&buffer.as_mut()[..motherfuckingrust]).await.map_err(bp3d_proto::message::Error::Io)?;
         Ok(())
     }
 
-    pub async fn network_write_fixed_payload<
-        M: Serialize + nt::message::Msg + nt::message::MsgSize,
-        B: AsRef<[u8]>,
-    >(
-        &mut self,
-        message: M,
-        buffer: B,
-    ) -> std::io::Result<()> {
-        let mut cursor = Cursor::new(&mut self.fixed_buffer as &mut [u8]);
-        let mut serializer = nt::serializer::Serializer::new(&mut cursor);
-        if let Err(e) = M::TYPE.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        if let Err(e) = message.serialize(&mut serializer) {
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        self.write
-            .write_u32_le((M::SIZE + 1 + buffer.as_ref().len()) as _)
-            .await?;
-        self.write
-            .write_all(&self.fixed_buffer[..M::SIZE + 1])
-            .await?;
-        self.write.write_all(buffer.as_ref()).await?;
+    pub async fn network_write_dyn_payload<'b, M: WriteSelf + WriteSelfAsync>(&mut self, ty: net::message::Type, message: M) -> bp3d_proto::message::Result<()> {
+        let mut msg = net::message::Header::new_on_stack();
+        msg.set_type(ty).set_size(message.size()? as _);
+        self.write.write_all(msg.as_ref()).await?;
+        message.write_self_async(&mut self.write).await?;
+
         Ok(())
     }
 }

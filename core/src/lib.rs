@@ -38,7 +38,7 @@ mod tracer_base;
 mod debug_logger;
 //mod core;
 //mod logger;
-//mod profiler;
+mod profiler;
 //mod util;
 //mod visitor;
 

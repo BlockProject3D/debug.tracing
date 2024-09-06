@@ -26,12 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::log_msg::{EventLog, SpanLog};
-use crate::profiler::thread::util::FixedBufStr;
-use crate::util::{Meta, SpanId};
+use crate::profiler::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
 use std::num::NonZeroU32;
+use bp3d_debug::trace::span::Id;
+use bp3d_util::format::FixedBufStr;
 
-#[derive(Debug)]
 pub enum Control {
     Project {
         app_name: FixedBufStr<63>,
@@ -39,27 +38,35 @@ pub enum Control {
         version: FixedBufStr<63>,
     },
 
+    RegisterSection {
+        section: &'static bp3d_debug::profiler::section::Section,
+        id: NonZeroU32,
+        parent: Option<NonZeroU32>
+    },
+
+    RegisterSpan {
+        callsite: &'static bp3d_debug::trace::span::Callsite,
+        id: NonZeroU32
+    },
+
     Terminate,
 }
 
 #[derive(Debug)]
-pub enum Span {
-    Alloc {
-        id: NonZeroU32,
-        metadata: Meta,
+pub enum Execution {
+    SpanEnter {
+        fields: FieldsetRecord,
+        start: u64
     },
 
-    UpdateParent {
-        id: NonZeroU32,
-        parent: Option<NonZeroU32>, //None must mean that span is at root
+    SpanRecord(FieldsetRecord),
+
+    SpanExit {
+        id: Id,
+        end: u64
     },
 
-    Follows {
-        id: SpanId,
-        follows: SpanId,
-    },
+    ProfilerRecord(ProfilerRecord),
 
-    Log(SpanLog),
-
-    Event(EventLog),
+    Event(EventLog)
 }

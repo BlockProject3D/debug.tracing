@@ -236,6 +236,10 @@ impl EventLog {
         self.var_count
     }
 
+    pub fn add_vars(&mut self, count: u8) {
+        self.var_count += count;
+    }
+
     pub fn header(&self) -> Header<&[u8]> {
         self.header.to_ref()
     }

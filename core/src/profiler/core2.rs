@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::cell::RefCell;
 use std::fmt::Arguments;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -35,11 +36,18 @@ use bp3d_debug::profiler::Profiler;
 use bp3d_debug::profiler::section::Section;
 use bp3d_debug::trace::span::Id;
 use bp3d_debug::trace::Tracer;
-use crate::profiler::log_msg::{FieldsetRecord, ProfilerRecord};
+use bp3d_os::time::LocalOffsetDateTime;
+use time::OffsetDateTime;
+use crate::profiler::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
 use crate::profiler::thread::ChannelsIn;
 use crate::profiler::thread::command::{Control, Execution};
 use crate::profiler::util::write_fields;
 use crate::tracer_base::BaseTracer;
+use crate::profiler::util::WriteField;
+
+thread_local! {
+    static SPAN_STACK: RefCell<Vec<Id>> = RefCell::new(Vec::new());
+}
 
 pub struct RemoteDebugger {
     channels: ChannelsIn,
@@ -49,8 +57,14 @@ pub struct RemoteDebugger {
 
 impl Logger for RemoteDebugger {
     fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &[Field]) {
-        //TODO: Implement log stack
-        todo!()
+        let span = SPAN_STACK.with(|v| v.borrow().last().map(|v| *v));
+        let timestamp = OffsetDateTime::now_local().unwrap_or_else(|| OffsetDateTime::now_utc()).unix_timestamp_nanos() / 1000;
+        let mut log = EventLog::new(span, timestamp as _, callsite.level(), *callsite.location());
+        let mut buffer = [0; 1];
+        // Amazingly broken Rust is far too stupid to figure out that write_field is being called on &self!!!
+        (&msg).write_field("message", &mut buffer, &mut log);
+        write_fields(fields, &mut log);
+        let _ = self.channels.execution.send(Execution::Event(log));
     }
 }
 
@@ -93,6 +107,7 @@ impl Tracer for RemoteDebugger {
     }
 
     fn span_enter(&self, id: Id) {
+        SPAN_STACK.with(|v| v.borrow_mut().push(id));
         let fieldset = self.tracer.span_enter(id);
         let _ = self.channels.execution.send(Execution::SpanEnter {
             fields: fieldset.clone(),
@@ -115,6 +130,7 @@ impl Tracer for RemoteDebugger {
     }
 
     fn span_exit(&self, id: Id) {
+        SPAN_STACK.with(|v| v.borrow_mut().pop());
         let data = self.tracer.span_exit(id);
         let _ = self.channels.execution.send(Execution::SpanExit {
             id,

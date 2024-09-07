@@ -121,6 +121,7 @@ impl<T> BaseTracer<T> {
 
     pub fn create_span(&self, callsite: NonZeroU32, content: T) -> (NonZeroU32, Guard<T>) {
         let mut guard = self.spans.lock();
+        //TODO: warning this may bug if a slot is re-claimed because the content is not cleared
         let id = guard.spans.iter().enumerate().find_map(|(i, v)| match v.order {
             0 => Some(i),
             _ => None

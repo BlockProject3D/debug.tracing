@@ -26,13 +26,45 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//const WRITE_FAIL: &str = "Failed to write verision_inject file";
+const WRITE_FAIL: &str = "Failed to write verision_inject file";
 
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::PathBuf;
 use bp3d_protoc::gen::RustParams;
 use bp3d_protoc::generate_rust;
+use semver::Version;
+use std::io::Write;
+
+fn generate_version_inject() {
+    let path = std::env::var_os("OUT_DIR")
+        .map(PathBuf::from)
+        .expect("Couldn't obtain cargo OUT_DIR")
+        .join("version_inject.rs");
+    let file = File::create(path).expect("Couldn't create version_inject file");
+    let mut writer = BufWriter::new(file);
+    let version = std::env::var("CARGO_PKG_VERSION").expect("Unable to read package version");
+    let version = Version::parse(&version).expect("Failed to parse package version");
+    write!(&mut writer, "const VERSION_DATA: [u8; 24] = [").expect(WRITE_FAIL);
+    let len = if !version.pre.is_empty() {
+        let len = std::cmp::min(24, version.pre.as_bytes().len());
+        for v in 0..len {
+            write!(&mut writer, "0x{:X}, ", version.pre.as_bytes()[v]).expect(WRITE_FAIL);
+        }
+        len
+    } else {
+        0
+    };
+    for _ in 0..24 - len {
+        write!(&mut writer, "0x0, ").expect(WRITE_FAIL);
+    }
+    writeln!(&mut writer, "];\n").expect(WRITE_FAIL);
+    writeln!(&mut writer, "const MAJOR_VERSION: u64 = {};", version.major).expect(WRITE_FAIL);
+}
 
 fn main() {
     generate_rust(|loader| {
+        loader.load("./src/profiler/network/hello.json5")?;
         loader.load("./src/profiler/network/message.json5")?;
         loader.load("./src/profiler/network/value.json5")
     }, |protoc| protoc, RustParams::default().enable_write_async(true));
@@ -55,36 +87,5 @@ fn main() {
         loader.load("./src/profiler/network/client.json5")?;
         loader.load("./src/profiler/network/server.json5")
     }, |protoc| protoc.set_writes_messages(false), RustParams::default());
-    /*let path = std::env::var_os("OUT_DIR")
-        .map(PathBuf::from)
-        .expect("Couldn't obtain cargo OUT_DIR")
-        .join("version_inject.rs");
-    let file = File::create(path).expect("Couldn't create version_inject file");
-    let mut writer = BufWriter::new(file);
-    let version = std::env::var("CARGO_PKG_VERSION").expect("Unable to read package version");
-    let version = Version::parse(&version).expect("Failed to parse package version");
-    if !version.pre.is_empty() {
-        write!(&mut writer, "const VERSION_DATA: [u8; 24] = [").expect(WRITE_FAIL);
-        let len = std::cmp::min(24, version.pre.as_bytes().len());
-        for v in 0..len {
-            write!(&mut writer, "0x{:X}, ", version.pre.as_bytes()[v]).expect(WRITE_FAIL);
-        }
-        for _ in 0..24 - len {
-            write!(&mut writer, "0x0, ").expect(WRITE_FAIL);
-        }
-        writeln!(&mut writer, "];").expect(WRITE_FAIL);
-        writeln!(
-            &mut writer,
-            "pub const HELLO_PACKET: Hello = Hello::new({}, Some(VERSION_DATA));",
-            version.major
-        )
-        .expect(WRITE_FAIL);
-    } else {
-        writeln!(
-            &mut writer,
-            "pub const HELLO_PACKET: Hello = Hello::new({}, None);",
-            version.major
-        )
-        .expect(WRITE_FAIL);
-    }*/
+    generate_version_inject();
 }

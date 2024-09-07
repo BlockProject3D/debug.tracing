@@ -26,14 +26,50 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-pub mod version;
+use crate::profiler::network::hello::Packet;
 
-include!(env!("BP3D_PROTOC_VALUE"));
-include!(env!("BP3D_PROTOC_COMMON"));
-include!(env!("BP3D_PROTOC_PROFILER"));
-include!(env!("BP3D_PROTOC_EVENT"));
-include!(env!("BP3D_PROTOC_SPAN"));
-include!(env!("BP3D_PROTOC_MESSAGE"));
-include!(env!("BP3D_PROTOC_CLIENT"));
-include!(env!("BP3D_PROTOC_SERVER"));
-include!(env!("BP3D_PROTOC_HELLO"));
+const SIGNATURE: [u8; 8] = *b"BP3DPROF";
+
+/*
+struct Version {
+    offset 0 major: u64
+    offset 8 pre_release: [u8; 24] //0 padded
+} size 32
+
+struct Hello {
+    offset 0 signature: [u8; 8]
+    offset 8 version: Version
+} size 40
+*/
+
+include!(concat!(env!("OUT_DIR"), "/version_inject.rs"));
+
+pub enum MatchResult {
+    SignatureMismatch,
+    VersionMismatch,
+    Ok,
+}
+
+impl<T: AsMut<[u8]>> Packet<T> {
+    pub fn fill(&mut self) {
+        self.get_signature_mut().as_mut().copy_from_slice(&SIGNATURE);
+        self.get_version_mut().set_major(MAJOR_VERSION);
+        self.get_version_mut().get_pre_release_mut().as_mut().copy_from_slice(&VERSION_DATA);
+    }
+}
+
+impl<T: AsRef<[u8]>> Packet<T> {
+    pub fn matches<T1: AsRef<[u8]>>(&self, other: &Packet<T1>) -> MatchResult {
+        if self.get_signature().as_ref() != other.get_signature().as_ref() {
+            return MatchResult::SignatureMismatch;
+        }
+        let val = match (self.get_version().get_pre_release().as_ref(), other.get_version().get_pre_release().as_ref()) {
+            (b"", b"") => self.get_version().get_major() == other.get_version().get_major(),
+            (a, b) => a == b
+        };
+        match val {
+            true => MatchResult::Ok,
+            false => MatchResult::VersionMismatch,
+        }
+    }
+}

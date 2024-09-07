@@ -1,0 +1,52 @@
+{
+    name: "hello",
+    structs: [
+        {
+            name: "Version",
+            description: [
+                "A semver based version structure.",
+                "Follow semver standard except that we exclude the build metadata, the minor and the patch",
+                "because only the major version records protocol changes."
+            ],
+            fields: [
+                {
+                    name: "major",
+                    description: "Major version number.",
+                    info: {
+                        type: "unsigned",
+                        bits: 64
+                    }
+                },
+                {
+                    name: "pre_release",
+                    decription: "Pre-release version string according to semver standard.",
+                    info: {
+                        type: "unsigned",
+                        bits: 8
+                    },
+                    array_len: 24
+                }
+            ]
+        },
+        {
+            name: "Packet",
+            fields: [
+                {
+                    name: "signature",
+                    info: {
+                        type: "unsigned",
+                        bits: 8
+                    },
+                    array_len: 8
+                },
+                {
+                    name: "version",
+                    info: {
+                        type: "struct",
+                        item_type: "Version"
+                    }
+                }
+            ]
+        }
+    ]
+}

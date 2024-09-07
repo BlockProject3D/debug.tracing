@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::io::{Error, ErrorKind};
 use crate::profiler::log_msg::{EventLog, ProfilerRecord};
 use crate::profiler::network as net;
 use crate::profiler::thread::util::read_command_line;
@@ -35,6 +36,7 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use bp3d_debug::profiler::section::Level;
 use bp3d_proto::message::payload::List;
 use bp3d_util::format::FixedBufStr;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use tokio::sync::oneshot;
@@ -244,20 +246,21 @@ impl<'a> Thread<'a> {
     }
 }
 
-/*async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
-    let bytes = HELLO_PACKET.to_bytes();
-    let mut block = [0; 40];
-    client.write(&bytes).await?;
+async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
+    let mut block = [0; net::hello::SIZE_PACKET];
+    let mut hello = net::hello::Packet::new_on_stack();
+    hello.fill();
+    client.write(hello.as_ref()).await?;
     client.read_exact(&mut block).await?;
-    let packet = Hello::from_bytes(block);
-    match HELLO_PACKET.matches(&packet) {
-        MatchResult::SignatureMismatch => {
+    let peer_hello = net::hello::Packet::from(block);
+    match hello.matches(&peer_hello) {
+        net::version::MatchResult::SignatureMismatch => {
             Err(Error::new(ErrorKind::Other, "protocol signature mismatch"))
         }
-        MatchResult::VersionMismatch => Err(Error::new(ErrorKind::Other, "version mismatch")),
-        MatchResult::Ok => Ok(()),
+        net::version::MatchResult::VersionMismatch => Err(Error::new(ErrorKind::Other, "version mismatch")),
+        net::version::MatchResult::Ok => Ok(()),
     }
-}*/
+}
 
 async fn init(
     port: u16,
@@ -267,8 +270,7 @@ async fn init(
     let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
     let listener = TcpListener::bind(addr).await?;
     let (mut socket, _) = listener.accept().await?;
-    //TODO: implement
-    //handle_hello(&mut socket).await?;
+    handle_hello(&mut socket).await?;
     let mut net = Net::new(&mut socket);
     let mut msg = net::server::Config::new_on_stack();
     msg.set_max_rows(max_rows).set_min_period(min_period);

@@ -74,7 +74,7 @@ impl LocalDebugger {
         if config.get_local().get_file().get_enabled() {
             builder = builder.add_file(app);
         }
-        if config.get_local().get_console().get_enabled() {
+        if config.get_local().get_queue().get_enabled() {
             let queue1 = LogQueue::new(config.get_local().get_queue().get_buf_size());
             queue = Some(queue1.clone());
             builder = builder.add_handler(LogQueueHandler::new(queue1));

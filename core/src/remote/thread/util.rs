@@ -50,4 +50,3 @@ macro_rules! wrap_io_debug_error {
 }
 
 pub(crate) use wrap_io_debug_error;
-use crate::remote::network::common::{SpanId, SIZE_SPAN_ID};

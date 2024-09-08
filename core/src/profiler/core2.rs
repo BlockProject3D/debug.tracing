@@ -55,8 +55,6 @@ thread_local! {
 
 pub static REMOTE_DEBUGGER: OnceLock<RemoteDebugger> = OnceLock::new();
 
-//TODO: Implement termination
-
 pub struct RemoteDebugger {
     channels: ChannelsIn,
     cur_section: AtomicU32,
@@ -103,6 +101,10 @@ impl RemoteDebugger {
             profiler_level,
             event_level
         })
+    }
+
+    pub fn terminate(&self) {
+        let _ = self.channels.control.send(Control::Terminate);
     }
 }
 

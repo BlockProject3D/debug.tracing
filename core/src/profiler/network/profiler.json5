@@ -10,9 +10,10 @@
             name: "Level",
             variants: {
                 "None": 0,
-                "Critical": 1,
-                "Periodic": 2,
-                "Event": 3
+                "Disabled": 1,
+                "Critical": 2,
+                "Periodic": 3,
+                "Event": 4
             }
         }
     ],

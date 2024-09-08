@@ -32,9 +32,7 @@ mod net;
 mod state;
 mod store;
 mod util;
-mod channels;
+mod builder;
 
-pub use channels::{ChannelsIn, ChannelsOut};
-
-/*pub use self::core::run;
-pub use util::FixedBufStr;*/
+pub use core::Levels;
+pub use builder::{ChannelsIn, Builder};

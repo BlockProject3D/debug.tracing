@@ -28,13 +28,29 @@
 
 use super::model::{Color, Console, File, Level, Logger, Mode, Profiler};
 
+// The default mode of the debugger.
 pub const DEFAULT_MODE: Mode = Mode::Logger;
+
+// The default color mode for the local logger implementation.
 pub const DEFAULT_COLOR: Color = Color::Auto;
+
+// The default log level.
 pub const DEFAULT_LEVEL: Level = Level::Debug;
+
+// The default port for the remote debugger.
 pub const DEFAULT_PORT: u16 = 4026;
+
+// The default maximum number of rows to be stored in the memory buffer.
 pub const DEFAULT_MAX_ROWS: u32 = 1000000;
+
+// Whether by default the local logger will use both stdout and stderr.
 pub const DEFAULT_STDERR: bool = true;
+
+// The default minimum period at which to send profiler updates.
 pub const DEFAULT_MIN_PERIOD: u16 = 200;
+
+// The default maximum count of log messages in the channel.
+pub const DEFAULT_BUF_SIZE: usize = 256;
 
 pub const DEFAULT_LOGGER: Logger = Logger {
     level: None,
@@ -49,4 +65,5 @@ pub const DEFAULT_PROFILER: Profiler = Profiler {
     port: None,
     max_rows: None,
     min_period: None,
+    buf_size: None
 };

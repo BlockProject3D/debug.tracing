@@ -28,10 +28,7 @@
 
 use serde::Deserialize;
 
-use super::defaults::{
-    DEFAULT_COLOR, DEFAULT_LEVEL, DEFAULT_LOGGER, DEFAULT_MAX_ROWS, DEFAULT_MIN_PERIOD,
-    DEFAULT_MODE, DEFAULT_PORT, DEFAULT_PROFILER, DEFAULT_STDERR,
-};
+use super::defaults::{DEFAULT_BUF_SIZE, DEFAULT_COLOR, DEFAULT_LEVEL, DEFAULT_LOGGER, DEFAULT_MAX_ROWS, DEFAULT_MIN_PERIOD, DEFAULT_MODE, DEFAULT_PORT, DEFAULT_PROFILER, DEFAULT_STDERR};
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -110,6 +107,7 @@ pub struct Profiler {
     pub port: Option<u16>,
     pub max_rows: Option<u32>,
     pub min_period: Option<u16>,
+    pub buf_size: Option<usize>
 }
 
 impl Profiler {
@@ -123,6 +121,10 @@ impl Profiler {
 
     pub fn get_min_period(&self) -> u16 {
         self.min_period.unwrap_or(DEFAULT_MIN_PERIOD)
+    }
+
+    pub fn get_buf_size(&self) -> usize {
+        self.buf_size.unwrap_or(DEFAULT_BUF_SIZE)
     }
 }
 

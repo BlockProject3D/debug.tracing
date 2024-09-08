@@ -30,6 +30,7 @@ use std::cell::RefCell;
 use std::fmt::Arguments;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::OnceLock;
 use bp3d_debug::field::Field;
 use bp3d_debug::logger::{Callsite, Logger};
 use bp3d_debug::profiler::Profiler;
@@ -37,9 +38,12 @@ use bp3d_debug::profiler::section::Section;
 use bp3d_debug::trace::span::Id;
 use bp3d_debug::trace::Tracer;
 use bp3d_os::time::LocalOffsetDateTime;
+use bp3d_util::format::FixedBufStr;
 use time::OffsetDateTime;
+use crate::config::model::Config;
 use crate::profiler::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
-use crate::profiler::thread::ChannelsIn;
+use crate::profiler::network as net;
+use crate::profiler::thread::{Builder, ChannelsIn, Levels};
 use crate::profiler::thread::command::{Control, Execution};
 use crate::profiler::util::write_fields;
 use crate::tracer_base::BaseTracer;
@@ -49,14 +53,65 @@ thread_local! {
     static SPAN_STACK: RefCell<Vec<Id>> = RefCell::new(Vec::new());
 }
 
+pub static REMOTE_DEBUGGER: OnceLock<RemoteDebugger> = OnceLock::new();
+
+//TODO: Implement termination
+
 pub struct RemoteDebugger {
     channels: ChannelsIn,
     cur_section: AtomicU32,
-    tracer: BaseTracer<FieldsetRecord>
+    tracer: BaseTracer<FieldsetRecord>,
+    profiler_level: i8,
+    event_level: u8
+}
+
+impl RemoteDebugger {
+    pub fn new(
+        app_name: &str,
+        crate_name: &str,
+        crate_version: &str,
+        config: &Config,
+    ) -> std::io::Result<RemoteDebugger> {
+        let handle = Builder::new(config).start()?;
+        handle.channels.control
+            .blocking_send(Control::Project {
+                app_name: FixedBufStr::from_str(app_name),
+                name: FixedBufStr::from_str(crate_name),
+                version: FixedBufStr::from_str(crate_version),
+            })
+            .unwrap();
+        let profiler_level = match handle.levels.section {
+            net::profiler::Level::None => bp3d_debug::profiler::section::Level::Critical as i8,
+            net::profiler::Level::Disabled => -1,
+            net::profiler::Level::Critical => bp3d_debug::profiler::section::Level::Critical as i8,
+            net::profiler::Level::Periodic => bp3d_debug::profiler::section::Level::Periodic as i8,
+            net::profiler::Level::Event => bp3d_debug::profiler::section::Level::Event as i8
+        };
+        let event_level = match handle.levels.event {
+            net::event::Level::None => bp3d_debug::logger::Level::Trace as u8,
+            net::event::Level::Disabled => 0,
+            net::event::Level::Trace => bp3d_debug::logger::Level::Trace as u8,
+            net::event::Level::Debug => bp3d_debug::logger::Level::Debug as u8,
+            net::event::Level::Info => bp3d_debug::logger::Level::Info as u8,
+            net::event::Level::Warn => bp3d_debug::logger::Level::Warn as u8,
+            net::event::Level::Error => bp3d_debug::logger::Level::Error as u8
+        };
+        Ok(RemoteDebugger {
+            channels: handle.channels,
+            cur_section: AtomicU32::new(1),
+            tracer: BaseTracer::new(),
+            profiler_level,
+            event_level
+        })
+    }
 }
 
 impl Logger for RemoteDebugger {
     fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &[Field]) {
+        let level = callsite.level() as u8;
+        if level < self.event_level {
+            return;
+        }
         let span = SPAN_STACK.with(|v| v.borrow().last().map(|v| *v));
         let timestamp = OffsetDateTime::now_local().unwrap_or_else(|| OffsetDateTime::now_utc()).unix_timestamp_nanos() / 1000;
         let mut log = EventLog::new(span, timestamp as _, callsite.level(), *callsite.location());
@@ -70,6 +125,10 @@ impl Logger for RemoteDebugger {
 
 impl Profiler for RemoteDebugger {
     fn section_register(&self, section: &'static Section) -> NonZeroU32 {
+        let level = section.level() as i8;
+        if level < self.profiler_level {
+            return unsafe { NonZeroU32::new_unchecked(u32::MAX) }
+        }
         let id = unsafe { NonZeroU32::new_unchecked(self.cur_section.fetch_add(1, Ordering::Relaxed)) };
         let _ = self.channels.control.send(Control::RegisterSection {
             section,
@@ -80,6 +139,9 @@ impl Profiler for RemoteDebugger {
     }
 
     fn section_record(&self, id: NonZeroU32, start: u64, end: u64, fields: &[Field]) {
+        if id.get() == u32::MAX {
+            return;
+        }
         let mut record = ProfilerRecord::new(id, start, end);
         write_fields(fields, &mut record);
         record.add_vars(fields.len() as _);

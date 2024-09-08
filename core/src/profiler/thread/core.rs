@@ -40,7 +40,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use tokio::sync::oneshot;
-use crate::profiler::thread::channels::ChannelsOut;
+use crate::profiler::thread::builder::ChannelsOut;
 use crate::profiler::thread::command::{Control, Execution};
 
 use super::net::Net;
@@ -283,17 +283,11 @@ async fn init(
 
 #[derive(Copy, Clone, Debug)]
 pub struct Levels {
-    pub section: Option<net::profiler::Level>,
-    pub event: Option<net::event::Level>
+    pub section: net::profiler::Level,
+    pub event: net::event::Level
 }
 
-pub fn run(
-    port: u16,
-    mut channels: ChannelsOut,
-    max_rows: u32,
-    min_period: u16,
-    result_channel: oneshot::Sender<std::io::Result<Levels>>,
-) {
+pub fn run(builder: crate::profiler::thread::builder::Builder, mut channels: ChannelsOut, result_channel: oneshot::Sender<std::io::Result<Levels>>) {
     Builder::new_current_thread().enable_io().build().unwrap().block_on(async {
         tokio::select! {
             cmd = channels.control.recv() => {
@@ -304,16 +298,12 @@ pub fn run(
                     _ => ()
                 }
             },
-            res = init(port, max_rows, min_period) => {
+            res = init(builder.port, builder.max_rows, builder.min_period) => {
                 let (mut socket, config) = match res {
                     Ok((socket, config)) => {
                         let levels = Levels {
-                            section: config.get_max_profiler_level()
-                                .map(|v| if v == net::profiler::Level::None { None } else { Some(v) })
-                                .flatten(),
-                            event: config.get_max_event_level()
-                                .map(|v| if v == net::event::Level::None { None } else { Some(v) })
-                                .flatten(),
+                            section: config.get_max_profiler_level().unwrap_or(net::profiler::Level::None),
+                            event: config.get_max_event_level().unwrap_or(net::event::Level::None),
                         };
                         result_channel.send(Ok(levels)).unwrap();
                         (socket, config)
@@ -323,7 +313,7 @@ pub fn run(
                         return
                     }
                 };
-                let mut thread = Thread::new(&mut socket, channels, config, max_rows, min_period);
+                let mut thread = Thread::new(&mut socket, channels, config, builder.max_rows, builder.min_period);
                 thread.run().await;
             }
         }

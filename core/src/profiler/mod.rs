@@ -37,3 +37,5 @@ mod core2;
 mod network;
 mod util;
 //pub use self::core::Profiler;
+
+pub use self::core2::{REMOTE_DEBUGGER, RemoteDebugger};

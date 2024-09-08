@@ -10,11 +10,12 @@
             name: "Level",
             variants: {
                 "None": 0, // This is not really a level, more like a marker to use the default from the debug server.
-                "Trace": 1,
-                "Debug": 2,
-                "Info": 3,
-                "Warn": 4,
-                "Error": 5
+                "Disabled": 1,
+                "Trace": 2,
+                "Debug": 3,
+                "Info": 4,
+                "Warn": 5,
+                "Error": 6
             }
         }
     ],

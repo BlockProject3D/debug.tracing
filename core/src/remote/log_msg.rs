@@ -42,49 +42,14 @@ const CTRL_PROFILER_RECORD: usize = SIZE_RECORD_HEADER + size_of::<u16>() + 1;
 const CTRL_FIELD_SET: usize = CTRL_PROFILER_RECORD;
 const CTRL_EVENT: usize = size_of::<Location>() + SIZE_HEADER + size_of::<u16>() + 1;
 
-pub trait Log: std::io::Write {
-    fn increment_var_count(&mut self);
-    unsafe fn write_single(&mut self, val: u8);
-
-    //The right name for this function should be "write", but unfortunately should this function be named "write", it would be un-callable in Rust.
-    unsafe fn write_multiple(&mut self, buf: &[u8]) -> usize;
-}
-
 macro_rules! impl_log_msg {
     ($name: ident) => {
         impl $name {
             pub fn as_bytes(&self) -> &[u8] {
                 unsafe { std::mem::transmute(&self.buffer[..self.msg_len as usize]) }
             }
-        }
 
-        impl std::io::Write for $name {
-            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-                unsafe { Ok(self.write_multiple(buf)) }
-            }
-
-            fn flush(&mut self) -> std::io::Result<()> {
-                Ok(())
-            }
-        }
-
-        impl Log for $name {
-            fn increment_var_count(&mut self) {
-                self.var_count += 1;
-            }
-
-            unsafe fn write_single(&mut self, val: u8) {
-                let len = std::cmp::min(1, self.buffer.len() - self.msg_len as usize);
-                if len > 0 {
-                    self.buffer
-                        .as_mut_ptr()
-                        .offset(self.msg_len as _)
-                        .write(MaybeUninit::new(val));
-                    self.msg_len += 1;
-                }
-            }
-
-            unsafe fn write_multiple(&mut self, buf: &[u8]) -> usize {
+            pub unsafe fn write_multiple(&mut self, buf: &[u8]) -> usize {
                 let len = std::cmp::min(buf.len(), self.buffer.len() - self.msg_len as usize);
                 if len > 0 {
                     std::ptr::copy_nonoverlapping(
@@ -95,6 +60,27 @@ macro_rules! impl_log_msg {
                     self.msg_len += len as u16; //The length is always less than 2^16.
                 }
                 len
+            }
+
+            /*pub unsafe fn write_single(&mut self, val: u8) {
+                let len = std::cmp::min(1, self.buffer.len() - self.msg_len as usize);
+                if len > 0 {
+                    self.buffer
+                        .as_mut_ptr()
+                        .offset(self.msg_len as _)
+                        .write(MaybeUninit::new(val));
+                    self.msg_len += 1;
+                }
+            }*/
+        }
+
+        impl std::io::Write for $name {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                unsafe { Ok(self.write_multiple(buf)) }
+            }
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
             }
         }
     };
@@ -142,6 +128,7 @@ impl ProfilerRecord {
         Duration::from_nanos(diff)
     }
 
+    //TODO: Check if really unneeded
     pub fn clear(&mut self) {
         self.msg_len = 0;
         self.var_count = 0;
@@ -185,6 +172,7 @@ impl FieldsetRecord {
         self.var_count += count;
     }
 
+    //TODO: Check if really unneeded
     pub fn clear(&mut self) {
         self.msg_len = 0;
         self.var_count = 0;

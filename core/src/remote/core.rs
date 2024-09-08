@@ -124,6 +124,7 @@ impl Logger for RemoteDebugger {
         // Amazingly broken Rust is far too stupid to figure out that write_field is being called on &self!!!
         (&msg).write_field("message", &mut buffer, &mut log);
         write_fields(fields, &mut log);
+        log.add_vars((fields.len() + 1) as _);
         let _ = self.channels.execution.send(Execution::Event(log));
     }
 }

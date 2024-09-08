@@ -27,20 +27,11 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::fmt::Write;
-use bp3d_debug::trace::span::Id;
 
 impl<T: AsMut<[u8]>> crate::remote::network::common::Duration<T> {
     pub fn from_std(&mut self, value: &std::time::Duration) -> &mut Self {
         self.set_seconds(value.as_secs() as _).set_nano_seconds(value.subsec_nanos());
         self
-    }
-}
-
-impl SpanId<[u8; SIZE_SPAN_ID]> {
-    pub fn from_debug(value: Id) -> Self {
-        let mut val = SpanId::new_on_stack();
-        val.set_callsite(value.get_callsite().get()).set_instance(value.get_instance().get());
-        val
     }
 }
 

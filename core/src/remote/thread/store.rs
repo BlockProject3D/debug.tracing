@@ -29,12 +29,12 @@
 use std::{collections::HashMap, num::NonZeroU32};
 use bp3d_proto::message::payload::List;
 use bp3d_proto::message::WriteSelf;
-use super::{net::Net, state::SpanData};
+use super::{net::Net, state::SectionData};
 use crate::remote::thread::util::wrap_io_debug_error;
 use crate::remote::{log_msg::ProfilerRecord, network as net};
 
-pub struct SpanStore {
-    span_data: HashMap<NonZeroU32, SpanData>,
+pub struct DatasetStore {
+    span_data: HashMap<NonZeroU32, SectionData>,
     max_rows: u32,
     global_max_rows: u32,
     max_average_points: u32,
@@ -42,12 +42,12 @@ pub struct SpanStore {
     period: u16,
 }
 
-impl SpanStore {
+impl DatasetStore {
     pub fn new(
         global_max_rows: u32,
         min_period: u16,
         config: &net::client::Config<&[u8]>,
-    ) -> SpanStore {
+    ) -> DatasetStore {
         let mut max_rows = config.get_record().get_max_rows();
         if max_rows > global_max_rows {
             max_rows = global_max_rows;
@@ -56,7 +56,7 @@ impl SpanStore {
         if period < min_period {
             period = min_period;
         }
-        SpanStore {
+        DatasetStore {
             span_data: HashMap::new(),
             max_rows,
             global_max_rows,
@@ -66,8 +66,8 @@ impl SpanStore {
         }
     }
 
-    pub fn reserve_span(&mut self, id: NonZeroU32) {
-        self.span_data.insert(id, SpanData::new());
+    pub fn reserve_section(&mut self, id: NonZeroU32) {
+        self.span_data.insert(id, SectionData::new());
     }
 
     pub fn start_recording(&mut self, mut max_rows: u32) {

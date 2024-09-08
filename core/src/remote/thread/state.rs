@@ -28,11 +28,9 @@
 
 use std::time::Duration;
 
-pub struct SpanData {
+pub struct SectionData {
     pub row_count: u32,
-    pub full_run_count: u32,
     pub average_run_count: u32,
-    pub has_overflowed: bool,
     pub min_time: Duration,
     pub max_time: Duration,
     pub total_time: Duration,
@@ -40,13 +38,11 @@ pub struct SpanData {
     pub last_display_time: std::time::Instant,
 }
 
-impl SpanData {
-    pub fn new() -> SpanData {
-        SpanData {
+impl SectionData {
+    pub fn new() -> SectionData {
+        SectionData {
             row_count: 0,
-            full_run_count: 0,
             average_run_count: 0,
-            has_overflowed: false,
             min_time: Duration::MAX,
             max_time: Duration::ZERO,
             total_time: Duration::ZERO,

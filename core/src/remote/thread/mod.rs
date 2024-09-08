@@ -34,5 +34,4 @@ mod store;
 mod util;
 mod builder;
 
-pub use core::Levels;
 pub use builder::{ChannelsIn, Builder};

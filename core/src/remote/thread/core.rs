@@ -44,13 +44,12 @@ use crate::remote::thread::builder::ChannelsOut;
 use crate::remote::thread::command::{Control, Execution};
 
 use super::net::Net;
-use super::store::SpanStore;
+use super::store::DatasetStore;
 
 struct Thread<'a> {
     channels: ChannelsOut,
-    msg: [u8; 1024],
     net: Net<'a>,
-    core: SpanStore,
+    core: DatasetStore,
 }
 
 impl<'a> Thread<'a> {
@@ -63,9 +62,8 @@ impl<'a> Thread<'a> {
     ) -> Thread {
         Thread {
             channels,
-            msg: [0; 1024],
             net: Net::new(socket),
-            core: SpanStore::new(max_rows, min_period, &config.to_ref()),
+            core: DatasetStore::new(max_rows, min_period, &config.to_ref()),
         }
     }
 
@@ -185,6 +183,7 @@ impl<'a> Thread<'a> {
                 false
             }
             Control::RegisterSection { section, id, parent } => {
+                self.core.reserve_section(id);
                 let mut header = net::profiler::SectionHeader::new_on_stack();
                 header.set_id(id.get()).set_parent(parent.map(|v| v.get()).unwrap_or(0));
                 match section.level() {

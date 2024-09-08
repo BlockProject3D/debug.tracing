@@ -26,14 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//use crate::core::{Tracer, TracingSystem};
-//use crate::logger::Logger;
-//use crate::profiler::Profiler;
 use bp3d_os::dirs::App;
-use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::core2::Terminate;
-use crate::debug_logger::LOCAL_DEBUGGER;
+use crate::debug_logger::{LocalDebugger, LOCAL_DEBUGGER};
+use crate::profiler::{RemoteDebugger, REMOTE_DEBUGGER};
 
 mod config;
 mod tracer_base;
@@ -64,11 +61,6 @@ impl Drop for Guard {
     }
 }
 
-//fn load_system<T: 'static + Tracer + Sync + Send>(system: TracingSystem<T>) -> Guard {
-    //set_global_default(system.system).expect("bp3d-tracing can only be initialized once!");
-    //Guard(system.destructor)
-//}
-
 /// Initialize the logging and tracing systems for the given application.
 ///
 /// The function returns a guard which must be maintained for the duration of the application.
@@ -96,21 +88,24 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(
     if config.get_mode() == config::model::Mode::None || disable {
         Guard(None)
     } else if config.get_mode() == config::model::Mode::Profiler || profiler {
-        /*Profiler::new(
-            app.as_ref(),
-            crate_name.as_ref(),
-            crate_version.as_ref(),
-            &config,
-        )
-        .map(load_system)
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to initialize profiler: {}", e);
-            load_system(Logger::new(app.as_ref(), &config))
-        })*/
-        Guard(None)
+        let debugger: &'static dyn Terminate = match RemoteDebugger::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref(), &config) {
+            Err(e) => {
+                eprintln!("Failed to initialize profiler: {}", e);
+                let stat = LOCAL_DEBUGGER.get_or_init(|| LocalDebugger::new(app.as_ref(), &config));
+                bp3d_debug::engine::set(stat);
+                stat
+            },
+            Ok(v) => {
+                let stat = REMOTE_DEBUGGER.get_or_init(|| v);
+                bp3d_debug::engine::set(stat);
+                stat
+            }
+        };
+        Guard(Some(debugger))
     } else {
-        //load_system(Logger::new(app.as_ref(), &config))
-        Guard(None)
+        let debugger = LOCAL_DEBUGGER.get_or_init(|| LocalDebugger::new(app.as_ref(), &config));
+        bp3d_debug::engine::set(debugger);
+        Guard(Some(debugger))
     }
 }
 

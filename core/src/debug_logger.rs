@@ -42,6 +42,7 @@ use bp3d_debug::trace::span::Id;
 use bp3d_logger::handler::{LogQueue, LogQueueHandler};
 use time::OffsetDateTime;
 use crate::config::model::Config;
+use crate::core2::Terminate;
 use crate::tracer_base::BaseTracer;
 
 struct Profiler1 {
@@ -49,9 +50,9 @@ struct Profiler1 {
     cur_section: AtomicU32
 }
 
-pub static LOGGER_DEBUGGER: OnceLock<LoggerDebugger> = OnceLock::new();
+pub static LOCAL_DEBUGGER: OnceLock<LocalDebugger> = OnceLock::new();
 
-pub struct LoggerDebugger {
+pub struct LocalDebugger {
     log: bp3d_logger::Logger,
     profiler: Profiler1,
     tracer: BaseTracer<LogMsg>,
@@ -59,7 +60,7 @@ pub struct LoggerDebugger {
     queue: Option<LogQueue>
 }
 
-impl LoggerDebugger {
+impl LocalDebugger {
     pub fn new<T: GetLogs>(app: T, config: &Config) -> Self {
         let mut queue = None;
         let mut builder = bp3d_logger::Builder::new()
@@ -96,14 +97,16 @@ impl LoggerDebugger {
     pub fn enable_stdout(&self, enable: bool) {
         self.log.enable_stdout(enable);
     }
+}
 
-    pub fn terminate(&self) {
+impl Terminate for LocalDebugger {
+    fn terminate(&self) {
         self.log.set_filter(LevelFilter::None);
         self.log.flush();
     }
 }
 
-impl Logger for LoggerDebugger {
+impl Logger for LocalDebugger {
     fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &[Field]) {
         let mut lmsg = LogMsg::new(*callsite.location(), callsite.level());
         let _ = write!(lmsg, "{}", msg);
@@ -114,7 +117,7 @@ impl Logger for LoggerDebugger {
     }
 }
 
-impl Profiler for LoggerDebugger {
+impl Profiler for LocalDebugger {
     fn section_register(&self, section: &'static Section) -> NonZeroU32 {
         let id = unsafe { NonZeroU32::new_unchecked(self.profiler.cur_section.fetch_add(1, Ordering::Relaxed)) };
         let mut guard = self.profiler.map.write().unwrap();
@@ -139,7 +142,7 @@ impl Profiler for LoggerDebugger {
     }
 }
 
-impl Tracer for LoggerDebugger {
+impl Tracer for LocalDebugger {
     fn register_callsite(&self, callsite: &'static bp3d_debug::trace::span::Callsite) -> NonZeroU32 {
         self.tracer.register_callsite(callsite)
     }

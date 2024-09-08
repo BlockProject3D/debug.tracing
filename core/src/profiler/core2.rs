@@ -41,6 +41,7 @@ use bp3d_os::time::LocalOffsetDateTime;
 use bp3d_util::format::FixedBufStr;
 use time::OffsetDateTime;
 use crate::config::model::Config;
+use crate::core2::Terminate;
 use crate::profiler::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
 use crate::profiler::network as net;
 use crate::profiler::thread::{Builder, ChannelsIn, Levels};
@@ -102,8 +103,10 @@ impl RemoteDebugger {
             event_level
         })
     }
+}
 
-    pub fn terminate(&self) {
+impl Terminate for RemoteDebugger {
+    fn terminate(&self) {
         let _ = self.channels.control.send(Control::Terminate);
     }
 }

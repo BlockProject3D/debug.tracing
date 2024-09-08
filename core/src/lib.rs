@@ -32,7 +32,8 @@
 use bp3d_os::dirs::App;
 use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::debug_logger::LOGGER_DEBUGGER;
+use crate::core2::Terminate;
+use crate::debug_logger::LOCAL_DEBUGGER;
 
 mod config;
 mod tracer_base;
@@ -40,11 +41,12 @@ mod debug_logger;
 //mod core;
 //mod logger;
 mod profiler;
+mod core2;
 //mod util;
 //mod visitor;
 
 /// The guard to ensure proper termination of logging and tracing systems.
-pub struct Guard(Option<Box<dyn Any>>);
+pub struct Guard(Option<&'static dyn Terminate>);
 
 impl Guard {
     /// Run the following closure then terminate logging and tracing systems.
@@ -55,7 +57,10 @@ impl Guard {
 
 impl Drop for Guard {
     fn drop(&mut self) {
-        drop(self.0.take());
+        match self.0 {
+            Some(v) => v.terminate(),
+            _ => ()
+        }
     }
 }
 
@@ -145,7 +150,7 @@ impl DisableConsole {
     pub fn new() -> DisableConsole {
         if STDOUT_DISABLE_RC.fetch_add(1, Ordering::Relaxed) == 0 {
             //If no previous instances were created, disable the stdout/stderr logger.
-            if let Some(v) = LOGGER_DEBUGGER.get() {
+            if let Some(v) = LOCAL_DEBUGGER.get() {
                 //First, flush any waiting message.
                 v.flush();
                 //Then disable the backend.
@@ -160,7 +165,7 @@ impl Drop for DisableConsole {
     fn drop(&mut self) {
         if STDOUT_DISABLE_RC.fetch_sub(1, Ordering::Relaxed) == 1 {
             //If no more instances exists after this one, re-enable the stdout/stderr logger.
-            if let Some(v) = LOGGER_DEBUGGER.get() {
+            if let Some(v) = LOCAL_DEBUGGER.get() {
                 v.enable_stdout(true);
             }
         }

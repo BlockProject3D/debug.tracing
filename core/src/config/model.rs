@@ -28,7 +28,7 @@
 
 use serde::Deserialize;
 
-use super::defaults::{DEFAULT_BUF_SIZE, DEFAULT_COLOR, DEFAULT_LEVEL, DEFAULT_LOGGER, DEFAULT_MAX_ROWS, DEFAULT_MIN_PERIOD, DEFAULT_MODE, DEFAULT_PORT, DEFAULT_PROFILER, DEFAULT_STDERR};
+use super::defaults::{DEFAULT_REMOTE_BUF_SIZE, DEFAULT_COLOR, DEFAULT_CONSOLE, DEFAULT_LEVEL, DEFAULT_LOGGER, DEFAULT_MAX_ROWS, DEFAULT_MIN_PERIOD, DEFAULT_MODE, DEFAULT_PORT, DEFAULT_PROFILER, DEFAULT_STDERR, DEFAULT_LOGGER_BUF_SIZE, DEFAULT_LOGGER_QUEUE_BUF_SIZE, DEFAULT_FILE, DEFAULT_LOG_QUEUE};
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -58,6 +58,16 @@ impl Level {
             Level::Error => bp3d_debug::logger::Level::Error,
         }
     }
+
+    pub fn to_filter(&self) -> bp3d_logger::LevelFilter {
+        match self {
+            Level::Trace => bp3d_logger::LevelFilter::Trace,
+            Level::Debug => bp3d_logger::LevelFilter::Debug,
+            Level::Info => bp3d_logger::LevelFilter::Info,
+            Level::Warning => bp3d_logger::LevelFilter::Warn,
+            Level::Error => bp3d_logger::LevelFilter::Error,
+        }
+    }
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -68,10 +78,21 @@ pub enum Color {
     Never,
 }
 
+impl Color {
+    pub fn to_logger(self) -> bp3d_logger::Colors {
+        match self {
+            Color::Auto => bp3d_logger::Colors::Auto,
+            Color::Always => bp3d_logger::Colors::Enabled,
+            Color::Never => bp3d_logger::Colors::Disabled
+        }
+    }
+}
+
 #[derive(Deserialize)]
 pub struct Console {
+    pub enabled: Option<bool>,
     pub color: Option<Color>,
-    pub stderr: Option<bool>,
+    pub stderr: Option<bool>
 }
 
 impl Console {
@@ -82,10 +103,39 @@ impl Console {
     pub fn get_stderr(&self) -> bool {
         self.stderr.unwrap_or(DEFAULT_STDERR)
     }
+
+    pub fn get_enabled(&self) -> bool {
+        self.enabled.unwrap_or(true)
+    }
 }
 
 #[derive(Deserialize)]
-pub struct File {}
+pub struct File {
+    pub enabled: Option<bool>
+}
+
+impl File {
+    pub fn get_enabled(&self) -> bool {
+        self.enabled.unwrap_or(true)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct LogQueue {
+    pub enabled: Option<bool>,
+    pub buf_size: Option<usize>
+}
+
+impl LogQueue {
+    pub fn get_enabled(&self) -> bool {
+        self.enabled.unwrap_or_default()
+    }
+
+    pub fn get_buf_size(&self) -> usize {
+        self.buf_size.unwrap_or(DEFAULT_LOGGER_QUEUE_BUF_SIZE)
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -93,11 +143,29 @@ pub struct Logger {
     pub level: Option<Level>,
     pub console: Option<Console>,
     pub file: Option<File>,
+    pub queue: Option<LogQueue>,
+    pub buf_size: Option<usize>
 }
 
 impl Logger {
     pub fn get_level(&self) -> Level {
         self.level.unwrap_or(DEFAULT_LEVEL)
+    }
+
+    pub fn get_console(&self) -> &Console {
+        self.console.as_ref().unwrap_or(&DEFAULT_CONSOLE)
+    }
+
+    pub fn get_buf_size(&self) -> usize {
+        self.buf_size.unwrap_or(DEFAULT_LOGGER_BUF_SIZE)
+    }
+
+    pub fn get_file(&self) -> &File {
+        self.file.as_ref().unwrap_or(&DEFAULT_FILE)
+    }
+
+    pub fn get_queue(&self) -> &LogQueue {
+        self.queue.as_ref().unwrap_or(&DEFAULT_LOG_QUEUE)
     }
 }
 
@@ -124,7 +192,7 @@ impl Profiler {
     }
 
     pub fn get_buf_size(&self) -> usize {
-        self.buf_size.unwrap_or(DEFAULT_BUF_SIZE)
+        self.buf_size.unwrap_or(DEFAULT_REMOTE_BUF_SIZE)
     }
 }
 

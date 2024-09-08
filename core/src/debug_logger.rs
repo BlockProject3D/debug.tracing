@@ -34,12 +34,14 @@ use bp3d_debug::logger::{Callsite, Level, Logger};
 use bp3d_debug::profiler::Profiler;
 use bp3d_debug::profiler::section::Section;
 use bp3d_debug::trace::Tracer;
-use bp3d_logger::LogMsg;
+use bp3d_logger::{GetLogs, LevelFilter, LogMsg};
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::RwLock;
+use std::sync::{OnceLock, RwLock};
 use bp3d_debug::trace::span::Id;
+use bp3d_logger::handler::{LogQueue, LogQueueHandler};
 use time::OffsetDateTime;
+use crate::config::model::Config;
 use crate::tracer_base::BaseTracer;
 
 struct Profiler1 {
@@ -47,13 +49,53 @@ struct Profiler1 {
     cur_section: AtomicU32
 }
 
-pub struct Debugger {
+pub static LOGGER_DEBUGGER: OnceLock<LoggerDebugger> = OnceLock::new();
+
+pub struct LoggerDebugger {
     log: bp3d_logger::Logger,
     profiler: Profiler1,
-    tracer: BaseTracer<LogMsg>
+    tracer: BaseTracer<LogMsg>,
+    //TODO: Implement support APIs for that
+    queue: Option<LogQueue>
 }
 
-impl Logger for Debugger {
+impl LoggerDebugger {
+    pub fn new<T: GetLogs>(app: T, config: &Config) -> Self {
+        let mut queue = None;
+        let mut builder = bp3d_logger::Builder::new()
+            .filter(config.get_logger().get_level().to_filter())
+            .colors(config.get_logger().get_console().get_color().to_logger())
+            .smart_stderr(config.get_logger().get_console().get_stderr())
+            .buffer_size(config.get_logger().get_buf_size());
+        if config.get_logger().get_console().get_enabled() {
+            builder = builder.add_stdout();
+        }
+        if config.get_logger().get_file().get_enabled() {
+            builder = builder.add_file(app);
+        }
+        if config.get_logger().get_console().get_enabled() {
+            let queue1 = LogQueue::new(config.get_logger().get_queue().get_buf_size());
+            queue = Some(queue1.clone());
+            builder = builder.add_handler(LogQueueHandler::new(queue1));
+        }
+        Self {
+            log: builder.start(),
+            profiler: Profiler1 {
+                map: RwLock::new(HashMap::new()),
+                cur_section: AtomicU32::new(1)
+            },
+            tracer: BaseTracer::new(),
+            queue
+        }
+    }
+
+    pub fn terminate(&self) {
+        self.log.set_filter(LevelFilter::None);
+        self.log.flush();
+    }
+}
+
+impl Logger for LoggerDebugger {
     fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &[Field]) {
         let mut lmsg = LogMsg::new(*callsite.location(), callsite.level());
         let _ = write!(lmsg, "{}", msg);
@@ -64,7 +106,7 @@ impl Logger for Debugger {
     }
 }
 
-impl Profiler for Debugger {
+impl Profiler for LoggerDebugger {
     fn section_register(&self, section: &'static Section) -> NonZeroU32 {
         let id = unsafe { NonZeroU32::new_unchecked(self.profiler.cur_section.fetch_add(1, Ordering::Relaxed)) };
         let mut guard = self.profiler.map.write().unwrap();
@@ -89,7 +131,7 @@ impl Profiler for Debugger {
     }
 }
 
-impl Tracer for Debugger {
+impl Tracer for LoggerDebugger {
     fn register_callsite(&self, callsite: &'static bp3d_debug::trace::span::Callsite) -> NonZeroU32 {
         self.tracer.register_callsite(callsite)
     }

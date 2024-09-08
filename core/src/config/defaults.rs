@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::model::{Color, Console, File, Level, Logger, Mode, Profiler};
+use super::model::{Color, Console, File, Level, LogQueue, Logger, Mode, Profiler};
 
 // The default mode of the debugger.
 pub const DEFAULT_MODE: Mode = Mode::Logger;
@@ -49,16 +49,27 @@ pub const DEFAULT_STDERR: bool = true;
 // The default minimum period at which to send profiler updates.
 pub const DEFAULT_MIN_PERIOD: u16 = 200;
 
-// The default maximum count of log messages in the channel.
-pub const DEFAULT_BUF_SIZE: usize = 256;
+// The default maximum count of log messages in the channel for the remote debugger.
+pub const DEFAULT_REMOTE_BUF_SIZE: usize = 256;
+
+// The default maximum count of log messages in the channel for the logger debugger.
+pub const DEFAULT_LOGGER_BUF_SIZE: usize = 16;
+
+// The default maximum count of log messages in the logger queue.
+pub const DEFAULT_LOGGER_QUEUE_BUF_SIZE: usize = 16;
 
 pub const DEFAULT_LOGGER: Logger = Logger {
     level: None,
     console: Some(Console {
         color: None,
         stderr: None,
+        enabled: None
     }),
-    file: Some(File {}),
+    file: Some(File {
+        enabled: None
+    }),
+    buf_size: None,
+    queue: None
 };
 
 pub const DEFAULT_PROFILER: Profiler = Profiler {
@@ -66,4 +77,19 @@ pub const DEFAULT_PROFILER: Profiler = Profiler {
     max_rows: None,
     min_period: None,
     buf_size: None
+};
+
+pub const DEFAULT_CONSOLE: Console = Console {
+    enabled: None,
+    color: None,
+    stderr: None
+};
+
+pub const DEFAULT_LOG_QUEUE: LogQueue = LogQueue {
+    enabled: None,
+    buf_size: None,
+};
+
+pub const DEFAULT_FILE: File = File {
+    enabled: None,
 };

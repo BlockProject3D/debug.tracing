@@ -139,7 +139,8 @@ impl Builder {
         self
     }
 
-    /// Sets the buffer size.
+    /// Sets the buffer size. The buffer refers to the channel storing all log messages pending
+    /// to be handled by the async thread.
     ///
     /// # Arguments
     ///

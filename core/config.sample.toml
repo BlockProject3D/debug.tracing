@@ -3,15 +3,21 @@ mode = "logger" # "profiler", "logger" or "none"
 [logger]
 level = "debug" # "trace", "debug", "info", "warning" or "error"
 time-format = "%a %b %d %Y %I:%M:%S %P"
+buf-size = 16 # number of log messages allowed to be pending to be processed by the async logger thread.
 
 [logger.console]
-#level = "debug" # "trace", "debug", "info", "warning" or "error"
+enabled = true
 color = "auto" # "auto" (if isatty), "always" or "never"
 stderr = true # use stderr for errors
 
 [logger.file]
-#level = "debug" # "trace", "debug", "info", "warning" or "error"
+enabled = true
+
+[logger.queue]
+enabled = false
+buf-size = 16 # number of log messages allowed to be stored in the log queue.
 
 [profiler]
 port = 4026 # Profiler port
 max-rows = 1000000 # maximum number of rows to be stored in memory
+buf-size = 256 # number of commands allowed to exist on the remote command buffer.

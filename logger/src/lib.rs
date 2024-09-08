@@ -52,9 +52,6 @@ pub use internal::Logger;
 pub use level::LevelFilter;
 pub use log_msg::LogMsg;
 
-/// The log buffer type.
-pub type LogBuffer = Receiver<LogMsg>;
-
 /// Trait to allow getting a log directory from either a bp3d_os::dirs::App or a String.
 pub trait GetLogs {
     /// Gets the log directory as a PathBuf.

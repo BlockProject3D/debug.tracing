@@ -98,37 +98,6 @@ impl<'a> Thread<'a> {
                 msg.set_end(end).get_id_mut().set_instance(id.get_instance().get()).set_callsite(id.get_callsite().get());
                 wrap_io_debug_error!(self.net.network_write_fixed(net::message::Type::SpanExit, msg).await);
             }
-            /*command::Span::Alloc { id, metadata } => {
-                self.core.reserve_span(id);
-                let msg = nt::message::SpanAlloc {
-                    id: id.get(),
-                    metadata: nt::message::Metadata {
-                        level: nt::message::Level::from_tracing(*metadata.level()),
-                        file: metadata.file(),
-                        line: metadata.line(),
-                        module_path: metadata.module_path(),
-                        name: metadata.name(),
-                        target: metadata.target(),
-                    },
-                };
-                wrap_io_debug_error!(self.net.network_write_dyn(msg, &mut self.msg).await);
-            }
-            command::Span::UpdateParent { id, parent } => {
-                let msg = nt::message::SpanParent {
-                    id: id.get(),
-                    parent_node: parent.map(|v| v.get()).unwrap_or(0),
-                };
-                wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
-            }
-            command::Span::Follows { id, follows } => {
-                let id = id.get_id();
-                let follows = follows.get_id();
-                let msg = nt::message::SpanFollows {
-                    id: id.get(),
-                    follows: follows.get(),
-                };
-                wrap_io_debug_error!(self.net.network_write_fixed(msg).await);
-            }*/
         }
     }
 

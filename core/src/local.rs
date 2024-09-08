@@ -42,7 +42,7 @@ use bp3d_debug::trace::span::Id;
 use bp3d_logger::handler::{LogQueue, LogQueueHandler};
 use time::OffsetDateTime;
 use crate::config::model::Config;
-use crate::core2::Terminate;
+use crate::core::Terminate;
 use crate::tracer_base::BaseTracer;
 
 struct Profiler1 {

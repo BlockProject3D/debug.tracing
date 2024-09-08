@@ -26,16 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//mod core;
 mod log_msg;
-//mod logpump;
-//mod network_types;
-//mod state;
 mod thread;
-//mod visitor;
-mod core2;
+mod core;
 mod network;
 mod util;
-//pub use self::core::Profiler;
 
-pub use self::core2::{REMOTE_DEBUGGER, RemoteDebugger};
+pub use self::core::{REMOTE_DEBUGGER, RemoteDebugger};

@@ -28,19 +28,15 @@
 
 use bp3d_os::dirs::App;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::core2::Terminate;
+use crate::core::Terminate;
 use crate::local::{LocalDebugger, LOCAL_DEBUGGER};
 use crate::remote::{RemoteDebugger, REMOTE_DEBUGGER};
 
 mod config;
 mod tracer_base;
 mod local;
-//mod core;
-//mod logger;
 mod remote;
-mod core2;
-//mod util;
-//mod visitor;
+mod core;
 
 /// The guard to ensure proper termination of logging and tracing systems.
 pub struct Guard(Option<&'static dyn Terminate>);

@@ -26,158 +26,186 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::config::model::Config;
-use crate::core::{Tracer, TracingSystem};
-use crate::profiler::log_msg::EventLog;
-use crate::profiler::logpump::LOG_PUMP;
-use crate::profiler::network_types as nt;
-use crate::profiler::state::{ChannelsIn, ProfilerState};
-use crate::profiler::thread::{command, run, FixedBufStr};
-use crate::profiler::visitor::{EventVisitor, SpanVisitor};
-use crate::util::{extract_target_module, SpanId};
-use dashmap::DashMap;
-use std::time::Duration;
+use std::cell::RefCell;
+use std::fmt::Arguments;
+use std::num::NonZeroU32;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::OnceLock;
+use bp3d_debug::field::Field;
+use bp3d_debug::logger::{Callsite, Logger};
+use bp3d_debug::profiler::Profiler;
+use bp3d_debug::profiler::section::Section;
+use bp3d_debug::trace::span::Id;
+use bp3d_debug::trace::Tracer;
+use bp3d_os::time::LocalOffsetDateTime;
+use bp3d_util::format::FixedBufStr;
 use time::OffsetDateTime;
-use tokio::sync::oneshot;
-use tracing_core::span::{Attributes, Record};
-use tracing_core::{Event, Level};
+use crate::config::model::Config;
+use crate::core::Terminate;
+use crate::remote::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
+use crate::remote::network as net;
+use crate::remote::thread::{Builder, ChannelsIn, Levels};
+use crate::remote::thread::command::{Control, Execution};
+use crate::remote::util::write_fields;
+use crate::tracer_base::BaseTracer;
+use crate::remote::util::WriteField;
 
-struct Guard(ProfilerState);
-
-impl Drop for Guard {
-    fn drop(&mut self) {
-        self.0.terminate()
-    }
+thread_local! {
+    static SPAN_STACK: RefCell<Vec<Id>> = RefCell::new(Vec::new());
 }
 
-pub struct Profiler {
-    spans: DashMap<SpanId, SpanVisitor>,
+pub static REMOTE_DEBUGGER: OnceLock<RemoteDebugger> = OnceLock::new();
+
+pub struct RemoteDebugger {
     channels: ChannelsIn,
-    max_level: Option<Level>,
+    cur_section: AtomicU32,
+    tracer: BaseTracer<FieldsetRecord>,
+    profiler_level: i8,
+    event_level: u8
 }
 
-impl Profiler {
+impl RemoteDebugger {
     pub fn new(
         app_name: &str,
         crate_name: &str,
         crate_version: &str,
         config: &Config,
-    ) -> std::io::Result<TracingSystem<Profiler>> {
-        log::set_logger(&LOG_PUMP).expect("Cannot initialize remote more than once!");
-        let port = config.get_profiler().get_port();
-        println!("Waiting for debugger to attach to {}...", port);
-        //Block software until we receive a debugger connection.
-        //let logs = App::new(app_name).get_logs().map(|v| v.to_owned());
-        let (result_in, result_out) = oneshot::channel();
-        //Got hit by https://github.com/rust-lang/rust/issues/100905
-        let useless = config.get_profiler().get_max_rows();
-        let useless2 = config.get_profiler().get_min_period();
-        let (state, channels) = ProfilerState::new(move |channels| {
-            run(port, channels, useless, useless2, result_in);
-        });
-        let max_level = result_out.blocking_recv().unwrap()?;
-        channels
-            .control
-            .blocking_send(command::Control::Project {
+    ) -> std::io::Result<RemoteDebugger> {
+        let handle = Builder::new(config).start()?;
+        handle.channels.control
+            .blocking_send(Control::Project {
                 app_name: FixedBufStr::from_str(app_name),
                 name: FixedBufStr::from_str(crate_name),
                 version: FixedBufStr::from_str(crate_version),
             })
             .unwrap();
-        log::set_max_level(log::LevelFilter::Trace);
-        Ok(TracingSystem::with_destructor(
-            Profiler {
-                spans: DashMap::new(),
-                channels,
-                max_level: max_level.map(|v| match v {
-                    nt::message::Level::Trace => Level::TRACE,
-                    nt::message::Level::Debug => Level::DEBUG,
-                    nt::message::Level::Info => Level::INFO,
-                    nt::message::Level::Warning => Level::WARN,
-                    nt::message::Level::Error => Level::ERROR,
-                }),
-            },
-            Box::new(Guard(state)),
-        ))
-    }
-
-    #[inline]
-    fn span_command(&self, cmd: command::Span) {
-        let _ = self.channels.span.blocking_send(cmd);
+        let profiler_level = match handle.levels.section {
+            net::profiler::Level::None => bp3d_debug::profiler::section::Level::Critical as i8,
+            net::profiler::Level::Disabled => -1,
+            net::profiler::Level::Critical => bp3d_debug::profiler::section::Level::Critical as i8,
+            net::profiler::Level::Periodic => bp3d_debug::profiler::section::Level::Periodic as i8,
+            net::profiler::Level::Event => bp3d_debug::profiler::section::Level::Event as i8
+        };
+        let event_level = match handle.levels.event {
+            net::event::Level::None => bp3d_debug::logger::Level::Trace as u8,
+            net::event::Level::Disabled => 0,
+            net::event::Level::Trace => bp3d_debug::logger::Level::Trace as u8,
+            net::event::Level::Debug => bp3d_debug::logger::Level::Debug as u8,
+            net::event::Level::Info => bp3d_debug::logger::Level::Info as u8,
+            net::event::Level::Warn => bp3d_debug::logger::Level::Warn as u8,
+            net::event::Level::Error => bp3d_debug::logger::Level::Error as u8
+        };
+        Ok(RemoteDebugger {
+            channels: handle.channels,
+            cur_section: AtomicU32::new(1),
+            tracer: BaseTracer::new(),
+            profiler_level,
+            event_level
+        })
     }
 }
 
-impl Tracer for Profiler {
-    fn enabled(&self) -> bool {
-        true
+impl Terminate for RemoteDebugger {
+    fn terminate(&self) {
+        let _ = self.channels.control.send(Control::Terminate);
     }
+}
 
-    fn span_create(&self, id: &SpanId, new: bool, parent: Option<SpanId>, attrs: &Attributes) {
-        let node_id = id.get_id();
-        if new {
-            self.span_command(command::Span::Alloc {
-                id: node_id,
-                metadata: attrs.metadata(),
-            })
+impl Logger for RemoteDebugger {
+    fn log(&self, callsite: &'static Callsite, msg: Arguments, fields: &[Field]) {
+        let level = callsite.level() as u8;
+        if level < self.event_level {
+            return;
         }
-        let parent = parent.map(|v| v.get_id());
-        if let Some(mut data) = self.spans.get_mut(id) {
-            if data.reset(parent) {
-                self.span_command(command::Span::UpdateParent {
-                    id: node_id,
-                    parent,
-                });
-            }
-            attrs.record(&mut *data);
-        } else {
-            let mut data = SpanVisitor::new(id.get_id(), parent);
-            attrs.record(&mut data);
-            self.spans.insert(*id, data);
-            self.span_command(command::Span::UpdateParent {
-                id: node_id,
-                parent,
-            });
+        let span = SPAN_STACK.with(|v| v.borrow().last().map(|v| *v));
+        let timestamp = OffsetDateTime::now_local().unwrap_or_else(|| OffsetDateTime::now_utc()).unix_timestamp_nanos() / 1000;
+        let mut log = EventLog::new(span, timestamp as _, callsite.level(), *callsite.location());
+        let mut buffer = [0; 1];
+        // Amazingly broken Rust is far too stupid to figure out that write_field is being called on &self!!!
+        (&msg).write_field("message", &mut buffer, &mut log);
+        write_fields(fields, &mut log);
+        let _ = self.channels.execution.send(Execution::Event(log));
+    }
+}
+
+impl Profiler for RemoteDebugger {
+    fn section_register(&self, section: &'static Section) -> NonZeroU32 {
+        let level = section.level() as i8;
+        if level < self.profiler_level {
+            return unsafe { NonZeroU32::new_unchecked(u32::MAX) }
         }
+        let id = unsafe { NonZeroU32::new_unchecked(self.cur_section.fetch_add(1, Ordering::Relaxed)) };
+        let _ = self.channels.control.send(Control::RegisterSection {
+            section,
+            id,
+            parent: section.parent().map(|v| *v.get_id())
+        });
+        id
     }
 
-    fn span_values(&self, id: &SpanId, values: &Record) {
-        let mut span_values = self.spans.get_mut(id).unwrap();
-        values.record(&mut *span_values);
+    fn section_record(&self, id: NonZeroU32, start: u64, end: u64, fields: &[Field]) {
+        if id.get() == u32::MAX {
+            return;
+        }
+        let mut record = ProfilerRecord::new(id, start, end);
+        write_fields(fields, &mut record);
+        record.add_vars(fields.len() as _);
+        let _ = self.channels.execution.send(Execution::ProfilerRecord(record));
+    }
+}
+
+impl Tracer for RemoteDebugger {
+    fn register_callsite(&self, callsite: &'static bp3d_debug::trace::span::Callsite) -> NonZeroU32 {
+        let id = self.tracer.register_callsite(callsite);
+        let _ = self.channels.control.send(Control::RegisterSpan {
+            callsite,
+            id
+        });
+        id
     }
 
-    fn span_follows_from(&self, id: &SpanId, follows: &SpanId) {
-        self.span_command(command::Span::Follows {
-            id: *id,
-            follows: *follows,
+    fn span_create(&self, callsite: NonZeroU32, fields: &[Field]) -> NonZeroU32 {
+        let (instance, mut fieldset) = self.tracer.create_span(callsite, FieldsetRecord::new());
+        let id = Id::new(callsite, instance);
+        fieldset.set_id(id);
+        write_fields(fields, &mut **fieldset);
+        fieldset.add_vars(fields.len() as _);
+        instance
+    }
+
+    fn span_enter(&self, id: Id) {
+        SPAN_STACK.with(|v| v.borrow_mut().push(id));
+        let fieldset = self.tracer.span_enter(id);
+        let _ = self.channels.execution.send(Execution::SpanEnter {
+            fields: fieldset.clone(),
+            start: fieldset.start()
         });
     }
 
-    fn event(&self, parent: Option<SpanId>, event: &Event) {
-        let (target, module) = extract_target_module(event.metadata());
-        let mut msg = EventLog::new(
-            parent.map(|v| v.get_id()),
-            OffsetDateTime::now_utc().unix_timestamp(),
-            nt::message::Level::from_tracing(*event.metadata().level()),
-            module.unwrap_or("main"),
-            target,
-        );
-        let mut visitor = EventVisitor::new(&mut msg);
-        event.record(&mut visitor);
-        self.span_command(command::Span::Event(msg));
+    fn span_record(&self, id: Id, fields: &[Field]) {
+        let mut data = self.tracer.get_data(id);
+        if data.uses() > 1 {
+            let mut fieldset = FieldsetRecord::new();
+            fieldset.set_id(id);
+            write_fields(fields, &mut fieldset);
+            fieldset.add_vars(fields.len() as _);
+            let _ = self.channels.execution.send(Execution::SpanRecord(fieldset));
+        } else {
+            write_fields(fields, &mut **data);
+            data.add_vars(fields.len() as _);
+        }
     }
 
-    fn span_enter(&self, _: &SpanId) {}
-
-    fn span_exit(&self, id: &SpanId, duration: Duration) {
-        let mut span = self.spans.get_mut(id).unwrap();
-        let msg = span.msg_mut();
-        msg.set_duration(&duration);
-        self.span_command(command::Span::Log(msg.clone()));
+    fn span_exit(&self, id: Id) {
+        SPAN_STACK.with(|v| v.borrow_mut().pop());
+        let data = self.tracer.span_exit(id);
+        let _ = self.channels.execution.send(Execution::SpanExit {
+            id,
+            end: data.end()
+        });
     }
 
-    fn span_destroy(&self, _: &SpanId) {}
-
-    fn max_level_hint(&self) -> Option<Level> {
-        self.max_level
+    fn span_destroy(&self, id: Id) {
+        self.tracer.destroy_span(id);
     }
 }

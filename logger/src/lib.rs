@@ -42,7 +42,6 @@ mod log_msg;
 pub mod util;
 
 use bp3d_os::dirs::App;
-use crossbeam_channel::Receiver;
 use std::path::PathBuf;
 
 pub use bp3d_debug::logger::Level;

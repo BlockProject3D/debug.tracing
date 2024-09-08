@@ -154,7 +154,7 @@ impl Tracer for LocalDebugger {
         for field in fields {
             let _ = write!(msg, ", {} = {}", field.name(), field.value());
         }
-        let (id, _) = self.tracer.create_span(callsite, msg);
+        let (id, _) = self.tracer.create_span(msg);
         id
     }
 

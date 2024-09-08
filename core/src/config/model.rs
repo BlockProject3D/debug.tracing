@@ -49,16 +49,6 @@ pub enum Level {
 }
 
 impl Level {
-    pub fn to_bp3d_debug(&self) -> bp3d_debug::logger::Level {
-        match self {
-            Level::Trace => bp3d_debug::logger::Level::Trace,
-            Level::Debug => bp3d_debug::logger::Level::Debug,
-            Level::Info => bp3d_debug::logger::Level::Info,
-            Level::Warning => bp3d_debug::logger::Level::Warn,
-            Level::Error => bp3d_debug::logger::Level::Error,
-        }
-    }
-
     pub fn to_filter(&self) -> bp3d_logger::LevelFilter {
         match self {
             Level::Trace => bp3d_logger::LevelFilter::Trace,

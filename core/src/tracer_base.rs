@@ -38,7 +38,6 @@ use parking_lot::lock_api::{MappedMutexGuard, MutexGuard};
 type Guard<'a, T> = MappedMutexGuard<'a, RawMutex, SpanData<T>>;
 
 pub struct SpanData<T> {
-    callsite: NonZeroU32,
     order: u32,
     uses: u32,
     start: u64,
@@ -75,10 +74,6 @@ impl<T> SpanData<T> {
 
     pub fn end(&self) -> u64 {
         self.end
-    }
-
-    pub fn callsite(&self) -> NonZeroU32 {
-        self.callsite
     }
 }
 
@@ -119,7 +114,7 @@ impl<T> BaseTracer<T> {
         guard[&id]
     }
 
-    pub fn create_span(&self, callsite: NonZeroU32, content: T) -> (NonZeroU32, Guard<T>) {
+    pub fn create_span(&self, content: T) -> (NonZeroU32, Guard<T>) {
         let mut guard = self.spans.lock();
         //TODO: warning this may bug if a slot is re-claimed because the content is not cleared
         let id = guard.spans.iter().enumerate().find_map(|(i, v)| match v.order {
@@ -127,7 +122,6 @@ impl<T> BaseTracer<T> {
             _ => None
         }).unwrap_or_else(|| {
             guard.spans.push(SpanData {
-                callsite,
                 order: 0,
                 uses: 0,
                 start: 0,

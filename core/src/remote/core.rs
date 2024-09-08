@@ -44,7 +44,7 @@ use crate::config::model::Config;
 use crate::core::Terminate;
 use crate::remote::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
 use crate::remote::network as net;
-use crate::remote::thread::{Builder, ChannelsIn, Levels};
+use crate::remote::thread::{Builder, ChannelsIn};
 use crate::remote::thread::command::{Control, Execution};
 use crate::remote::util::write_fields;
 use crate::tracer_base::BaseTracer;
@@ -166,7 +166,7 @@ impl Tracer for RemoteDebugger {
     }
 
     fn span_create(&self, callsite: NonZeroU32, fields: &[Field]) -> NonZeroU32 {
-        let (instance, mut fieldset) = self.tracer.create_span(callsite, FieldsetRecord::new());
+        let (instance, mut fieldset) = self.tracer.create_span(FieldsetRecord::new());
         let id = Id::new(callsite, instance);
         fieldset.set_id(id);
         write_fields(fields, &mut **fieldset);

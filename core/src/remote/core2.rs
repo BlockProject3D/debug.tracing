@@ -42,13 +42,13 @@ use bp3d_util::format::FixedBufStr;
 use time::OffsetDateTime;
 use crate::config::model::Config;
 use crate::core2::Terminate;
-use crate::profiler::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
-use crate::profiler::network as net;
-use crate::profiler::thread::{Builder, ChannelsIn, Levels};
-use crate::profiler::thread::command::{Control, Execution};
-use crate::profiler::util::write_fields;
+use crate::remote::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
+use crate::remote::network as net;
+use crate::remote::thread::{Builder, ChannelsIn, Levels};
+use crate::remote::thread::command::{Control, Execution};
+use crate::remote::util::write_fields;
 use crate::tracer_base::BaseTracer;
-use crate::profiler::util::WriteField;
+use crate::remote::util::WriteField;
 
 thread_local! {
     static SPAN_STACK: RefCell<Vec<Id>> = RefCell::new(Vec::new());

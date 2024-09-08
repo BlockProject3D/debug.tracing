@@ -27,10 +27,10 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::io::{Error, ErrorKind};
-use crate::profiler::log_msg::{EventLog, ProfilerRecord};
-use crate::profiler::network as net;
-use crate::profiler::thread::util::read_command_line;
-use crate::profiler::thread::util::wrap_io_debug_error;
+use crate::remote::log_msg::{EventLog, ProfilerRecord};
+use crate::remote::network as net;
+use crate::remote::thread::util::read_command_line;
+use crate::remote::thread::util::wrap_io_debug_error;
 use bp3d_os::cpu_info::read_cpu_info;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use bp3d_debug::profiler::section::Level;
@@ -40,8 +40,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Builder;
 use tokio::sync::oneshot;
-use crate::profiler::thread::builder::ChannelsOut;
-use crate::profiler::thread::command::{Control, Execution};
+use crate::remote::thread::builder::ChannelsOut;
+use crate::remote::thread::command::{Control, Execution};
 
 use super::net::Net;
 use super::store::SpanStore;
@@ -287,7 +287,7 @@ pub struct Levels {
     pub event: net::event::Level
 }
 
-pub fn run(builder: crate::profiler::thread::builder::Builder, mut channels: ChannelsOut, result_channel: oneshot::Sender<std::io::Result<Levels>>) {
+pub fn run(builder: crate::remote::thread::builder::Builder, mut channels: ChannelsOut, result_channel: oneshot::Sender<std::io::Result<Levels>>) {
     Builder::new_current_thread().enable_io().build().unwrap().block_on(async {
         tokio::select! {
             cmd = channels.control.recv() => {

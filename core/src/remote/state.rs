@@ -68,7 +68,7 @@ impl ProfilerState {
         let (ch_control_in, ch_control_out) = mpsc::channel(BUF_SIZE);
         LOG_CHANNEL
             .set(ch_span_in.clone())
-            .expect("Cannot initialize profiler more than once!");
+            .expect("Cannot initialize remote more than once!");
         (
             ProfilerState {
                 exited: AtomicBool::new(false),

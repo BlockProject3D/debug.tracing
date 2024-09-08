@@ -29,8 +29,8 @@
 use std::thread::JoinHandle;
 use tokio::sync::{mpsc, oneshot};
 use crate::config::model::Config;
-use crate::profiler::thread::command;
-use crate::profiler::thread::core::{run, Levels};
+use crate::remote::thread::command;
+use crate::remote::thread::core::{run, Levels};
 
 pub struct ChannelsIn {
     pub execution: mpsc::Sender<command::Execution>,
@@ -58,10 +58,10 @@ pub struct Builder {
 impl Builder {
     pub fn new(config: &Config) -> Self {
         Self {
-            port: config.get_profiler().get_port(),
-            max_rows: config.get_profiler().get_max_rows(),
-            min_period: config.get_profiler().get_min_period(),
-            buf_size: config.get_profiler().get_buf_size()
+            port: config.get_remote().get_port(),
+            max_rows: config.get_remote().get_max_rows(),
+            min_period: config.get_remote().get_min_period(),
+            buf_size: config.get_remote().get_buf_size()
         }
     }
 

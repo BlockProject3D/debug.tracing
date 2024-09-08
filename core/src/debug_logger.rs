@@ -64,18 +64,18 @@ impl LocalDebugger {
     pub fn new<T: GetLogs>(app: T, config: &Config) -> Self {
         let mut queue = None;
         let mut builder = bp3d_logger::Builder::new()
-            .filter(config.get_logger().get_level().to_filter())
-            .colors(config.get_logger().get_console().get_color().to_logger())
-            .smart_stderr(config.get_logger().get_console().get_stderr())
-            .buffer_size(config.get_logger().get_buf_size());
-        if config.get_logger().get_console().get_enabled() {
+            .filter(config.get_local().get_level().to_filter())
+            .colors(config.get_local().get_console().get_color().to_logger())
+            .smart_stderr(config.get_local().get_console().get_stderr())
+            .buffer_size(config.get_local().get_buf_size());
+        if config.get_local().get_console().get_enabled() {
             builder = builder.add_stdout();
         }
-        if config.get_logger().get_file().get_enabled() {
+        if config.get_local().get_file().get_enabled() {
             builder = builder.add_file(app);
         }
-        if config.get_logger().get_console().get_enabled() {
-            let queue1 = LogQueue::new(config.get_logger().get_queue().get_buf_size());
+        if config.get_local().get_console().get_enabled() {
+            let queue1 = LogQueue::new(config.get_local().get_queue().get_buf_size());
             queue = Some(queue1.clone());
             builder = builder.add_handler(LogQueueHandler::new(queue1));
         }

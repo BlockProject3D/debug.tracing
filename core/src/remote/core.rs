@@ -63,7 +63,7 @@ impl Profiler {
         crate_version: &str,
         config: &Config,
     ) -> std::io::Result<TracingSystem<Profiler>> {
-        log::set_logger(&LOG_PUMP).expect("Cannot initialize profiler more than once!");
+        log::set_logger(&LOG_PUMP).expect("Cannot initialize remote more than once!");
         let port = config.get_profiler().get_port();
         println!("Waiting for debugger to attach to {}...", port);
         //Block software until we receive a debugger connection.

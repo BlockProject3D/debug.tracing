@@ -26,47 +26,37 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
-use std::num::NonZeroU32;
+use std::fmt::Write;
 use bp3d_debug::trace::span::Id;
-use bp3d_util::format::FixedBufStr;
 
-pub enum Control {
-    Project {
-        app_name: FixedBufStr<63>,
-        name: FixedBufStr<63>,
-        version: FixedBufStr<63>,
-    },
-
-    RegisterSection {
-        section: &'static bp3d_debug::profiler::section::Section,
-        id: NonZeroU32,
-        parent: Option<NonZeroU32>
-    },
-
-    RegisterSpan {
-        callsite: &'static bp3d_debug::trace::span::Callsite,
-        id: NonZeroU32
-    },
-
-    Terminate,
+impl<T: AsMut<[u8]>> crate::remote::network::common::Duration<T> {
+    pub fn from_std(&mut self, value: &std::time::Duration) -> &mut Self {
+        self.set_seconds(value.as_secs() as _).set_nano_seconds(value.subsec_nanos());
+        self
+    }
 }
 
-#[derive(Debug)]
-pub enum Execution {
-    SpanEnter {
-        fields: FieldsetRecord,
-        start: u64
-    },
-
-    SpanRecord(FieldsetRecord),
-
-    SpanExit {
-        id: Id,
-        end: u64
-    },
-
-    ProfilerRecord(ProfilerRecord),
-
-    Event(EventLog)
+impl SpanId<[u8; SIZE_SPAN_ID]> {
+    pub fn from_debug(value: Id) -> Self {
+        let mut val = SpanId::new_on_stack();
+        val.set_callsite(value.get_callsite().get()).set_instance(value.get_instance().get());
+        val
+    }
 }
+
+pub fn read_command_line<W: Write>(write: &mut W) {
+    for v in std::env::args_os() {
+        let _ = write!(write, "{} ", v.to_string_lossy());
+    }
+}
+
+macro_rules! wrap_io_debug_error {
+    ($e: expr) => {
+        if let Err(e) = $e {
+            eprintln!("Failed to write to network: {}", e);
+        }
+    };
+}
+
+pub(crate) use wrap_io_debug_error;
+use crate::remote::network::common::{SpanId, SIZE_SPAN_ID};

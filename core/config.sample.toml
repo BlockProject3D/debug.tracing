@@ -1,4 +1,4 @@
-mode = "logger" # "profiler", "logger" or "none"
+mode = "logger" # "remote", "logger" or "none"
 
 [logger]
 level = "debug" # "trace", "debug", "info", "warning" or "error"

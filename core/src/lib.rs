@@ -30,14 +30,14 @@ use bp3d_os::dirs::App;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::core2::Terminate;
 use crate::debug_logger::{LocalDebugger, LOCAL_DEBUGGER};
-use crate::profiler::{RemoteDebugger, REMOTE_DEBUGGER};
+use crate::remote::{RemoteDebugger, REMOTE_DEBUGGER};
 
 mod config;
 mod tracer_base;
 mod debug_logger;
 //mod core;
 //mod logger;
-mod profiler;
+mod remote;
 mod core2;
 //mod util;
 //mod visitor;
@@ -90,7 +90,7 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(
     } else if config.get_mode() == config::model::Mode::Profiler || profiler {
         let debugger: &'static dyn Terminate = match RemoteDebugger::new(app.as_ref(), crate_name.as_ref(), crate_version.as_ref(), &config) {
             Err(e) => {
-                eprintln!("Failed to initialize profiler: {}", e);
+                eprintln!("Failed to initialize remote: {}", e);
                 let stat = LOCAL_DEBUGGER.get_or_init(|| LocalDebugger::new(app.as_ref(), &config));
                 bp3d_debug::engine::set(stat);
                 stat

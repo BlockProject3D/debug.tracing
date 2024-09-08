@@ -29,7 +29,7 @@
 use std::fmt::{Debug, Display};
 use std::io::Write;
 use bp3d_debug::field::{Field, FieldValue};
-use crate::profiler::network as net;
+use crate::remote::network as net;
 use bp3d_proto::message::{WriteSelf, WriteTo};
 
 pub trait WriteField {

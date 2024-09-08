@@ -33,9 +33,9 @@ use std::time::Duration;
 use bp3d_debug::logger::Level;
 use bp3d_debug::trace::span::Id;
 use bp3d_debug::util::Location;
-use crate::profiler::network::common::{SpanId, SIZE_SPAN_ID};
-use crate::profiler::network::event::{Header, SIZE_HEADER};
-use crate::profiler::network::profiler::{RecordHeader, SIZE_RECORD_HEADER};
+use crate::remote::network::common::{SpanId, SIZE_SPAN_ID};
+use crate::remote::network::event::{Header, SIZE_HEADER};
+use crate::remote::network::profiler::{RecordHeader, SIZE_RECORD_HEADER};
 
 const BUFFER_LEN: usize = 512;
 const CTRL_PROFILER_RECORD: usize = SIZE_RECORD_HEADER + size_of::<u16>() + 1;

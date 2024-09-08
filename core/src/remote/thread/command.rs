@@ -26,37 +26,47 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Write;
+use crate::remote::log_msg::{EventLog, FieldsetRecord, ProfilerRecord};
+use std::num::NonZeroU32;
 use bp3d_debug::trace::span::Id;
+use bp3d_util::format::FixedBufStr;
 
-impl<T: AsMut<[u8]>> crate::profiler::network::common::Duration<T> {
-    pub fn from_std(&mut self, value: &std::time::Duration) -> &mut Self {
-        self.set_seconds(value.as_secs() as _).set_nano_seconds(value.subsec_nanos());
-        self
-    }
+pub enum Control {
+    Project {
+        app_name: FixedBufStr<63>,
+        name: FixedBufStr<63>,
+        version: FixedBufStr<63>,
+    },
+
+    RegisterSection {
+        section: &'static bp3d_debug::profiler::section::Section,
+        id: NonZeroU32,
+        parent: Option<NonZeroU32>
+    },
+
+    RegisterSpan {
+        callsite: &'static bp3d_debug::trace::span::Callsite,
+        id: NonZeroU32
+    },
+
+    Terminate,
 }
 
-impl SpanId<[u8; SIZE_SPAN_ID]> {
-    pub fn from_debug(value: Id) -> Self {
-        let mut val = SpanId::new_on_stack();
-        val.set_callsite(value.get_callsite().get()).set_instance(value.get_instance().get());
-        val
-    }
-}
+#[derive(Debug)]
+pub enum Execution {
+    SpanEnter {
+        fields: FieldsetRecord,
+        start: u64
+    },
 
-pub fn read_command_line<W: Write>(write: &mut W) {
-    for v in std::env::args_os() {
-        let _ = write!(write, "{} ", v.to_string_lossy());
-    }
-}
+    SpanRecord(FieldsetRecord),
 
-macro_rules! wrap_io_debug_error {
-    ($e: expr) => {
-        if let Err(e) = $e {
-            eprintln!("Failed to write to network: {}", e);
-        }
-    };
-}
+    SpanExit {
+        id: Id,
+        end: u64
+    },
 
-pub(crate) use wrap_io_debug_error;
-use crate::profiler::network::common::{SpanId, SIZE_SPAN_ID};
+    ProfilerRecord(ProfilerRecord),
+
+    Event(EventLog)
+}

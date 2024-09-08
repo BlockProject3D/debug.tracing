@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::model::{Color, Console, File, Level, LogQueue, Logger, Mode, Profiler};
+use super::model::{Color, Console, File, Level, LogQueue, Local, Mode, Remote};
 
 // The default mode of the debugger.
 pub const DEFAULT_MODE: Mode = Mode::Logger;
@@ -46,7 +46,7 @@ pub const DEFAULT_MAX_ROWS: u32 = 1000000;
 // Whether by default the local logger will use both stdout and stderr.
 pub const DEFAULT_STDERR: bool = true;
 
-// The default minimum period at which to send profiler updates.
+// The default minimum period at which to send remote updates.
 pub const DEFAULT_MIN_PERIOD: u16 = 200;
 
 // The default maximum count of log messages in the channel for the remote debugger.
@@ -58,7 +58,7 @@ pub const DEFAULT_LOGGER_BUF_SIZE: usize = 16;
 // The default maximum count of log messages in the logger queue.
 pub const DEFAULT_LOGGER_QUEUE_BUF_SIZE: usize = 16;
 
-pub const DEFAULT_LOGGER: Logger = Logger {
+pub const DEFAULT_LOGGER: Local = Local {
     level: None,
     console: Some(Console {
         color: None,
@@ -72,7 +72,7 @@ pub const DEFAULT_LOGGER: Logger = Logger {
     queue: None
 };
 
-pub const DEFAULT_PROFILER: Profiler = Profiler {
+pub const DEFAULT_PROFILER: Remote = Remote {
     port: None,
     max_rows: None,
     min_period: None,

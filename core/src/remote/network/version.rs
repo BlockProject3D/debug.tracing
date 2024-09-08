@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::profiler::network::hello::Packet;
+use crate::remote::network::hello::Packet;
 
 const SIGNATURE: [u8; 8] = *b"BP3DPROF";
 

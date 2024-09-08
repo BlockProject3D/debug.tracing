@@ -29,7 +29,7 @@
 use std::io::Cursor;
 use bp3d_proto::message::{WriteSelf, WriteSelfAsync};
 use bp3d_proto::util::FixedSize;
-use crate::profiler::network as net;
+use crate::remote::network as net;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::{

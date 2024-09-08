@@ -30,8 +30,8 @@ use std::{collections::HashMap, num::NonZeroU32};
 use bp3d_proto::message::payload::List;
 use bp3d_proto::message::WriteSelf;
 use super::{net::Net, state::SpanData};
-use crate::profiler::thread::util::wrap_io_debug_error;
-use crate::profiler::{log_msg::ProfilerRecord, network as net};
+use crate::remote::thread::util::wrap_io_debug_error;
+use crate::remote::{log_msg::ProfilerRecord, network as net};
 
 pub struct SpanStore {
     span_data: HashMap<NonZeroU32, SpanData>,

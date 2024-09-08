@@ -139,7 +139,7 @@ impl LogQueue {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct Logger {
+pub struct Local {
     pub level: Option<Level>,
     pub console: Option<Console>,
     pub file: Option<File>,
@@ -147,7 +147,7 @@ pub struct Logger {
     pub buf_size: Option<usize>
 }
 
-impl Logger {
+impl Local {
     pub fn get_level(&self) -> Level {
         self.level.unwrap_or(DEFAULT_LEVEL)
     }
@@ -171,14 +171,14 @@ impl Logger {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct Profiler {
+pub struct Remote {
     pub port: Option<u16>,
     pub max_rows: Option<u32>,
     pub min_period: Option<u16>,
     pub buf_size: Option<usize>
 }
 
-impl Profiler {
+impl Remote {
     pub fn get_port(&self) -> u16 {
         self.port.unwrap_or(DEFAULT_PORT)
     }
@@ -199,16 +199,16 @@ impl Profiler {
 #[derive(Deserialize)]
 pub struct Config {
     pub mode: Option<Mode>,
-    pub logger: Option<Logger>,
-    pub profiler: Option<Profiler>,
+    pub local: Option<Local>,
+    pub remote: Option<Remote>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             mode: None,
-            logger: None,
-            profiler: None,
+            local: None,
+            remote: None,
         }
     }
 }
@@ -218,11 +218,11 @@ impl Config {
         self.mode.unwrap_or(DEFAULT_MODE)
     }
 
-    pub fn get_logger(&self) -> &Logger {
-        self.logger.as_ref().unwrap_or(&DEFAULT_LOGGER)
+    pub fn get_local(&self) -> &Local {
+        self.local.as_ref().unwrap_or(&DEFAULT_LOGGER)
     }
 
-    pub fn get_profiler(&self) -> &Profiler {
-        self.profiler.as_ref().unwrap_or(&DEFAULT_PROFILER)
+    pub fn get_remote(&self) -> &Remote {
+        self.remote.as_ref().unwrap_or(&DEFAULT_PROFILER)
     }
 }

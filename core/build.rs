@@ -64,28 +64,28 @@ fn generate_version_inject() {
 
 fn main() {
     generate_rust(|loader| {
-        loader.load("./src/profiler/network/hello.json5")?;
-        loader.load("./src/profiler/network/message.json5")?;
-        loader.load("./src/profiler/network/value.json5")
+        loader.load("./src/remote/network/hello.json5")?;
+        loader.load("./src/remote/network/message.json5")?;
+        loader.load("./src/remote/network/value.json5")
     }, |protoc| protoc, RustParams::default().enable_write_async(true));
     generate_rust(|loader| {
-        loader.import("./src/profiler/network/value.json5", "crate::profiler::network::value")?;
-        loader.load("./src/profiler/network/common.json5")
+        loader.import("./src/remote/network/value.json5", "crate::remote::network::value")?;
+        loader.load("./src/remote/network/common.json5")
     }, |protoc| protoc.set_reads_messages(false), RustParams::default().enable_write_async(true));
     generate_rust(|loader| {
-        loader.import("./src/profiler/network/value.json5", "crate::profiler::network::value")?;
-        loader.import("./src/profiler/network/common.json5", "crate::profiler::network::common")?;
-        loader.load("./src/profiler/network/profiler.json5")?;
-        loader.load("./src/profiler/network/event.json5")?;
-        loader.load("./src/profiler/network/span.json5")
+        loader.import("./src/remote/network/value.json5", "crate::remote::network::value")?;
+        loader.import("./src/remote/network/common.json5", "crate::remote::network::common")?;
+        loader.load("./src/remote/network/profiler.json5")?;
+        loader.load("./src/remote/network/event.json5")?;
+        loader.load("./src/remote/network/span.json5")
     }, |protoc| protoc.set_reads_messages(false), RustParams::default().enable_write_async(true));
     generate_rust(|loader| {
-        loader.import("./src/profiler/network/value.json5", "crate::profiler::network::value")?;
-        loader.import("./src/profiler/network/common.json5", "crate::profiler::network::common")?;
-        loader.import("./src/profiler/network/event.json5", "crate::profiler::network::event")?;
-        loader.import("./src/profiler/network/profiler.json5", "crate::profiler::network::profiler")?;
-        loader.load("./src/profiler/network/client.json5")?;
-        loader.load("./src/profiler/network/server.json5")
+        loader.import("./src/remote/network/value.json5", "crate::remote::network::value")?;
+        loader.import("./src/remote/network/common.json5", "crate::remote::network::common")?;
+        loader.import("./src/remote/network/event.json5", "crate::remote::network::event")?;
+        loader.import("./src/remote/network/profiler.json5", "crate::remote::network::profiler")?;
+        loader.load("./src/remote/network/client.json5")?;
+        loader.load("./src/remote/network/server.json5")
     }, |protoc| protoc.set_writes_messages(false), RustParams::default());
     generate_version_inject();
 }

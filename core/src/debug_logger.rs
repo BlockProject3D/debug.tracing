@@ -89,6 +89,14 @@ impl LoggerDebugger {
         }
     }
 
+    pub fn flush(&self) {
+        self.log.flush();
+    }
+
+    pub fn enable_stdout(&self, enable: bool) {
+        self.log.enable_stdout(enable);
+    }
+
     pub fn terminate(&self) {
         self.log.set_filter(LevelFilter::None);
         self.log.flush();

@@ -32,6 +32,7 @@
 use bp3d_os::dirs::App;
 use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::debug_logger::LOGGER_DEBUGGER;
 
 mod config;
 mod tracer_base;
@@ -130,8 +131,6 @@ macro_rules! setup {
     };
 }
 
-static LOG_BUFFER_RC: AtomicUsize = AtomicUsize::new(0);
-
 static STDOUT_DISABLE_RC: AtomicUsize = AtomicUsize::new(0);
 
 /// A struct to automate enabling and disabling of the stdout/stderr logger.
@@ -139,27 +138,31 @@ static STDOUT_DISABLE_RC: AtomicUsize = AtomicUsize::new(0);
 /// When a new instance of this struct is created, the stdout/stderr logger is automatically
 /// disabled if not already. Inversely, when all instances of this struct are dropped, the
 /// stdout/stderr logger is re-enabled.
-pub struct DisableStdoutLogger;
+pub struct DisableConsole;
 
-impl DisableStdoutLogger {
+impl DisableConsole {
     /// Temporarily disables stdout/stderr logging for the lifespan of this struct.
-    pub fn new() -> DisableStdoutLogger {
+    pub fn new() -> DisableConsole {
         if STDOUT_DISABLE_RC.fetch_add(1, Ordering::Relaxed) == 0 {
             //If no previous instances were created, disable the stdout/stderr logger.
-            //First, flush any waiting message.
-            //bp3d_logger::flush();
-            //Then disable the backend.
-            //bp3d_logger::disable_stdout();
+            if let Some(v) = LOGGER_DEBUGGER.get() {
+                //First, flush any waiting message.
+                v.flush();
+                //Then disable the backend.
+                v.enable_stdout(false);
+            }
         }
-        DisableStdoutLogger
+        DisableConsole
     }
 }
 
-impl Drop for DisableStdoutLogger {
+impl Drop for DisableConsole {
     fn drop(&mut self) {
         if STDOUT_DISABLE_RC.fetch_sub(1, Ordering::Relaxed) == 1 {
             //If no more instances exists after this one, re-enable the stdout/stderr logger.
-            //bp3d_logger::enable_stdout();
+            if let Some(v) = LOGGER_DEBUGGER.get() {
+                v.enable_stdout(true);
+            }
         }
     }
 }

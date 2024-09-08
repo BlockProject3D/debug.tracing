@@ -29,12 +29,12 @@
 use bp3d_os::dirs::App;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::core2::Terminate;
-use crate::debug_logger::{LocalDebugger, LOCAL_DEBUGGER};
+use crate::local::{LocalDebugger, LOCAL_DEBUGGER};
 use crate::remote::{RemoteDebugger, REMOTE_DEBUGGER};
 
 mod config;
 mod tracer_base;
-mod debug_logger;
+mod local;
 //mod core;
 //mod logger;
 mod remote;

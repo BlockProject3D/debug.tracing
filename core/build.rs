@@ -31,10 +31,9 @@ const WRITE_FAIL: &str = "Failed to write verision_inject file";
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
-use bp3d_protoc::gen::RustParams;
-use bp3d_protoc::generate_rust;
 use semver::Version;
 use std::io::Write;
+use bp3d_protoc::api::generate_rust;
 
 fn generate_version_inject() {
     let path = std::env::var_os("OUT_DIR")
@@ -63,29 +62,6 @@ fn generate_version_inject() {
 }
 
 fn main() {
-    generate_rust(|loader| {
-        loader.load("./src/remote/network/hello.json5")?;
-        loader.load("./src/remote/network/message.json5")?;
-        loader.load("./src/remote/network/value.json5")
-    }, |protoc| protoc, RustParams::default().enable_write_async(true));
-    generate_rust(|loader| {
-        loader.import("./src/remote/network/value.json5", "crate::remote::network::value")?;
-        loader.load("./src/remote/network/common.json5")
-    }, |protoc| protoc.set_reads_messages(false), RustParams::default().enable_write_async(true));
-    generate_rust(|loader| {
-        loader.import("./src/remote/network/value.json5", "crate::remote::network::value")?;
-        loader.import("./src/remote/network/common.json5", "crate::remote::network::common")?;
-        loader.load("./src/remote/network/profiler.json5")?;
-        loader.load("./src/remote/network/event.json5")?;
-        loader.load("./src/remote/network/span.json5")
-    }, |protoc| protoc.set_reads_messages(false), RustParams::default().enable_write_async(true));
-    generate_rust(|loader| {
-        loader.import("./src/remote/network/value.json5", "crate::remote::network::value")?;
-        loader.import("./src/remote/network/common.json5", "crate::remote::network::common")?;
-        loader.import("./src/remote/network/event.json5", "crate::remote::network::event")?;
-        loader.import("./src/remote/network/profiler.json5", "crate::remote::network::profiler")?;
-        loader.load("./src/remote/network/client.json5")?;
-        loader.load("./src/remote/network/server.json5")
-    }, |protoc| protoc.set_writes_messages(false), RustParams::default());
+    generate_rust("protoc.toml").expect("Failed to build protocols");
     generate_version_inject();
 }

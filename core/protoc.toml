@@ -1,0 +1,41 @@
+[package]
+name = "crate::remote::network"
+path = "src/remote/network"
+
+[options.value]
+disable-read = ["Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64", "Float", "Double", "Bool", "Header"]
+disable-write = ["Float"]
+write-async = true
+
+[options.message]
+disable-read = ["Header"]
+write-async = true
+
+[options.common]
+disable-read = ["Value", "SpanId", "Duration"]
+disable-write = ["Value"]
+write-async = true
+read-messages = false
+
+[options.profiler]
+disable-read = ["SectionHeader", "SectionUpdate"]
+write-async = true
+read-messages = false
+
+[options.event]
+disable-read = ["Header"]
+write-async = true
+read-messages = false
+
+[options.span]
+disable-read = ["Exit"]
+write-async = true
+read-messages = false
+
+[options.client]
+write-messages = false
+disable-write = ["Config", "Record"]
+
+[options.server]
+write-messages = false
+disable-read = ["Config"]

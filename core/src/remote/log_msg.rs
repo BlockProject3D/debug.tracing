@@ -206,7 +206,7 @@ impl EventLog {
         if let Some(id) = id {
             header.get_id_mut().set_callsite(id.get_callsite().get()).set_instance(id.get_instance().get());
         }
-        header.set_timestamp(timestamp).set_raw_level(level as u8);
+        header.set_timestamp(timestamp).set_raw_level(level as u8 + 1);
         EventLog {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
             location,

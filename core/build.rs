@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-const WRITE_FAIL: &str = "Failed to write verision_inject file";
+const WRITE_FAIL: &str = "Failed to write version_inject file";
 
 use std::fs::File;
 use std::io::BufWriter;

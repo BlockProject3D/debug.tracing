@@ -107,8 +107,8 @@ pub fn initialize<T: AsRef<str>, T1: AsRef<str>, T2: AsRef<str>>(
 
 /// Initialize the logging and tracing systems with an application name.
 /// Using this macro ensures the Guard structure is not dropped too early.
-/// Additionally with this macro you don't have to pass in the crate name or version.
-/// By default this macro will use CARGO_PKG_NAME and CARGO_PKG_VERSION to provide
+/// Additionally, with this macro you don't have to pass in the crate name or version.
+/// By default, this macro will use CARGO_PKG_NAME and CARGO_PKG_VERSION to provide
 /// the crate name and version.
 ///
 /// # Example

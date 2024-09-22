@@ -81,7 +81,7 @@ impl LevelFilter {
         if value > 5 {
             None
         } else {
-            // SAFETY: This is safe because LevelFilter is a u8 and we have checked that the variant
+            // SAFETY: This is safe because LevelFilter is an u8 and we have checked that the variant
             // index is not out of bounds.
             unsafe { std::mem::transmute(value) }
         }

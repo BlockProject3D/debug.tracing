@@ -45,7 +45,7 @@ const LOG_BUFFER_SIZE: usize = 1024;
 /// performance.
 ///
 /// The repr(C) is used to force the control fields (msg_len, level and target_len) to be before
-/// the message buffer and avoid large movs when setting control fields.
+/// the message buffer and avoid large mov instructions when setting control fields.
 ///
 /// # Examples
 ///

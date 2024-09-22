@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// The reason why this is needed is because the 3 examples of usage of the Logger struct requires
+// The reason why this is needed is that the 3 examples of usage of the Logger struct requires
 // some context to not make it confusing.
 #![allow(clippy::needless_doctest_main)]
 #![warn(missing_docs)]

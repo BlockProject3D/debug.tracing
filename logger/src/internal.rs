@@ -64,7 +64,7 @@ impl Thread {
         }
     }
 
-    fn exec_commad(&mut self, cmd: Command) -> bool {
+    fn exec_command(&mut self, cmd: Command) -> bool {
         match cmd {
             Command::Terminate => true,
             Command::Flush => {
@@ -87,7 +87,7 @@ impl Thread {
             v.install(&self.enable_stdout);
         }
         while let Ok(v) = self.recv_ch.recv() {
-            let flag = self.exec_commad(v);
+            let flag = self.exec_command(v);
             if flag {
                 // The thread has requested to exit itself; drop out of the main loop.
                 break;

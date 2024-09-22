@@ -94,7 +94,7 @@ impl<'a> Thread<'a> {
                 wrap_io_debug_error!(self.net.network_write_dyn_payload(net::message::Type::SpanRecord, msg).await);
             }
             Execution::SpanExit { id, end } => {
-                let mut msg = net::span::Exit::new_on_stack();
+                let mut msg = net::span::Exit::new();
                 msg.set_end(end).get_id_mut().set_instance(id.get_instance().get()).set_callsite(id.get_callsite().get());
                 wrap_io_debug_error!(self.net.network_write_fixed(net::message::Type::SpanExit, msg).await);
             }
@@ -153,7 +153,7 @@ impl<'a> Thread<'a> {
             }
             Control::RegisterSection { section, id, parent } => {
                 self.core.reserve_section(id);
-                let mut header = net::profiler::SectionHeader::new_on_stack();
+                let mut header = net::profiler::SectionHeader::new();
                 header.set_id(id.get()).set_parent(parent.map(|v| v.get()).unwrap_or(0));
                 match section.level() {
                     Level::Critical => header.set_level(net::profiler::Level::Critical),
@@ -216,7 +216,7 @@ impl<'a> Thread<'a> {
 
 async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
     let mut block = [0; net::hello::SIZE_PACKET];
-    let mut hello = net::hello::Packet::new_on_stack();
+    let mut hello = net::hello::Packet::new();
     hello.fill();
     client.write(hello.as_ref()).await?;
     client.read_exact(&mut block).await?;
@@ -240,12 +240,12 @@ async fn init(
     let (mut socket, _) = listener.accept().await?;
     handle_hello(&mut socket).await?;
     let mut net = Net::new(&mut socket);
-    let mut msg = net::server::Config::new_on_stack();
+    let mut msg = net::server::Config::new();
     msg.set_max_rows(max_rows).set_min_period(min_period);
     net.network_write_fixed(net::message::Type::ServerConfig, msg).await?;
     net.flush().await?;
     let config: net::client::Config<&[u8]> = net.network_read_fixed().await?;
-    let motherfuckingrust = config.copy_on_stack();
+    let motherfuckingrust = config.dupe();
     Ok((socket, motherfuckingrust))
 }
 

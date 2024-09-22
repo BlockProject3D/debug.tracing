@@ -107,7 +107,7 @@ impl DatasetStore {
             let duration = std::time::Instant::now() - data.last_display_time;
             if duration.as_millis() as u16 > self.period {
                 data.last_display_time = now;
-                let mut msg = net::profiler::SectionUpdate::new_on_stack();
+                let mut msg = net::profiler::SectionUpdate::new();
                 msg.set_id(log.id().get()).set_record_count(data.row_count);
                 msg.get_average_time_mut().from_std(&data.get_average());
                 msg.get_min_time_mut().from_std(&data.min_time);

@@ -71,7 +71,7 @@ impl<'a> Net<'a> {
         ty: net::message::Type,
         message: M,
     ) -> std::io::Result<()> {
-        let mut msg = net::message::Header::new_on_stack();
+        let mut msg = net::message::Header::new();
         msg.set_type(ty).set_size(M::SIZE as _);
         self.write.write_all(msg.as_ref()).await?;
         self.write.write_all(message.as_ref()).await?;
@@ -95,7 +95,7 @@ impl<'a> Net<'a> {
     }*/
 
     pub async fn network_write_dyn_payload<'b, M: WriteSelf + WriteSelfAsync>(&mut self, ty: net::message::Type, message: M) -> bp3d_proto::message::Result<()> {
-        let mut msg = net::message::Header::new_on_stack();
+        let mut msg = net::message::Header::new();
         msg.set_type(ty).set_size(message.size()? as _);
         self.write.write_all(msg.as_ref()).await?;
         message.write_self_async(&mut self.write).await?;

@@ -99,7 +99,7 @@ impl_log_msg!(ProfilerRecord);
 
 impl ProfilerRecord {
     pub fn new(id: NonZeroU32, start: u64, end: u64) -> ProfilerRecord {
-        let mut header = RecordHeader::new_on_stack();
+        let mut header = RecordHeader::new();
         header.set_id(id.get()).set_start(start).set_end(end);
         ProfilerRecord {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
@@ -154,7 +154,7 @@ impl FieldsetRecord {
     pub fn new() -> FieldsetRecord {
         FieldsetRecord {
             buffer: unsafe { MaybeUninit::uninit().assume_init() },
-            id: SpanId::new_on_stack(),
+            id: SpanId::new(),
             msg_len: 0,
             var_count: 0,
         }
@@ -202,7 +202,7 @@ impl EventLog {
         level: Level,
         location: Location,
     ) -> EventLog {
-        let mut header = Header::new_on_stack();
+        let mut header = Header::new();
         if let Some(id) = id {
             header.get_id_mut().set_callsite(id.get_callsite().get()).set_instance(id.get_instance().get());
         }

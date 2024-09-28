@@ -31,6 +31,7 @@ use std::io::Write;
 use bp3d_debug::field::{Field, FieldValue};
 use crate::remote::network as net;
 use bp3d_proto::message::{WriteSelf, WriteTo};
+use bp3d_proto::util::Wrap;
 
 pub trait WriteField {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], out: W);
@@ -39,30 +40,30 @@ pub trait WriteField {
 impl WriteField for u64 {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], out: W) {
         let (header_buffer, data_buffer) = buffer.split_at_mut(net::value::SIZE_HEADER);
-        let mut header = net::value::Header::from(header_buffer);
+        let mut header = net::value::Header::wrap(header_buffer);
         if *self < 256 {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::UInt8).to_ref(),
                 name,
-                value: net::value::UInt8::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::UInt8::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         } else if *self < 65536 {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::UInt16).to_ref(),
                 name,
-                value: net::value::UInt16::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::UInt16::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         } else if *self < u32::MAX as u64 + 1 {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::UInt32).to_ref(),
                 name,
-                value: net::value::UInt32::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::UInt32::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         } else {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::UInt64).to_ref(),
                 name,
-                value: net::value::UInt64::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::UInt64::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         }
     }
@@ -71,30 +72,30 @@ impl WriteField for u64 {
 impl WriteField for i64 {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], out: W) {
         let (header_buffer, data_buffer) = buffer.split_at_mut(net::value::SIZE_HEADER);
-        let mut header = net::value::Header::from(header_buffer);
+        let mut header = net::value::Header::wrap(header_buffer);
         if *self < 128 {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::Int8).to_ref(),
                 name,
-                value: net::value::Int8::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::Int8::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         } else if *self < 32768 {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::Int16).to_ref(),
                 name,
-                value: net::value::Int16::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::Int16::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         } else if *self < i32::MAX as i64 + 1 {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::Int32).to_ref(),
                 name,
-                value: net::value::Int32::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::Int32::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         } else {
             let _ = net::common::Field {
                 header: header.set_type(net::value::Type::Int64).to_ref(),
                 name,
-                value: net::value::Int64::from(data_buffer).set_data(*self as _).to_ref()
+                value: net::value::Int64::wrap(data_buffer).set_data(*self as _).to_ref()
             }.write_self(out);
         }
     }
@@ -103,7 +104,7 @@ impl WriteField for i64 {
 impl<D: Display> WriteField for &D {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], mut out: W) {
         let _ = bp3d_proto::message::util::NullTerminatedString::write_to(&name, &mut out);
-        let _ = net::value::Header::from(buffer).set_type(net::value::Type::String).to_ref().write_self(&mut out);
+        let _ = net::value::Header::wrap(buffer).set_type(net::value::Type::String).to_ref().write_self(&mut out);
         let _ = write!(out, "{}", self);
         let _ = out.write(&[0]);
     }
@@ -112,7 +113,7 @@ impl<D: Display> WriteField for &D {
 impl WriteField for &dyn Debug {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], mut out: W) {
         let _ = bp3d_proto::message::util::NullTerminatedString::write_to(&name, &mut out);
-        let _ = net::value::Header::from(buffer).set_type(net::value::Type::String).to_ref().write_self(&mut out);
+        let _ = net::value::Header::wrap(buffer).set_type(net::value::Type::String).to_ref().write_self(&mut out);
         let _ = write!(out, "{:?}", self);
         let _ = out.write(&[0]);
     }
@@ -121,7 +122,7 @@ impl WriteField for &dyn Debug {
 impl WriteField for &str {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], out: W) {
         let _ = net::common::Field {
-            header: net::value::Header::from(buffer).set_type(net::value::Type::String).to_ref(),
+            header: net::value::Header::wrap(buffer).set_type(net::value::Type::String).to_ref(),
             name,
             value: net::value::String { data: self }
         }.write_self(out);
@@ -132,9 +133,9 @@ impl WriteField for f64 {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], out: W) {
         let (header_buffer, data_buffer) = buffer.split_at_mut(net::value::SIZE_HEADER);
         let _ = net::common::Field {
-            header: net::value::Header::from(header_buffer).set_type(net::value::Type::Double).to_ref(),
+            header: net::value::Header::wrap(header_buffer).set_type(net::value::Type::Double).to_ref(),
             name,
-            value: net::value::Double::from(data_buffer).set_data(*self).to_ref()
+            value: net::value::Double::wrap(data_buffer).set_data(*self).to_ref()
         }.write_self(out);
     }
 }
@@ -143,9 +144,9 @@ impl WriteField for bool {
     fn write_field<W: Write>(&self, name: &str, buffer: &mut [u8], out: W) {
         let (header_buffer, data_buffer) = buffer.split_at_mut(net::value::SIZE_HEADER);
         let _ = net::common::Field {
-            header: net::value::Header::from(header_buffer).set_type(net::value::Type::Bool).to_ref(),
+            header: net::value::Header::wrap(header_buffer).set_type(net::value::Type::Bool).to_ref(),
             name,
-            value: net::value::Bool::from(data_buffer).set_data(*self).to_ref()
+            value: net::value::Bool::wrap(data_buffer).set_data(*self).to_ref()
         }.write_self(out);
     }
 }

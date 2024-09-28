@@ -35,6 +35,7 @@ use bp3d_os::cpu_info::read_cpu_info;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use bp3d_debug::profiler::section::Level;
 use bp3d_proto::message::payload::List;
+use bp3d_proto::util::Wrap;
 use bp3d_util::format::FixedBufStr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -220,7 +221,7 @@ async fn handle_hello(client: &mut TcpStream) -> std::io::Result<()> {
     hello.fill();
     client.write(hello.as_ref()).await?;
     client.read_exact(&mut block).await?;
-    let peer_hello = net::hello::Packet::from(block);
+    let peer_hello = net::hello::Packet::wrap(block);
     match hello.matches(&peer_hello) {
         net::version::MatchResult::SignatureMismatch => {
             Err(Error::new(ErrorKind::Other, "protocol signature mismatch"))

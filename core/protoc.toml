@@ -34,6 +34,7 @@ read-messages = false
 
 [options.client]
 write-messages = false
+struct-dupe = ["Config"]
 disable-write = ["Config", "Record"]
 
 [options.server]

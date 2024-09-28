@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use bp3d_proto::message::{WriteSelf, WriteSelfAsync};
-use bp3d_proto::util::FixedSize;
+use bp3d_proto::util::{Size, Wrap};
 use crate::remote::network as net;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -57,16 +57,16 @@ impl<'a> Net<'a> {
         self.write.flush().await
     }
 
-    pub async fn network_read_fixed<'b, M: FixedSize + From<&'b [u8]>>(
+    pub async fn network_read_fixed<'b, M: Size + Wrap<&'b [u8]>>(
         &'b mut self,
     ) -> std::io::Result<M> {
         self.read
             .read_exact(&mut self.fixed_buffer[0..M::SIZE])
             .await?;
-        Ok(M::from(&self.fixed_buffer[0..M::SIZE]))
+        Ok(M::wrap(&self.fixed_buffer[0..M::SIZE]))
     }
 
-    pub async fn network_write_fixed<M: FixedSize + AsRef<[u8]>>(
+    pub async fn network_write_fixed<M: Size + AsRef<[u8]>>(
         &mut self,
         ty: net::message::Type,
         message: M,

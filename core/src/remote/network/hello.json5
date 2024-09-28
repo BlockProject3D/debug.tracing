@@ -5,8 +5,8 @@
             name: "Version",
             description: [
                 "A semver based version structure.",
-                "Follow semver standard except that we exclude the build metadata, the minor and the patch",
-                "because only the major version records protocol changes."
+                "Follow semver standard except that we exclude the build metadata, the minor and the patch.",
+                "This is because only the major version is allowed to record protocol changes."
             ],
             fields: [
                 {

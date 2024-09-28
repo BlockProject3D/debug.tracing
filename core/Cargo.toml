@@ -21,7 +21,7 @@ bp3d-debug = "1.0.0-rc.6.0.0"
 toml = "0.8.14"
 parking_lot = "0.12.3"
 tokio = { version = "1.39.3", features = ["full"] }
-bp3d-proto = { version = "1.0.0-rc.3.0.0", features = ["tokio"] }
+bp3d-proto = { version = "1.0.0-rc.4.0.0", features = ["tokio"], path = "../../bp3d-protoc/runtime" }
 bp3d-util = { version = "1.4.0", features = ["format"] }
 
 [build-dependencies]

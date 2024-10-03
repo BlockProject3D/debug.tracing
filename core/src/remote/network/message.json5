@@ -112,21 +112,8 @@
                         max_len: 63
                     }
                 },
-                {
-                    name: "target",
-                    info: {
-                        type: "item",
-                        item_type: "Target"
-                    }
-                },
-                {
-                    name: "cpu",
-                    info: {
-                        type: "item",
-                        item_type: "Cpu"
-                    },
-                    optional: true
-                },
+                { name: "target", item_type: "Target" },
+                { name: "cpu", item_type: "Cpu", optional: true },
                 {
                     name: "cmd_line",
                     info: {

@@ -9,13 +9,7 @@
         {
             name: "Exit",
             fields: [
-                {
-                    name: "id",
-                    info: {
-                        type: "struct",
-                        item_type: "SpanId"
-                    }
-                },
+                { name: "id", item_type: "SpanId" },
                 {
                     name: "end",
                     info: {
@@ -43,25 +37,13 @@
                         type: "string"
                     }
                 },
-                {
-                    name: "location",
-                    info: {
-                        type: "item",
-                        item_type: "Location"
-                    }
-                }
+                { name: "location", item_type: "Location" }
             ]
         },
         {
             name: "Enter",
             fields: [
-                {
-                    name: "id",
-                    info: {
-                        type: "item",
-                        item_type: "SpanId"
-                    }
-                },
+                { name: "id", item_type: "SpanId" },
                 {
                     name: "start",
                     info: {
@@ -82,13 +64,7 @@
         {
             name: "Record",
             fields: [
-                {
-                    name: "id",
-                    info: {
-                        type: "item",
-                        item_type: "SpanId"
-                    }
-                },
+                { name: "id", item_type: "SpanId" },
                 {
                     name: "fields",
                     info: {

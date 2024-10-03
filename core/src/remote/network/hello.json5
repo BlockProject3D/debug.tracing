@@ -39,13 +39,7 @@
                     },
                     array_len: 8
                 },
-                {
-                    name: "version",
-                    info: {
-                        type: "struct",
-                        item_type: "Version"
-                    }
-                }
+                { name: "version", item_type: "Version" }
             ]
         }
     ]

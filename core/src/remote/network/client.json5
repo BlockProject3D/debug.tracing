@@ -34,13 +34,7 @@
                         bits: 32
                     }
                 },
-                {
-                    name: "record",
-                    info: {
-                        type: "struct",
-                        item_type: "Record"
-                    }
-                },
+                { name: "record", item_type: "Record" },
                 {
                     name: "period",
                     info: {

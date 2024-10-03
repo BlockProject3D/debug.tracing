@@ -110,13 +110,7 @@
                         type: "string"
                     }
                 },
-                {
-                    name: "header",
-                    info: {
-                        type: "item",
-                        item_type: "Header"
-                    }
-                },
+                { name: "header", item_type: "Header" },
                 {
                     name: "value",
                     info: {

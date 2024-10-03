@@ -26,10 +26,7 @@
                 {
                     name: "id",
                     description: "Span id this log event is attached to, 0 if not attached to any span.",
-                    info: {
-                        type: "struct",
-                        item_type: "SpanId"
-                    }
+                    item_type: "SpanId"
                 },
                 {
                     name: "timestamp",
@@ -58,20 +55,8 @@
         {
             name: "Log",
             fields: [
-                {
-                    name: "header",
-                    info: {
-                        type: "item",
-                        item_type: "Header"
-                    }
-                },
-                {
-                    name: "location",
-                    info: {
-                        type: "item",
-                        item_type: "Location"
-                    }
-                },
+                { name: "header", item_type: "Header" },
+                { name: "location", item_type: "Location" },
                 {
                     name: "fields",
                     info: {

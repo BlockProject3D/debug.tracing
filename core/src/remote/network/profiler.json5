@@ -91,27 +91,9 @@
                         bits: 32
                     }
                 },
-                {
-                    name: "average_time",
-                    info: {
-                        type: "struct",
-                        item_type: "Duration"
-                    }
-                },
-                {
-                    name: "min_time",
-                    info: {
-                        type: "struct",
-                        item_type: "Duration"
-                    }
-                },
-                {
-                    name: "max_time",
-                    info: {
-                        type: "struct",
-                        item_type: "Duration"
-                    }
-                }
+                { name: "average_time", item_type: "Duration" },
+                { name: "min_time", item_type: "Duration" },
+                { name: "max_time", item_type: "Duration" }
             ]
         }
     ],
@@ -119,13 +101,7 @@
         {
             name: "Record",
             fields: [
-                {
-                    name: "header",
-                    info: {
-                        type: "item",
-                        item_type: "RecordHeader"
-                    }
-                },
+                { name: "header", item_type: "RecordHeader" },
                 {
                     name: "fields",
                     info: {
@@ -166,20 +142,8 @@
                         type: "string"
                     }
                 },
-                {
-                    name: "location",
-                    info: {
-                        type: "item",
-                        item_type: "Location"
-                    }
-                },
-                {
-                    name: "header",
-                    info: {
-                        type: "item",
-                        item_type: "SectionHeader"
-                    }
-                }
+                { name: "location", item_type: "Location" },
+                { name: "header", item_type: "SectionHeader" }
             ]
         }
     ]

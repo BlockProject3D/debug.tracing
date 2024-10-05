@@ -1,5 +1,14 @@
 {
     name: "message",
+    types: [
+        {
+            name: "Varchar63",
+            info: {
+                type: "string",
+                max_len: 63
+            }
+        }
+    ],
     enums: [
         {
             name: "Type",
@@ -46,39 +55,15 @@
         {
             name: "Target",
             fields: [
-                {
-                    name: "arch",
-                    info: {
-                        type: "string",
-                        max_len: 63
-                    }
-                },
-                {
-                    name: "family",
-                    info: {
-                        type: "string",
-                        max_len: 63
-                    }
-                },
-                {
-                    name: "os",
-                    info: {
-                        type: "string",
-                        max_len: 63
-                    }
-                }
+                { name: "arch", item_type: "Varchar63" },
+                { name: "family", item_type: "Varchar63" },
+                { name: "os", item_type: "Varchar63" },
             ]
         },
         {
             name: "Cpu",
             fields: [
-                {
-                    name: "name",
-                    info: {
-                        type: "string",
-                        max_len: 63
-                    }
-                },
+                { name: "name", item_type: "Varchar63" },
                 {
                     name: "core_count",
                     info: {
@@ -91,27 +76,9 @@
         {
             name: "Project",
             fields: [
-                {
-                    name: "app_name",
-                    info: {
-                        type: "string",
-                        max_len: 63
-                    }
-                },
-                {
-                    name: "name",
-                    info: {
-                        type: "string",
-                        max_len: 63
-                    }
-                },
-                {
-                    name: "version",
-                    info: {
-                        type: "string",
-                        max_len: 63
-                    }
-                },
+                { name: "app_name", item_type: "Varchar63" },
+                { name: "name", item_type: "Varchar63" },
+                { name: "version", item_type: "Varchar63" },
                 { name: "target", item_type: "Target" },
                 { name: "cpu", item_type: "Cpu", optional: true },
                 {

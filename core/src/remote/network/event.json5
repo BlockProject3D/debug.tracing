@@ -2,8 +2,9 @@
     name: "event",
     imports: [
         { protocol: "common", type: "Location" },
+        { protocol: "common", type: "SpanId" },
         { protocol: "common", type: "Field" },
-        { protocol: "common", type: "SpanId" }
+        { protocol: "common", type: "FieldList" }
     ],
     enums: [
         {
@@ -57,15 +58,7 @@
             fields: [
                 { name: "header", item_type: "Header" },
                 { name: "location", item_type: "Location" },
-                {
-                    name: "fields",
-                    info: {
-                        type: "list",
-                        item_type: "Field",
-                        max_len: 255,
-                        max_size: 512
-                    }
-                }
+                { name: "fields", item_type: "FieldList" }
             ]
         }
     ]

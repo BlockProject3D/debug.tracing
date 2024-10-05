@@ -3,7 +3,8 @@
     imports: [
         { protocol: "common", type: "Location" },
         { protocol: "common", type: "Field" },
-        { protocol: "common", type: "SpanId" }
+        { protocol: "common", type: "SpanId" },
+        { protocol: "common", type: "UnsizedFieldList" }
     ],
     structs: [
         {
@@ -51,28 +52,14 @@
                         bits: 64
                     }
                 },
-                {
-                    name: "fields",
-                    info: {
-                        type: "list",
-                        item_type: "Field",
-                        max_len: 255
-                    }
-                }
+                { name: "fields", item_type: "UnsizedFieldList" }
             ]
         },
         {
             name: "Record",
             fields: [
                 { name: "id", item_type: "SpanId" },
-                {
-                    name: "fields",
-                    info: {
-                        type: "list",
-                        item_type: "Field",
-                        max_len: 255
-                    }
-                }
+                { name: "fields", item_type: "UnsizedFieldList" }
             ]
         }
     ]

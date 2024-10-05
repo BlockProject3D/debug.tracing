@@ -121,5 +121,24 @@
                 }
             ]
         }
+    ],
+    types: [
+        {
+            name: "FieldList",
+            info: {
+                type: "list",
+                item_type: "Field",
+                max_len: 255,
+                max_size: 512
+            }
+        },
+        {
+            name: "UnsizedFieldList",
+            info: {
+                type: "list",
+                item_type: "Field",
+                max_len: 255
+            }
+        }
     ]
 }

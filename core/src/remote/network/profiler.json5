@@ -3,7 +3,8 @@
     imports: [
         { protocol: "common", type: "Location" },
         { protocol: "common", type: "Field" },
-        { protocol: "common", type: "Duration" }
+        { protocol: "common", type: "Duration" },
+        { protocol: "common", type: "FieldList" }
     ],
     enums: [
         {
@@ -102,15 +103,7 @@
             name: "Record",
             fields: [
                 { name: "header", item_type: "RecordHeader" },
-                {
-                    name: "fields",
-                    info: {
-                        type: "list",
-                        item_type: "Field",
-                        max_len: 255,
-                        max_size: 512
-                    }
-                }
+                { name: "fields", item_type: "FieldList" }
             ]
         },
         {

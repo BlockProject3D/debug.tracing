@@ -111,14 +111,14 @@
             fields: [
                 {
                     name: "section_id",
-                    info: {
+                    value: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "records",
-                    info: {
+                    value: {
                         type: "list",
                         max_len: 999999,
                         item_type: "Record"
@@ -131,7 +131,7 @@
             fields: [
                 {
                     name: "name",
-                    info: {
+                    value: {
                         type: "string"
                     }
                 },

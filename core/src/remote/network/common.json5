@@ -82,19 +82,19 @@
             fields: [
                 {
                     name: "module_path",
-                    info: {
+                    value: {
                         type: "string"
                     }
                 },
                 {
                     name: "file",
-                    info: {
+                    value: {
                         type: "string"
                     }
                 },
                 {
                     name: "line",
-                    info: {
+                    value: {
                         type: "unsigned",
                         bits: 32
                     }
@@ -106,14 +106,14 @@
             fields: [
                 {
                     name: "name",
-                    info: {
+                    value: {
                         type: "string"
                     }
                 },
                 { name: "header", item_type: "Header" },
                 {
                     name: "value",
-                    info: {
+                    value: {
                         type: "union",
                         on: "header",
                         item_type: "Value"
@@ -125,7 +125,7 @@
     types: [
         {
             name: "FieldList",
-            info: {
+            value: {
                 type: "list",
                 item_type: "Field",
                 max_len: 255,
@@ -134,7 +134,7 @@
         },
         {
             name: "UnsizedFieldList",
-            info: {
+            value: {
                 type: "list",
                 item_type: "Field",
                 max_len: 255

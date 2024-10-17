@@ -27,14 +27,14 @@
             fields: [
                 {
                     name: "id",
-                    info: {
+                    value: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "name",
-                    info: {
+                    value: {
                         type: "string"
                     }
                 },
@@ -47,7 +47,7 @@
                 { name: "id", item_type: "SpanId" },
                 {
                     name: "start",
-                    info: {
+                    value: {
                         type: "unsigned",
                         bits: 64
                     }

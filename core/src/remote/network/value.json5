@@ -21,7 +21,7 @@
         }
     ],
     messages: [
-        { name: "String", fields: [ { name: "data", info: { type: "string" } } ] }
+        { name: "String", fields: [ { name: "data", value: { type: "string" } } ] }
     ],
     structs: [
         { name: "Int8", fields: [ { name: "data", info: { type: "signed", bits: 8 } } ] },

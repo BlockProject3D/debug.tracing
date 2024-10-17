@@ -12,7 +12,7 @@
                 {
                     name: "major",
                     description: "Major version number.",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 64
                     }
@@ -20,7 +20,7 @@
                 {
                     name: "pre_release",
                     decription: "Pre-release version string according to semver standard.",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 8
                     },
@@ -33,7 +33,7 @@
             fields: [
                 {
                     name: "signature",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 8
                     },

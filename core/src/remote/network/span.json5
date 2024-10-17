@@ -13,7 +13,7 @@
                 { name: "id", item_type: "SpanId" },
                 {
                     name: "end",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 64
                     }

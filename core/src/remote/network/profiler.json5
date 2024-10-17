@@ -24,7 +24,7 @@
             fields: [
                 {
                     name: "level",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 8
                     },
@@ -35,14 +35,14 @@
                 },
                 {
                     name: "parent",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "id",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
@@ -54,21 +54,21 @@
             fields: [
                 {
                     name: "id",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "start",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 64
                     }
                 },
                 {
                     name: "end",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 64
                     }
@@ -80,14 +80,14 @@
             fields: [
                 {
                     name: "id",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "record_count",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }

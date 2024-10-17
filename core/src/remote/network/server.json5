@@ -6,14 +6,14 @@
             fields: [
                 {
                     name: "max_rows",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "min_period",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 16
                     }

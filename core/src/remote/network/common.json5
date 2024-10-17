@@ -21,14 +21,14 @@
             fields: [
                 {
                     name: "callsite",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "instance",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
@@ -40,14 +40,14 @@
             fields: [
                 {
                     name: "seconds",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "nano_seconds",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }

@@ -32,7 +32,7 @@
                 {
                     name: "timestamp",
                     description: "Unix timestamp in microseconds of this event.",
-                    info: {
+                    raw: {
                         type: "signed",
                         bits: 64
                     }
@@ -40,7 +40,7 @@
                 {
                     name: "level",
                     description: "Event level.",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 8
                     },

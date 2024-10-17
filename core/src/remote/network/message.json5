@@ -32,14 +32,14 @@
             fields: [
                 {
                     name: "size",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 32
                     }
                 },
                 {
                     name: "type",
-                    info: {
+                    raw: {
                         type: "unsigned",
                         bits: 8
                     },

@@ -116,7 +116,7 @@
                     value: {
                         type: "union",
                         on: "header",
-                        item_type: "Value"
+                        name: "Value"
                     }
                 }
             ]

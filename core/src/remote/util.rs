@@ -160,7 +160,8 @@ pub fn write_fields(fields: &[Field], mut out: impl Write) {
             FieldValue::Float(v) => v.write_field(field.name(), &mut buffer, &mut out),
             FieldValue::Double(v) => v.write_field(field.name(), &mut buffer, &mut out),
             FieldValue::String(v) => v.write_field(field.name(), &mut buffer, &mut out),
-            FieldValue::Debug(v) => v.write_field(field.name(), &mut buffer, &mut out)
+            FieldValue::Debug(v) => v.write_field(field.name(), &mut buffer, &mut out),
+            FieldValue::Boolean(v) => v.write_field(field.name(), &mut buffer, &mut out),
         }
     }
 }

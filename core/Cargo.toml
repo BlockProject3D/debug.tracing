@@ -17,7 +17,7 @@ bp3d-logger = "2.0.0-rc.3.0.0"
 bp3d-os = { version = "1.0.0-rc.3.0.3", features = ["dirs", "env", "cpu-info"] }
 time = "0.3.36"
 serde = { version = "1.0.204", features = ["derive"] }
-bp3d-debug = "1.0.0-rc.6.0.0"
+bp3d-debug = "1.0.0-rc.6.1.0"
 toml = "0.8.14"
 parking_lot = "0.12.3"
 tokio = { version = "1.39.3", features = ["full"] }

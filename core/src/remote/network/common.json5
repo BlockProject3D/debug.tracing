@@ -113,9 +113,9 @@
                 { name: "header", item_type: "Header" },
                 {
                     name: "value",
+                    header: "header",
                     value: {
                         type: "union",
-                        on: "header",
                         name: "Value"
                     }
                 }
